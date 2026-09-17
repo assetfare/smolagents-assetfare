@@ -47,7 +47,7 @@ from smolagents import load_tool
 caps = load_tool(
     "odaiin/assetfare-capabilities",
     trust_remote_code=True,
-    revision="<reviewed commit SHA>",   # pin what you audited
+    revision="2770263d157006d5e4dfd90a42fa0713c3de5ec6", # reviewed immutable release
 )
 print(caps())  # -> dict of chains, endpoints, route counts, amount bounds
 ```
@@ -73,6 +73,11 @@ This tool is **read-only**. It does not bridge, swap, sign, or move funds.
 See [PRIVACY.md](PRIVACY.md). The tool issues only public GET requests to
 `https://api.assetfare.dev`; it collects no user identity, wallet, key, or
 credential, and sets none.
+
+## Source
+
+Reviewed source, tests, and deterministic bundle builder:
+https://github.com/odaiin/smolagents-assetfare
 
 ## License
 

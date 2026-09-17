@@ -6,6 +6,11 @@ cross-chain quote surface — the current, supported Hub tool path (a Space tagg
 `smolagents`+`tool`, whose `tool.py` an agent loads via
 `load_tool(repo_id, trust_remote_code=True)`), **not** a human-facing Space promo.
 
+Published Static Spaces:
+
+- `https://huggingface.co/spaces/odaiin/assetfare-quote`
+- `https://huggingface.co/spaces/odaiin/assetfare-capabilities`
+
 | file | what |
 |------|------|
 | `assetfare_quote_tool.py` | `AssetFareQuoteTool` — validated `POST /v2/quote` |
@@ -94,7 +99,7 @@ from smolagents import load_tool
 quote = load_tool(
     "odaiin/assetfare-quote",
     trust_remote_code=True,          # required for any Hub tool: runs Space code in-process
-    revision="<reviewed commit SHA>",# pin the exact commit you audited, not moving main
+    revision="b4c8b5924e8e53d06e43a6295002c0badcdda4a5", # reviewed immutable release
 )
 ```
 
