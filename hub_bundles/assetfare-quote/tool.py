@@ -1,13 +1,13 @@
 from typing import Any, Optional
 from smolagents.tools import Tool
-import uuid
-import datetime
-import urllib
-import math
-import contextlib
-import time
-import json
 import requests
+import math
+import uuid
+import contextlib
+import datetime
+import json
+import urllib
+import time
 
 class AssetFareQuoteTool(Tool):
     name = "assetfare_quote"
@@ -22,8 +22,8 @@ class AssetFareQuoteTool(Tool):
     MAX_FUTURE_SKEW_S = 300
     MIN_USD = 1.0
     MAX_USD = 1000.0
-    CHAINS = {'arbitrum', 'solana', 'base', 'robinhood'}
-    ENDPOINTS = {'base:USDC', 'arbitrum:ETH', 'solana:USDC', 'robinhood:USDG', 'arbitrum:USDC', 'solana:SOL', 'robinhood:ETH', 'solana:USDG', 'base:ETH'}
+    CHAINS = {'arbitrum', 'solana', 'robinhood', 'base'}
+    ENDPOINTS = {'solana:SOL', 'base:USDC', 'robinhood:USDG', 'arbitrum:ETH', 'solana:USDC', 'base:ETH', 'solana:USDG', 'robinhood:ETH', 'arbitrum:USDC'}
 
     def __init__(
         self,
@@ -31,7 +31,11 @@ class AssetFareQuoteTool(Tool):
         session: Optional[Any] = None,
         monotonic: Optional[Any] = None,
         utcnow: Optional[Any] = None,
+        **_hub_kwargs: Any,
     ) -> None:
+        # smolagents' Tool.from_hub/from_code forward Hub download kwargs
+        # (revision, cache_dir, subfolder, ...) straight to the tool constructor,
+        # so accept and ignore them; otherwise load_tool(..., revision=...) fails.
         import time
         from datetime import datetime, timezone
         from urllib.parse import urlsplit

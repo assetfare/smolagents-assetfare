@@ -3,8 +3,8 @@ title: AssetFare Quote Tool
 emoji: 🧭
 colorFrom: indigo
 colorTo: blue
-sdk: gradio
-app_file: app.py
+sdk: static
+app_file: index.html
 pinned: false
 license: mit
 tags:

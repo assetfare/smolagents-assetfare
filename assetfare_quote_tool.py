@@ -88,7 +88,11 @@ class AssetFareQuoteTool(Tool):
         session: Optional[Any] = None,
         monotonic: Optional[Any] = None,
         utcnow: Optional[Any] = None,
+        **_hub_kwargs: Any,
     ) -> None:
+        # smolagents' Tool.from_hub/from_code forward Hub download kwargs
+        # (revision, cache_dir, subfolder, ...) straight to the tool constructor,
+        # so accept and ignore them; otherwise load_tool(..., revision=...) fails.
         import time
         from datetime import datetime, timezone
         from urllib.parse import urlsplit

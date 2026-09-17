@@ -11,8 +11,8 @@ cross-chain quote surface — the current, supported Hub tool path (a Space tagg
 | `assetfare_quote_tool.py` | `AssetFareQuoteTool` — validated `POST /v2/quote` |
 | `assetfare_capabilities_tool.py` | `AssetFareCapabilitiesTool` — validated `GET /v2/capabilities` + `/v2/status` |
 | `tests/test_tools.py` | offline mock tests (no network) |
-| `tests/test_bundle.py` | builds + boots each Hub bundle in a subprocess (no network) |
-| `hub/app_quote.py`, `hub/app_capabilities.py` | custom `gr.JSON` Space apps (see Publishing) |
+| `tests/test_bundle.py` | builds + loads each Static-Space bundle in a subprocess (no network) |
+| `hub/index_quote.html`, `hub/index_capabilities.html` | static Space landing pages (`app_file`) |
 | `hub/build_bundles.py` | deterministic builder → `hub_bundles/<space>/` |
 | `hub_bundles/<space>/` | generated, atomically-uploadable Space bundle |
 | `hub_cards/<space>/README.md` | per-Space Hub card (frontmatter + usage) |
@@ -41,22 +41,25 @@ cross-chain quote surface — the current, supported Hub tool path (a Space tagg
 ## Test / lint locally (offline)
 
 ```bash
-python -m pytest tests/ -q     # py3.12: 101 passed (96 tools + 5 bundle)
-                               # py3.10: run tests/test_tools.py -> 96 passed
+python -m pytest tests/ -q     # 112 passed on both py3.12 and py3.10
 ruff check .                   # clean (generated hub_bundles/ excluded)
 ```
 
-The suite is verified on both Python 3.12 and Python 3.10 (the declared floor);
-the bundle boot test needs gradio, so it runs under the 3.12 env.
+The full suite (tools + bundle) is verified on both Python 3.12 and Python 3.10
+(the declared floor). It needs no gradio, so both run the whole suite. A fresh
+isolated resolution of the bundle deps (`smolagents==1.26.0`, `requests>=2.32.3,<3`)
+is `pip-audit`-clean (0 vulnerabilities) on 3.10 and 3.12.
 
-## Reviewed Hub bundles
+## Reviewed Static-Space bundles
 
-**Why not `push_to_hub` / the default app.** `Tool.push_to_hub` auto-generates an
-`app.py` that calls smolagents' `launch_gradio_demo`, which maps `output_type` to
-a Gradio component through a table with **no `"object"` entry** — so for these
-tools (both `output_type="object"`) it raises `KeyError` and the Space fails to
-build. These tools therefore ship a **custom `gr.JSON` app** and are published by
-uploading a self-contained bundle, not by `push_to_hub`.
+**Static Spaces, no gradio.** `smolagents.load_tool` → `Tool.from_hub` downloads
+**only `tool.py`** from the Space repo (`hf_hub_download(repo_type="space",
+revision=...)`) and never reads the Space SDK, imports gradio, or runs an app. So
+each Space uses the free **`sdk: static`** type with a trivial `index.html` — no
+Gradio, no compute, no PRO subscription — and the gradio dependency (and its
+transitive vuln surface) is dropped entirely. (This also sidesteps `push_to_hub`,
+whose auto-generated Gradio `app.py` calls `launch_gradio_demo`, which `KeyError`s
+on `output_type="object"`.)
 
 **How each reviewed Space bundle is built:**
 
@@ -68,17 +71,15 @@ python hub/build_bundles.py     # regenerates hub_bundles/<space>/ deterministic
                                 #  cross-seed regression asserts both Spaces' SHAs match)
 ```
 
-Each `hub_bundles/<space>/` contains exactly what the Space needs — `tool.py`
-(the serialized, validated, self-contained tool code), the custom `app.py`,
-`requirements.txt` (pinned: `smolagents==1.26.0`, `requests>=2.32.3,<3`,
-`gradio>=6.16,<7` — the 6.x line resolves clean under pip-audit on Python 3.10
-and 3.12, whereas the 5.x line carried transitive vulnerabilities), plus
-`README.md` (card with `smolagents`+`tool` tags),
-`LICENSE`, and `PRIVACY.md`. The owner (authenticated separately) uploads the
-whole directory as **one atomic commit** to the Space (e.g. `huggingface_hub`
-`upload_folder` / `create_commit`), so there is no reliance on the broken
-auto-generated app. The agent `load_tool` path itself needs only `tool.py` +
-`requirements.txt`; the `gr.JSON` app is a secondary human view.
+Each `hub_bundles/<space>/` contains exactly the 6-file allowlist a static Space
+needs — `tool.py` (the serialized, validated, self-contained tool code),
+`index.html` (the static Space `app_file`), `requirements.txt` (the loading
+agent's runtime deps: `smolagents==1.26.0`, `requests>=2.32.3,<3` — **no gradio**;
+the static Space runs nothing), `README.md` (card with `sdk: static` and
+`smolagents`+`tool` tags), `LICENSE`, and `PRIVACY.md`. The owner (authenticated
+separately) uploads the whole directory as **one atomic commit** to the Space
+(e.g. `huggingface_hub` `upload_folder` / `create_commit`). The agent `load_tool`
+path needs only `tool.py`; `index.html` is a secondary human-facing landing page.
 
 ## Discovery & loading (a catalog, not automatic routing)
 

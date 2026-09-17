@@ -1,14 +1,18 @@
-"""Bundle boot/import verification for the Hub Space bundles.
+"""Static-Space bundle verification.
 
-For each built bundle this:
+For the built bundles this:
   - runs the deterministic builder,
-  - checks the bundle files exist and requirements are pinned (incl. gradio),
-  - boots the bundle in an isolated subprocess (cwd = bundle dir) that imports
-    tool.py, instantiates + validates the tool, and imports app.py so the custom
-    gr.JSON demo is *built* (proving the launch_gradio_demo KeyError on
-    output_type="object" is avoided) -- WITHOUT launching a server.
+  - checks the exact 6-file allowlist and that requirements pin the tool's runtime
+    deps only (smolagents + requests, NO gradio),
+  - loads tool.py from each bundle in an isolated subprocess and validates it
+    (no gradio, no app to run: static Spaces run nothing),
+  - checks index.html is a static HTML landing page,
+  - proves the agent load path (smolagents.load_tool -> Tool.from_hub) works from a
+    Space *regardless of SDK* by mocking hf_hub_download to return the bundle's
+    tool.py, pinning an exact revision, and asserting the loaded tool's schema,
+  - asserts byte-identical bundles across PYTHONHASHSEED.
 
-No network, no login, no push.
+No network, no login, no push, no live quote (forward() is never called).
 """
 
 from __future__ import annotations
@@ -21,8 +25,17 @@ import pytest
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "hub"))
+sys.path.insert(0, str(ROOT))
 
 import build_bundles
+
+SPACES = ["assetfare-quote", "assetfare-capabilities"]
+# The exact allowlist a static Space carries (HF adds a managed .gitattributes).
+ALLOWLIST = ["LICENSE", "PRIVACY.md", "README.md", "index.html", "requirements.txt", "tool.py"]
+EXPECTED = {
+    "assetfare-quote": ("assetfare_quote", ["from_chain", "from_token", "to_chain", "to_token", "amount_usd"]),
+    "assetfare-capabilities": ("assetfare_capabilities", []),
+}
 
 
 @pytest.fixture(scope="module")
@@ -30,9 +43,7 @@ def bundles():
     return {p.name: p for p in build_bundles.build()}
 
 
-SPACES = ["assetfare-quote", "assetfare-capabilities"]
-
-# Runs inside each bundle dir; asserts tool loads/validates and the demo builds.
+# Runs inside each bundle dir; loads tool.py and validates it. No gradio, no app run.
 _BOOT = r"""
 import importlib
 tool_mod = importlib.import_module("tool")
@@ -42,47 +53,120 @@ t = cls()
 assert t.output_type == "object"
 d = t.to_dict()              # validate_tool_attributes must pass on the bundled code
 assert d["name"] in ("assetfare_quote", "assetfare_capabilities")
-app = importlib.import_module("app")   # builds `demo` via gr.JSON, no launch_gradio_demo
-import gradio as gr
-assert isinstance(app.demo, gr.Blocks), type(app.demo)
-print("BOOT OK", d["name"], "gradio", gr.__version__)
+import sys
+assert "gradio" not in sys.modules, "tool.py must not import gradio"
+print("BOOT OK", d["name"])
 """
 
 
 @pytest.mark.parametrize("space", SPACES)
-def test_bundle_files_present_and_pinned(bundles, space):
+def test_bundle_allowlist_exact(bundles, space):
     d = bundles[space]
-    for f in ("tool.py", "app.py", "requirements.txt", "README.md", "LICENSE", "PRIVACY.md"):
-        assert (d / f).is_file(), f"missing {f} in {space}"
-    reqs = (d / "requirements.txt").read_text()
-    assert "smolagents==1.26.0" in reqs
-    assert "requests>=2.32.3,<3" in reqs
-    assert "gradio>=6.16,<7" in reqs
-    # app.py must not CALL or import the broken auto demo (a docstring may name it)
-    app_src = (d / "app.py").read_text()
-    assert "launch_gradio_demo(" not in app_src
-    assert "import launch_gradio_demo" not in app_src
-    assert "gr.JSON" in app_src
+    got = sorted(p.name for p in d.iterdir())
+    assert got == ALLOWLIST, f"{space} files {got} != {ALLOWLIST}"
 
 
 @pytest.mark.parametrize("space", SPACES)
-def test_bundle_boots_in_subprocess(bundles, space):
+def test_bundle_requirements_no_gradio(bundles, space):
+    reqs = (bundles[space] / "requirements.txt").read_text()
+    assert "smolagents==1.26.0" in reqs
+    assert "requests>=2.32.3,<3" in reqs
+    assert "gradio" not in reqs  # static Space runs nothing; no gradio surface
+
+
+@pytest.mark.parametrize("space", SPACES)
+def test_bundle_card_is_static(bundles, space):
+    card = (bundles[space] / "README.md").read_text()
+    assert "sdk: static" in card
+    assert "app_file: index.html" in card
+    assert "sdk: gradio" not in card
+    # tags present for discovery
+    assert "- smolagents" in card and "- tool" in card
+
+
+@pytest.mark.parametrize("space", SPACES)
+def test_index_html_is_static(bundles, space):
+    html = (bundles[space] / "index.html").read_text()
+    assert html.lstrip().lower().startswith("<!doctype html>")
+    assert "load_tool" in html and "trust_remote_code=True" in html
+    assert "gradio" not in html.lower()
+
+
+@pytest.mark.parametrize("space", SPACES)
+def test_bundle_tool_loads_no_gradio(bundles, space):
     d = bundles[space]
-    r = subprocess.run(
-        [sys.executable, "-c", _BOOT],
-        cwd=str(d),
-        capture_output=True,
-        text=True,
-        timeout=180,
-        check=False,
-    )
+    r = subprocess.run([sys.executable, "-c", _BOOT], cwd=str(d),
+                       capture_output=True, text=True, timeout=180, check=False)
     assert r.returncode == 0, f"boot failed for {space}:\nSTDOUT{r.stdout}\nSTDERR{r.stderr}"
     assert "BOOT OK" in r.stdout, r.stdout
 
 
+@pytest.mark.parametrize("space", SPACES)
+def test_load_tool_exact_revision_mocked(bundles, space, monkeypatch):
+    # Prove the agent load path works from a Space *regardless of SDK*: from_hub
+    # downloads only tool.py (repo_type="space", revision=...). Mock hf_hub_download
+    # to return this bundle's tool.py and assert the revision is forwarded and the
+    # loaded tool has the right schema. forward() is never called (no live quote).
+    import smolagents.tools as st
+
+    d = bundles[space]
+    seen = {}
+
+    def fake_hf_hub_download(repo_id, filename, **kwargs):
+        seen["repo_id"] = repo_id
+        seen["filename"] = filename
+        seen["repo_type"] = kwargs.get("repo_type")
+        seen["revision"] = kwargs.get("revision")
+        assert filename == "tool.py"
+        return str(d / "tool.py")
+
+    monkeypatch.setattr(st, "hf_hub_download", fake_hf_hub_download)
+
+    from smolagents import load_tool
+
+    name, inputs = EXPECTED[space]
+    rev = "deadbeefcafebabe0000000000000000deadbeef"
+    tool = load_tool(f"odaiin/{space}", trust_remote_code=True, revision=rev)
+    assert seen["repo_type"] == "space"
+    assert seen["revision"] == rev  # exact revision forwarded to the Hub download
+    assert tool.name == name
+    assert list(tool.inputs) == inputs
+    assert tool.output_type == "object"
+
+
+def test_load_tool_requires_trust_remote_code(bundles, monkeypatch):
+    import smolagents.tools as st
+
+    d = bundles["assetfare-quote"]
+    monkeypatch.setattr(st, "hf_hub_download", lambda *a, **k: str(d / "tool.py"))
+    from smolagents import load_tool
+
+    with pytest.raises(ValueError, match="trust_remote_code"):
+        load_tool("odaiin/assetfare-quote")  # default trust_remote_code=False
+
+
+@pytest.mark.parametrize("space", SPACES)
+def test_tool_py_no_auth_sign_submit(bundles, space):
+    src = (bundles[space] / "tool.py").read_text()
+    # only the three read-only endpoints
+    import re
+
+    eps = set(re.findall(r"/v2/(capabilities|status|quote)", src))
+    assert eps and eps <= {"capabilities", "status", "quote"}
+    # no auth/sign/submit machinery (validation strings server_signing/_submission
+    # are checks that these are False and do not match the denylist below)
+    denylist = ["authorization", "api_key", "api-key", "private_key", "mnemonic",
+                "seed_phrase", "wallet_connect", ".sign(", "sign_transaction",
+                "submit_transaction", "send_transaction", "eth_send", "approve("]
+    low = src.lower()
+    for bad in denylist:
+        assert bad not in low, f"forbidden token in tool.py: {bad}"
+    assert '"server_signs_or_submits": False' in src or "server_signs_or_submits" in src
+
+
 # ---- reproducibility: identical bundle bytes across different PYTHONHASHSEED ----
 
-_CANON = ["tool.py", "app.py", "requirements.txt", "README.md", "LICENSE", "PRIVACY.md"]
+_CANON = ["tool.py", "index.html", "requirements.txt", "README.md", "LICENSE", "PRIVACY.md"]
 
 
 def _space_sha(space_dir):
@@ -109,9 +193,6 @@ def _run_builder(seed):
 
 
 def test_bundle_bytes_deterministic_across_hashseeds():
-    # The tool's set-literal class attributes serialize via repr(set), whose order
-    # depends on PYTHONHASHSEED. The builder re-execs at seed 0, so different parent
-    # seeds must still yield byte-identical bundles for both Spaces.
     a = _run_builder(1)
     b = _run_builder(2)
     c = _run_builder(987654321)

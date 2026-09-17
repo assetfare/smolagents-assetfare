@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AssetFare Capabilities Tool (smolagents)</title>
+<style>
+  :root { color-scheme: light dark; }
+  body { margin: 0; font: 15px/1.6 system-ui, sans-serif; background: #0f1420; color: #e7ecf3; }
+  main { max-width: 760px; margin: 0 auto; padding: 40px 20px; }
+  h1 { font-size: 1.6rem; margin: 0 0 .2em; }
+  .sub { color: #9fb0c7; margin-top: 0; }
+  code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  pre { background: #171f2e; border: 1px solid #263349; border-radius: 8px; padding: 14px; overflow-x: auto; }
+  .tag { display: inline-block; background: #1c2740; color: #9ec1ff; border-radius: 6px; padding: 2px 8px; font-size: .8rem; margin-right: 6px; }
+  .box { background: #171f2e; border: 1px solid #263349; border-radius: 8px; padding: 12px 16px; margin: 14px 0; }
+  a { color: #7fb0ff; }
+</style>
+</head>
+<body>
+<main>
+  <h1>AssetFare Capabilities Tool</h1>
+  <p class="sub">A read-only <a href="https://github.com/huggingface/smolagents">smolagents</a> agent tool.</p>
+  <p><span class="tag">smolagents</span><span class="tag">tool</span><span class="tag">read-only</span><span class="tag">cross-chain</span></p>
+
+  <p>This Space hosts an <strong>agent tool</strong> (<code>tool.py</code>), meant to be loaded by an
+  agent — not run as a web app. It fetches and strictly validates the AssetFare v2
+  public capability/status surface (<code>https://api.assetfare.dev</code>): the
+  supported chains, the 9 (chain, token) endpoints, the 72 directed routes, and the
+  USD amount bounds. It confirms the surface it reads is quote-only and that the
+  server never signs or submits for these endpoints, failing closed otherwise.</p>
+
+  <div class="box">
+    <strong>Load it in an agent (review <code>tool.py</code> first):</strong>
+<pre>from smolagents import load_tool
+
+caps = load_tool(
+    "odaiin/assetfare-capabilities",
+    trust_remote_code=True,           # runs the reviewed tool code in your process
+    revision="&lt;reviewed commit SHA&gt;",  # pin the exact commit you audited
+)
+print(caps())  # dict of chains, endpoints, route counts, amount bounds</pre>
+  </div>
+
+  <p>Takes no inputs. Does <strong>not</strong> execute, bridge, swap, sign, or move funds.
+  Use it to check which cross-chain corridors can be quoted before requesting a quote
+  with <code>odaiin/assetfare-quote</code>. See <code>README.md</code> and
+  <code>PRIVACY.md</code> in this repo.</p>
+</main>
+</body>
+</html>

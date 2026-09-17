@@ -1,14 +1,21 @@
-"""Build atomic, manually-uploadable Hub Space bundles for the AssetFare tools.
+"""Build atomic, manually-uploadable Hub *Static* Space bundles for the AssetFare tools.
 
-For each tool this writes ``hub_bundles/<space>/`` containing exactly the files a
-Gradio Space needs, so the owner can upload the whole directory in one atomic
-commit (no reliance on push_to_hub's auto app.py, which calls launch_gradio_demo
-and would KeyError on output_type="object"):
+The agent path (`smolagents.load_tool` -> `Tool.from_hub`) downloads ONLY
+``tool.py`` from the Space repo via ``hf_hub_download(repo_type="space", revision=...)``
+and never reads the Space SDK, imports gradio, or runs an app. So these Spaces use
+the free ``sdk: static`` type with a trivial ``index.html`` -- no Gradio, no compute,
+no PRO subscription -- and drop the gradio dependency (and its vuln surface) entirely.
+
+For each tool this writes ``hub_bundles/<space>/`` with exactly the files a static
+Space needs, so the owner can upload the whole directory in one atomic commit:
 
     tool.py           serialized, self-contained tool code (== to_dict()["code"])
-    app.py            custom gr.JSON demo (never calls launch_gradio_demo)
-    requirements.txt  pinned: smolagents==1.26.0, requests>=2.32.3,<3, gradio>=6.16,<7
-    README.md         Space card (frontmatter tags smolagents+tool, license, usage)
+    index.html        static landing page (Space app_file for sdk: static)
+    requirements.txt  the tool's runtime deps for the loading agent's env only
+                      (smolagents==1.26.0, requests>=2.32.3,<3) -- NOT executed by
+                      the static Space; no gradio
+    README.md         Space card (frontmatter sdk: static, app_file index.html,
+                      tags smolagents+tool, license)
     LICENSE, PRIVACY.md
 
 Reproducibility: smolagents' ``instance_to_source`` emits the tool's set-literal
@@ -35,16 +42,13 @@ sys.path.insert(0, str(ROOT))
 from assetfare_capabilities_tool import AssetFareCapabilitiesTool
 from assetfare_quote_tool import AssetFareQuoteTool
 
-# The Space demo needs gradio in addition to the tool's own runtime deps.
-# gradio is pinned to the 6.x line: the 5.x line (and its transitive deps) carries
-# known vulnerabilities (independent pip-audit found 58), whereas the 6.16+ line
-# resolves clean (pip-audit 0) on both Python 3.10 and 3.12. smolagents 1.26 only
-# requires gradio>=5.14.0 with no upper bound, so 6.x is compatible.
-BUNDLE_REQUIREMENTS = "smolagents==1.26.0\nrequests>=2.32.3,<3\ngradio>=6.16,<7\n"
+# The tool's runtime deps for the *loading agent's* environment only. The static
+# Space itself runs nothing, so no gradio (and no gradio vuln surface) is shipped.
+BUNDLE_REQUIREMENTS = "smolagents==1.26.0\nrequests>=2.32.3,<3\n"
 
 SPECS = [
-    ("assetfare-quote", AssetFareQuoteTool, "app_quote.py", "assetfare-quote"),
-    ("assetfare-capabilities", AssetFareCapabilitiesTool, "app_capabilities.py", "assetfare-capabilities"),
+    ("assetfare-quote", AssetFareQuoteTool, "index_quote.html", "assetfare-quote"),
+    ("assetfare-capabilities", AssetFareCapabilitiesTool, "index_capabilities.html", "assetfare-capabilities"),
 ]
 
 
@@ -52,16 +56,16 @@ def _build_impl() -> list[Path]:
     hub = Path(__file__).resolve().parent
     out_root = ROOT / "hub_bundles"
     built = []
-    for space, cls, app_name, card_dir in SPECS:
+    for space, cls, index_name, card_dir in SPECS:
         out = out_root / space
         if out.exists():
             shutil.rmtree(out)
         out.mkdir(parents=True)
         # 1. serialized, validated, self-contained tool code (== Hub-loaded code)
         (out / "tool.py").write_text(cls().to_dict()["code"], encoding="utf-8")
-        # 2. custom gr.JSON app (no launch_gradio_demo)
-        (out / "app.py").write_text((hub / app_name).read_text(encoding="utf-8"), encoding="utf-8")
-        # 3. pinned requirements (adds gradio for the Space)
+        # 2. static landing page (Space app_file for sdk: static; not agent-facing)
+        (out / "index.html").write_text((hub / index_name).read_text(encoding="utf-8"), encoding="utf-8")
+        # 3. runtime deps for the loading agent's env (no gradio; static Space runs none)
         (out / "requirements.txt").write_text(BUNDLE_REQUIREMENTS, encoding="utf-8")
         # 4. card + license + privacy
         card = ROOT / "hub_cards" / card_dir

@@ -3,8 +3,8 @@ title: AssetFare Capabilities Tool
 emoji: 🗺️
 colorFrom: indigo
 colorTo: green
-sdk: gradio
-app_file: app.py
+sdk: static
+app_file: index.html
 pinned: false
 license: mit
 tags:

@@ -1,10 +1,10 @@
 from typing import Any, Optional
 from smolagents.tools import Tool
-import urllib
-import contextlib
-import time
-import json
 import requests
+import contextlib
+import json
+import urllib
+import time
 
 class AssetFareCapabilitiesTool(Tool):
     name = "assetfare_capabilities"
@@ -18,15 +18,19 @@ class AssetFareCapabilitiesTool(Tool):
     EXPECTED_ROUTES = 72
     MIN_USD = 1.0
     MAX_USD = 1000.0
-    CHAINS = {'arbitrum', 'solana', 'base', 'robinhood'}
-    ENDPOINTS = {'base:USDC', 'arbitrum:ETH', 'solana:USDC', 'robinhood:USDG', 'arbitrum:USDC', 'solana:SOL', 'robinhood:ETH', 'solana:USDG', 'base:ETH'}
+    CHAINS = {'arbitrum', 'solana', 'robinhood', 'base'}
+    ENDPOINTS = {'solana:SOL', 'base:USDC', 'robinhood:USDG', 'arbitrum:ETH', 'solana:USDC', 'base:ETH', 'solana:USDG', 'robinhood:ETH', 'arbitrum:USDC'}
 
     def __init__(
         self,
         base_url: str = "https://api.assetfare.dev",
         session: Optional[Any] = None,
         monotonic: Optional[Any] = None,
+        **_hub_kwargs: Any,
     ) -> None:
+        # smolagents' Tool.from_hub/from_code forward Hub download kwargs
+        # (revision, cache_dir, subfolder, ...) straight to the tool constructor,
+        # so accept and ignore them; otherwise load_tool(..., revision=...) fails.
         import time
         from urllib.parse import urlsplit
 
