@@ -1,0 +1,39 @@
+[project]
+name = "smolagents-assetfare-tools"
+version = "0.0.1"
+description = "Read-only, quote-only AssetFare v2 tools for smolagents agents (Hub-loadable)."
+requires-python = ">=3.10"
+license = { text = "MIT" }
+dependencies = [
+    "smolagents==1.26.0",
+    "requests>=2.32.3,<3",
+]
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+# hub_bundles/ holds generated, self-contained copies (serialized tool.py + app.py)
+# assembled by hub/build_bundles.py; lint the sources, not the generated output.
+extend-exclude = ["hub_bundles"]
+
+[tool.ruff.lint]
+# Rules deliberately ignored because they conflict with hard constraints of this
+# package, not because the code is careless:
+#   RUF012 - CHAINS/ENDPOINTS must be *class attributes* and smolagents'
+#            validate_tool_attributes only permits literal Constant/Dict/List/Set
+#            class attributes (tuples and frozenset() calls are rejected), so a
+#            set literal is the only usable immutable-intent collection.
+#   TRY004 - every validation failure raises one uniform ValueError with a fixed,
+#            sanitized code (no upstream text); mapping some to TypeError would
+#            leak type information and break the single-error contract.
+#   BLE001 - the streaming/decode catch is a deliberately bounded blind catch that
+#            sanitizes any error to a fixed code so no upstream cause leaks.
+#   UP045  - Optional[...] matches the `from typing import Any, Optional` header
+#            that smolagents' own Tool serialiser emits for round-tripping.
+ignore = ["RUF012", "TRY004", "BLE001", "UP045"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["E402", "UP028"]
+# builder and app templates import after a sys.path insert / are Space entrypoints
+"hub/build_bundles.py" = ["E402"]
+"hub/app_*.py" = ["BLE001"]
