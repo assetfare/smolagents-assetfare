@@ -22,7 +22,7 @@ jobs:
           cache: pip
       - name: Install reviewed Space dependency range and test tools
         run: |
-          python -m pip install --upgrade pip
+          python -m pip install --upgrade pip 'setuptools>=83'
           python -m pip install -r hub_bundles/assetfare-quote/requirements.txt pytest ruff pip-audit
           python -m pytest tests/ -q
           ruff check .
