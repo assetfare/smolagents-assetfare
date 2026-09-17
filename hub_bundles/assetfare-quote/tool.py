@@ -1,13 +1,13 @@
-from typing import Any, Optional
 from smolagents.tools import Tool
-import requests
-import math
-import uuid
+from typing import Any, Optional
 import contextlib
 import datetime
 import json
-import urllib
+import math
+import requests
 import time
+import urllib
+import uuid
 
 class AssetFareQuoteTool(Tool):
     name = "assetfare_quote"
@@ -22,8 +22,8 @@ class AssetFareQuoteTool(Tool):
     MAX_FUTURE_SKEW_S = 300
     MIN_USD = 1.0
     MAX_USD = 1000.0
-    CHAINS = {'arbitrum', 'solana', 'robinhood', 'base'}
-    ENDPOINTS = {'solana:SOL', 'base:USDC', 'robinhood:USDG', 'arbitrum:ETH', 'solana:USDC', 'base:ETH', 'solana:USDG', 'robinhood:ETH', 'arbitrum:USDC'}
+    CHAINS = {'arbitrum', 'base', 'robinhood', 'solana'}
+    ENDPOINTS = {'arbitrum:ETH', 'arbitrum:USDC', 'base:ETH', 'base:USDC', 'robinhood:ETH', 'robinhood:USDG', 'solana:SOL', 'solana:USDC', 'solana:USDG'}
 
     def __init__(
         self,

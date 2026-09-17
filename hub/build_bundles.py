@@ -9,7 +9,8 @@ no PRO subscription -- and drop the gradio dependency (and its vuln surface) ent
 For each tool this writes ``hub_bundles/<space>/`` with exactly the files a static
 Space needs, so the owner can upload the whole directory in one atomic commit:
 
-    tool.py           serialized, self-contained tool code (== to_dict()["code"])
+    tool.py           serialized, canonicalized, self-contained tool code
+                      (== canonicalize(to_dict()["code"]); loads identically)
     index.html        static landing page (Space app_file for sdk: static)
     requirements.txt  the tool's runtime deps for the loading agent's env only
                       (smolagents==1.26.0, requests>=2.32.3,<3) -- NOT executed by
@@ -18,21 +19,25 @@ Space needs, so the owner can upload the whole directory in one atomic commit:
                       tags smolagents+tool, license)
     LICENSE, PRIVACY.md
 
-Reproducibility: smolagents' ``instance_to_source`` emits the tool's set-literal
-class attributes (CHAINS/ENDPOINTS) via ``repr(set)``, whose element order depends
-on PYTHONHASHSEED. To make ``tool.py`` byte-identical across processes, ``build()``
-re-execs the real work in a subprocess pinned to ``PYTHONHASHSEED=0`` whenever the
-current process is not already at seed 0. The result is deterministic regardless of
-the caller's hash seed.
+Reproducibility (cross-process AND cross-interpreter): smolagents'
+``instance_to_source`` emits the top-level ``import`` block and the set-literal
+class attributes (CHAINS/ENDPOINTS) in an order that varies both with
+``PYTHONHASHSEED`` and between CPython versions (e.g. 3.10 vs 3.12). Pinning the
+hash seed alone is therefore not enough. ``_canonicalize`` normalizes exactly those
+two things -- it sorts the top-level imports and re-emits each set literal with its
+elements sorted -- while leaving every other line (method bodies from ``get_source``,
+the ``inputs`` dict, string/number constants) byte-for-byte unchanged. The result is
+identical ``tool.py`` bytes (and whole-bundle SHA) on any interpreter and any hash
+seed, with the tool's semantics preserved (same members, same imports).
 
 Run: python hub/build_bundles.py   (no network, no login, no push)
 """
 
 from __future__ import annotations
 
-import os
+import ast
+import re
 import shutil
-import subprocess
 import sys
 from pathlib import Path
 
@@ -52,6 +57,42 @@ SPECS = [
 ]
 
 
+def canonicalize(code: str) -> str:
+    """Make the serialized tool code byte-identical across interpreters and hash
+    seeds by normalizing the only two order-unstable parts: the top-level import
+    block and set-literal class attributes. Semantics are preserved (same imports,
+    same set members); every other line is left unchanged."""
+    lines = code.split("\n")
+    # 1. Sort the contiguous top-level import block at the very top of the file.
+    i = 0
+    imports: list[str] = []
+    while i < len(lines) and (lines[i].startswith("import ") or lines[i].startswith("from ")):
+        imports.append(lines[i])
+        i += 1
+    rest = lines[i:]
+    while rest and rest[0].strip() == "":
+        rest.pop(0)
+    code = "\n".join(sorted(imports) + [""] + rest)
+
+    # 2. Re-emit each set-literal assignment with its elements stably sorted.
+    def _sort_set(m: re.Match[str]) -> str:
+        indent, name, rhs = m.group("indent"), m.group("name"), m.group("rhs")
+        try:
+            value = ast.literal_eval(rhs)
+        except (ValueError, SyntaxError):
+            return m.group(0)
+        if isinstance(value, (set, frozenset)):
+            return f"{indent}{name} = {{{', '.join(repr(e) for e in sorted(value))}}}"
+        return m.group(0)
+
+    return re.sub(
+        r"(?P<indent>^[ \t]*)(?P<name>CHAINS|ENDPOINTS) = (?P<rhs>\{[^{}]*\})",
+        _sort_set,
+        code,
+        flags=re.MULTILINE,
+    )
+
+
 def _build_impl() -> list[Path]:
     hub = Path(__file__).resolve().parent
     out_root = ROOT / "hub_bundles"
@@ -61,8 +102,8 @@ def _build_impl() -> list[Path]:
         if out.exists():
             shutil.rmtree(out)
         out.mkdir(parents=True)
-        # 1. serialized, validated, self-contained tool code (== Hub-loaded code)
-        (out / "tool.py").write_text(cls().to_dict()["code"], encoding="utf-8")
+        # 1. serialized, canonicalized, self-contained tool code (== Hub-loaded code)
+        (out / "tool.py").write_text(canonicalize(cls().to_dict()["code"]), encoding="utf-8")
         # 2. static landing page (Space app_file for sdk: static; not agent-facing)
         (out / "index.html").write_text((hub / index_name).read_text(encoding="utf-8"), encoding="utf-8")
         # 3. runtime deps for the loading agent's env (no gradio; static Space runs none)
@@ -76,19 +117,8 @@ def _build_impl() -> list[Path]:
 
 
 def build() -> list[Path]:
-    """Build the bundles reproducibly. If this process is not pinned to
-    PYTHONHASHSEED=0, re-exec the real build in a subprocess that is, so the
-    serialized set-literal ordering (and thus the bundle bytes) is identical no
-    matter the caller's hash seed."""
-    if os.environ.get("PYTHONHASHSEED") != "0":
-        env = dict(os.environ, PYTHONHASHSEED="0")
-        subprocess.run(
-            [sys.executable, "-c", "import build_bundles; build_bundles._build_impl()"],
-            cwd=str(Path(__file__).resolve().parent),
-            env=env,
-            check=True,
-        )
-        return [ROOT / "hub_bundles" / space for space, *_ in SPECS]
+    """Build the bundles. `canonicalize` makes the output identical across
+    interpreters and hash seeds, so no subprocess/seed pinning is needed."""
     return _build_impl()
 
 

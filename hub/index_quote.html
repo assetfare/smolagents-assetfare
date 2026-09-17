@@ -37,7 +37,7 @@
 quote = load_tool(
     "odaiin/assetfare-quote",
     trust_remote_code=True,           # runs the reviewed tool code in your process
-    revision="&lt;reviewed commit SHA&gt;",  # pin the exact commit you audited
+    revision="b4c8b5924e8e53d06e43a6295002c0badcdda4a5",  # reviewed immutable release
 )
 result = quote(
     from_chain="solana", from_token="SOL",
@@ -49,7 +49,8 @@ result = quote(
   <p>Surface: 4 chains (solana, base, arbitrum, robinhood), 9 (chain, token) endpoints,
   72 directed routes, USD 1&ndash;1000. Does <strong>not</strong> execute, bridge, swap,
   sign, or move funds &mdash; acting on a quote is a separate wallet action taken outside
-  this tool. See <code>README.md</code> and <code>PRIVACY.md</code> in this repo.</p>
+  this tool. Review the <a href="https://github.com/odaiin/smolagents-assetfare">source and tests</a>
+  and the <a href="https://assetfare.dev/agents/">AssetFare agent integration guide</a>.</p>
 </main>
 </body>
 </html>

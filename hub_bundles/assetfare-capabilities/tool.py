@@ -1,10 +1,10 @@
-from typing import Any, Optional
 from smolagents.tools import Tool
-import requests
+from typing import Any, Optional
 import contextlib
 import json
-import urllib
+import requests
 import time
+import urllib
 
 class AssetFareCapabilitiesTool(Tool):
     name = "assetfare_capabilities"
@@ -18,8 +18,8 @@ class AssetFareCapabilitiesTool(Tool):
     EXPECTED_ROUTES = 72
     MIN_USD = 1.0
     MAX_USD = 1000.0
-    CHAINS = {'arbitrum', 'solana', 'robinhood', 'base'}
-    ENDPOINTS = {'solana:SOL', 'base:USDC', 'robinhood:USDG', 'arbitrum:ETH', 'solana:USDC', 'base:ETH', 'solana:USDG', 'robinhood:ETH', 'arbitrum:USDC'}
+    CHAINS = {'arbitrum', 'base', 'robinhood', 'solana'}
+    ENDPOINTS = {'arbitrum:ETH', 'arbitrum:USDC', 'base:ETH', 'base:USDC', 'robinhood:ETH', 'robinhood:USDG', 'solana:SOL', 'solana:USDC', 'solana:USDG'}
 
     def __init__(
         self,

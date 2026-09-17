@@ -37,15 +37,16 @@
 caps = load_tool(
     "odaiin/assetfare-capabilities",
     trust_remote_code=True,           # runs the reviewed tool code in your process
-    revision="&lt;reviewed commit SHA&gt;",  # pin the exact commit you audited
+    revision="2770263d157006d5e4dfd90a42fa0713c3de5ec6",  # reviewed immutable release
 )
 print(caps())  # dict of chains, endpoints, route counts, amount bounds</pre>
   </div>
 
   <p>Takes no inputs. Does <strong>not</strong> execute, bridge, swap, sign, or move funds.
   Use it to check which cross-chain corridors can be quoted before requesting a quote
-  with <code>odaiin/assetfare-quote</code>. See <code>README.md</code> and
-  <code>PRIVACY.md</code> in this repo.</p>
+  with <code>odaiin/assetfare-quote</code>. Review the
+  <a href="https://github.com/odaiin/smolagents-assetfare">source and tests</a>
+  and the <a href="https://assetfare.dev/agents/">AssetFare agent integration guide</a>.</p>
 </main>
 </body>
 </html>

@@ -198,3 +198,39 @@ def test_bundle_bytes_deterministic_across_hashseeds():
     c = _run_builder(987654321)
     for space in SPACES:
         assert a[space] == b[space] == c[space], f"non-deterministic bundle for {space}"
+
+
+# ---- canonical form (guarantees cross-interpreter identical tool.py) ---------
+
+@pytest.mark.parametrize("space", SPACES)
+def test_tool_py_canonical_form(bundles, space):
+    import re
+
+    src = (bundles[space] / "tool.py").read_text()
+    imports = [l for l in src.split("\n") if l.startswith(("import ", "from "))]
+    assert imports == sorted(imports), "top-level imports must be sorted"
+    for name in ("CHAINS", "ENDPOINTS"):
+        m = re.search(name + r" = (\{[^{}]*\})", src)
+        assert m, f"{name} not found"
+        # textual element order (NOT list(set(...)), whose order is hash-dependent)
+        elems = re.findall(r"'([^']*)'", m.group(1))
+        assert elems == sorted(elems), f"{name} elements must be sorted (textually)"
+
+
+def test_bundle_bytes_deterministic_across_interpreters():
+    # Build with an alternate CPython (path in SMOLAGENTS_ALT_PYTHON, a venv that has
+    # smolagents==1.26.0) and assert byte-identical bundles. Skips if unset. This is
+    # the regression for the cross-3.10/3.12 order drift that canonicalize() fixes.
+    import os
+
+    alt = os.environ.get("SMOLAGENTS_ALT_PYTHON")
+    if not alt or not Path(alt).exists():
+        pytest.skip("SMOLAGENTS_ALT_PYTHON not set")
+    build_bundles.build()  # current interpreter
+    here = {s: _space_sha(ROOT / "hub_bundles" / s) for s in SPACES}
+    builder = ROOT / "hub" / "build_bundles.py"
+    r = subprocess.run([alt, str(builder)], cwd=str(ROOT), capture_output=True, text=True, timeout=180, check=False)
+    assert r.returncode == 0, r.stderr
+    there = {s: _space_sha(ROOT / "hub_bundles" / s) for s in SPACES}
+    for space in SPACES:
+        assert here[space] == there[space], f"cross-interpreter bundle mismatch for {space}"

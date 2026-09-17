@@ -46,7 +46,7 @@ Published Static Spaces:
 ## Test / lint locally (offline)
 
 ```bash
-python -m pytest tests/ -q     # 112 passed on both py3.12 and py3.10
+python -m pytest tests/ -q     # 115 passed on both py3.12 and py3.10
 ruff check .                   # clean (generated hub_bundles/ excluded)
 ```
 
@@ -70,10 +70,11 @@ on `output_type="object"`.)
 
 ```bash
 python hub/build_bundles.py     # regenerates hub_bundles/<space>/ deterministically
-                                # (self-re-execs at PYTHONHASHSEED=0: smolagents serializes
-                                #  the set-literal class attrs via repr(set), so a fixed seed
-                                #  is needed for byte-identical bundles across processes; a
-                                #  cross-seed regression asserts both Spaces' SHAs match)
+                                # (canonicalize() sorts the serialized top-level imports and
+                                #  set-literal class attrs, whose order otherwise varies with
+                                #  PYTHONHASHSEED and between CPython 3.10/3.12; tool.py bytes
+                                #  are then identical on any interpreter/seed, semantics intact;
+                                #  cross-seed AND cross-interpreter regressions assert the SHAs)
 ```
 
 Each `hub_bundles/<space>/` contains exactly the 6-file allowlist a static Space
