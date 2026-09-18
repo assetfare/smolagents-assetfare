@@ -100,7 +100,7 @@ from smolagents import load_tool
 quote = load_tool(
     "odaiin/assetfare-quote",
     trust_remote_code=True,          # required for any Hub tool: runs Space code in-process
-    revision="401ecf835a3e0c95807c245a208eeda81b0d9b81", # previous 72-route release; Polygon revision is published separately
+    revision="8e0f9ffbf4308f496f88c64dc912499845f4e371", # reviewed Polygon-capable quote release
 )
 ```
 
