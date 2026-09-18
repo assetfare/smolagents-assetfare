@@ -214,6 +214,10 @@ class AssetFareCapabilitiesTool(Tool):
             raise ValueError("assetfare_safety_boundary_failed")
         if caps.get("source_only_asset_endpoints") != [{"chain": "polygon", "token": "USDC"}]:
             raise ValueError("assetfare_safety_boundary_failed")
+        source_only_routes = caps.get("source_only_routes")
+        expected_source_only_routes = {"polygon:USDC->base:USDC", "polygon:USDC->arbitrum:USDC"}
+        if not isinstance(source_only_routes, list) or len(source_only_routes) != 2 or set(source_only_routes) != expected_source_only_routes:
+            raise ValueError("assetfare_safety_boundary_failed")
         destinations = caps.get("destination_chains")
         if not isinstance(destinations, list) or len(destinations) != 4 or set(destinations) != {"arbitrum", "base", "robinhood", "solana"}:
             raise ValueError("assetfare_safety_boundary_failed")
@@ -224,6 +228,7 @@ class AssetFareCapabilitiesTool(Tool):
             "directed_conversion_routes": self.EXPECTED_ROUTES,
             "unsigned_route_plans_ready": self.EXPECTED_ROUTES,
             "source_only_asset_endpoints": ["polygon:USDC"],
+            "source_only_routes": sorted(expected_source_only_routes),
             "destination_chains": sorted(destinations),
             "amount_usd_min": self.MIN_USD,
             "amount_usd_max": self.MAX_USD,

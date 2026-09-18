@@ -107,6 +107,7 @@ def caps_payload():
             {"chain": "polygon", "token": "USDC"},
         ],
         "source_only_asset_endpoints": [{"chain": "polygon", "token": "USDC"}],
+        "source_only_routes": ["polygon:USDC->base:USDC", "polygon:USDC->arbitrum:USDC"],
         "destination_chains": ["arbitrum", "base", "robinhood", "solana"],
     }
 
@@ -298,6 +299,7 @@ def test_capabilities_rejects_endpoint_substitution():
     [
         lambda c: c.update(source_only_asset_endpoints=[]),
         lambda c: c.update(source_only_asset_endpoints=[{"chain": "polygon", "token": "ETH"}]),
+        lambda c: c.update(source_only_routes=["polygon:USDC->base:ETH", "polygon:USDC->arbitrum:USDC"]),
         lambda c: c.update(destination_chains=["arbitrum", "base", "polygon", "solana"]),
     ],
 )

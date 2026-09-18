@@ -46,7 +46,7 @@ Published Static Spaces:
 ## Test / lint locally (offline)
 
 ```bash
-python -m pytest tests/ -q     # 127 passed with SMOLAGENTS_ALT_PYTHON set; otherwise 126 passed + 1 skipped
+python -m pytest tests/ -q     # 128 passed with SMOLAGENTS_ALT_PYTHON set; otherwise 127 passed + 1 skipped
 ruff check .                   # clean (generated hub_bundles/ excluded)
 ```
 
