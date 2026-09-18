@@ -95,6 +95,24 @@ class AssetFareCapabilitiesTool(Tool):
         if node.get("server_signing") is not False or node.get("server_submission") is not False:
             raise ValueError("assetfare_safety_boundary_failed")
 
+    def _no_sign_tree(self, value: Any) -> None:
+        stack = [(value, 0)]
+        seen = 0
+        while stack:
+            node, depth = stack.pop()
+            seen += 1
+            if seen > 512 or depth > 12:
+                raise ValueError("assetfare_response_invalid")
+            if isinstance(node, dict):
+                for key in ("server_signing", "server_submission"):
+                    if key in node and node[key] is not False:
+                        raise ValueError("assetfare_safety_boundary_failed")
+                for child in node.values():
+                    stack.append((child, depth + 1))
+            elif isinstance(node, list):
+                for child in node:
+                    stack.append((child, depth + 1))
+
     def _request(self, method: str, path: str, budget_deadline: float) -> Any:
         import contextlib
         import json
@@ -204,6 +222,8 @@ class AssetFareCapabilitiesTool(Tool):
         budget_deadline = self._monotonic() + self.STALE_BUDGET_S
         caps = self._request("GET", "/v2/capabilities", budget_deadline)
         status = self._request("GET", "/v2/status", budget_deadline)
+        self._no_sign_tree(caps)
+        self._no_sign_tree(status)
         if caps.get("status") != "capped_public_agent_release" or caps.get("public_api_enabled") is not True:
             raise ValueError("assetfare_safety_boundary_failed")
         if (

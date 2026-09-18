@@ -83,7 +83,7 @@ result = quote(
 
 | name | type | notes |
 |------|------|-------|
-| `from_chain` | string | one of `solana`, `base`, `arbitrum`, `robinhood` |
+| `from_chain` | string | one of `solana`, `base`, `arbitrum`, `robinhood`, `polygon`; Polygon supports native USDC source-only to Base/Arbitrum USDC |
 | `from_token` | string | token symbol on the source chain (e.g. `SOL`, `ETH`, `USDC`, `USDG`) |
 | `to_chain`   | string | destination chain |
 | `to_token`   | string | destination token symbol |

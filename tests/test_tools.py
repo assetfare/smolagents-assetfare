@@ -308,6 +308,14 @@ def test_capabilities_rejects_source_only_semantic_mismatch(mut):
         caps_tool(_Session([_Resp(p), _Resp(status_payload())])).forward()
 
 
+@pytest.mark.parametrize("key", ["server_signing", "server_submission"])
+def test_capabilities_rejects_nested_sign_or_submit_claim(key):
+    p = caps_payload()
+    p["asset_endpoints"][0][key] = True
+    with pytest.raises(ValueError, match="assetfare_safety_boundary_failed"):
+        caps_tool(_Session([_Resp(p), _Resp(status_payload())])).forward()
+
+
 def test_capabilities_rejects_status_wrong():
     p = caps_payload()
     p["status"] = "open_public"

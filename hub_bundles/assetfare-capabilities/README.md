@@ -54,15 +54,18 @@ print(caps())  # -> dict of chains, endpoints, route counts, amount bounds
 
 ## Output (object)
 
-`status`, `chains`, `asset_endpoints`, `directed_conversion_routes` (72),
-`unsigned_route_plans_ready` (72), `amount_usd_min` (1.0), `amount_usd_max`
-(1000.0), `tool_scope_quote_only` (`true`, scoped to this tool's surface), `server_signs_or_submits` (`false`).
+`status`, `chains`, `asset_endpoints`, `directed_conversion_routes` (74),
+`unsigned_route_plans_ready` (74), `source_only_asset_endpoints`
+(`polygon:USDC`), `destination_chains`, `amount_usd_min` (1.0),
+`amount_usd_max` (1000.0), `tool_scope_quote_only` (`true`, scoped to this
+tool's surface), and `server_signs_or_submits` (`false`).
 
 ## Validation & safety
 
-The reported surface is checked for exact identity: the chain set and the 9
+The reported surface is checked for exact identity: the chain set and the 10
 endpoints must match exactly (a substituted or duplicated entry is rejected), the
-route counts must equal 72, and `server_signing` / `server_submission` must be
+route counts must equal 74, Polygon must be source-only, and `server_signing` /
+`server_submission` must be
 `false` on both `capabilities` and `status`. Any mismatch raises a single, fixed,
 sanitized error. Response body is capped at 1 MiB and must be `application/json`.
 
