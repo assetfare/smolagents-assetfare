@@ -84,6 +84,24 @@ class AssetFareQuoteTool(Tool):
         if node.get("server_signing") is not False or node.get("server_submission") is not False:
             raise ValueError("assetfare_safety_boundary_failed")
 
+    def _no_sign_tree(self, value: Any) -> None:
+        stack = [(value, 0)]
+        seen = 0
+        while stack:
+            node, depth = stack.pop()
+            seen += 1
+            if seen > 512 or depth > 12:
+                raise ValueError("assetfare_response_invalid")
+            if isinstance(node, dict):
+                for key in ("server_signing", "server_submission"):
+                    if key in node and node[key] is not False:
+                        raise ValueError("assetfare_safety_boundary_failed")
+                for child in node.values():
+                    stack.append((child, depth + 1))
+            elif isinstance(node, list):
+                for child in node:
+                    stack.append((child, depth + 1))
+
     def _endpoint(self, chain: Any, token: Any, field: str) -> str:
         if not isinstance(chain, str) or not isinstance(token, str):
             raise ValueError("assetfare_" + field + "_endpoint_invalid")
@@ -245,6 +263,7 @@ class AssetFareQuoteTool(Tool):
             },
             budget_deadline,
         )
+        self._no_sign_tree(data)
         intent = self._obj(data, "intent")
         offer = self._obj(data, "offer")
         route = self._obj(data, "route")

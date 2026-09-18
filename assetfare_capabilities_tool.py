@@ -228,12 +228,19 @@ class AssetFareCapabilitiesTool(Tool):
             got.add(str(ep["chain"]) + ":" + str(ep["token"]).upper())
         if len(got) != len(self.ENDPOINTS) or got != self.ENDPOINTS:
             raise ValueError("assetfare_safety_boundary_failed")
+        if caps.get("source_only_asset_endpoints") != [{"chain": "polygon", "token": "USDC"}]:
+            raise ValueError("assetfare_safety_boundary_failed")
+        destinations = caps.get("destination_chains")
+        if not isinstance(destinations, list) or len(destinations) != 4 or set(destinations) != {"arbitrum", "base", "robinhood", "solana"}:
+            raise ValueError("assetfare_safety_boundary_failed")
         return {
             "status": caps["status"],
             "chains": sorted(self.CHAINS),
             "asset_endpoints": sorted(self.ENDPOINTS),
             "directed_conversion_routes": self.EXPECTED_ROUTES,
             "unsigned_route_plans_ready": self.EXPECTED_ROUTES,
+            "source_only_asset_endpoints": ["polygon:USDC"],
+            "destination_chains": sorted(destinations),
             "amount_usd_min": self.MIN_USD,
             "amount_usd_max": self.MAX_USD,
             # Scoped to what this tool exercises, not a claim about all of AssetFare.

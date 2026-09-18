@@ -106,6 +106,8 @@ def caps_payload():
             {"chain": "robinhood", "token": "USDG"},
             {"chain": "polygon", "token": "USDC"},
         ],
+        "source_only_asset_endpoints": [{"chain": "polygon", "token": "USDC"}],
+        "destination_chains": ["arbitrum", "base", "robinhood", "solana"],
     }
 
 
@@ -291,6 +293,21 @@ def test_capabilities_rejects_endpoint_substitution():
         caps_tool(s).forward()
 
 
+@pytest.mark.parametrize(
+    "mut",
+    [
+        lambda c: c.update(source_only_asset_endpoints=[]),
+        lambda c: c.update(source_only_asset_endpoints=[{"chain": "polygon", "token": "ETH"}]),
+        lambda c: c.update(destination_chains=["arbitrum", "base", "polygon", "solana"]),
+    ],
+)
+def test_capabilities_rejects_source_only_semantic_mismatch(mut):
+    p = caps_payload()
+    mut(p)
+    with pytest.raises(ValueError, match="assetfare_safety_boundary_failed"):
+        caps_tool(_Session([_Resp(p), _Resp(status_payload())])).forward()
+
+
 def test_capabilities_rejects_status_wrong():
     p = caps_payload()
     p["status"] = "open_public"
@@ -327,6 +344,23 @@ def test_polygon_destination_and_wrong_corridor_rejected():
         quote_tool(quote_session()).forward("base", "USDC", "polygon", "USDC", 10)
     with pytest.raises(ValueError, match="assetfare_source_endpoint_invalid"):
         quote_tool(quote_session()).forward("polygon", "USDC", "solana", "USDC", 10)
+
+
+@pytest.mark.parametrize(
+    "mut",
+    [
+        lambda q: q.update(server_signing=True),
+        lambda q: q["intent"].update(server_submission=True),
+        lambda q: q["offer"].update(server_signing=True),
+        lambda q: q["execution"].update(server_submission=True),
+        lambda q: q["route"]["steps"][0].update(server_signing=True),
+    ],
+)
+def test_quote_rejects_nested_sign_or_submit_claim(mut):
+    payload = quote_payload()
+    mut(payload)
+    with pytest.raises(ValueError, match="assetfare_safety_boundary_failed"):
+        quote_tool(quote_session(payload)).forward("solana", "SOL", "base", "ETH", 250)
 
 
 def test_quote_posts_normalised_payload():

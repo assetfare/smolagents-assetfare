@@ -46,7 +46,7 @@ Published Static Spaces:
 ## Test / lint locally (offline)
 
 ```bash
-python -m pytest tests/ -q     # 115 passed on both py3.12 and py3.10
+python -m pytest tests/ -q     # 124 passed plus 1 environment skip on both py3.12 and py3.10
 ruff check .                   # clean (generated hub_bundles/ excluded)
 ```
 
@@ -100,7 +100,7 @@ from smolagents import load_tool
 quote = load_tool(
     "odaiin/assetfare-quote",
     trust_remote_code=True,          # required for any Hub tool: runs Space code in-process
-    revision="401ecf835a3e0c95807c245a208eeda81b0d9b81", # canonical reviewed release
+    revision="401ecf835a3e0c95807c245a208eeda81b0d9b81", # previous 72-route release; Polygon revision is published separately
 )
 ```
 
