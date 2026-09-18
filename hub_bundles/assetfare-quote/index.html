@@ -46,8 +46,8 @@ result = quote(
 )</pre>
   </div>
 
-  <p>Surface: 4 chains (solana, base, arbitrum, robinhood), 9 (chain, token) endpoints,
-  72 directed routes, USD 1&ndash;1000. Does <strong>not</strong> execute, bridge, swap,
+  <p>Surface: 5 source chains (solana, base, arbitrum, robinhood, polygon), 10 (chain, token) source endpoints,
+  74 directed routes, USD 1&ndash;1000. Polygon is native-USDC source-only to Base or Arbitrum USDC. Does <strong>not</strong> execute, bridge, swap,
   sign, or move funds &mdash; acting on a quote is a separate wallet action taken outside
   this tool. Review the <a href="https://github.com/odaiin/smolagents-assetfare">source and tests</a>
   and the <a href="https://assetfare.dev/agents/">AssetFare agent integration guide</a>.</p>

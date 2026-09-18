@@ -19,7 +19,7 @@ tags:
 
 A **read-only** [smolagents](https://github.com/huggingface/smolagents) `Tool`
 that reports and strictly validates the AssetFare v2 public capabilities: the
-supported chains, the 9 `(chain, token)` asset endpoints, the 72 directed
+five source chains, the 10 `(chain, token)` source endpoints, the 74 directed
 conversion routes, and the USD amount bounds. Use it to check which cross-chain
 corridors AssetFare can quote before requesting a quote with
 [`odaiin/assetfare-quote`](https://huggingface.co/spaces/odaiin/assetfare-quote).

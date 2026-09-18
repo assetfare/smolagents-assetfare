@@ -24,8 +24,9 @@ AssetFare v2 API. It is meant to be **discovered and loaded by agents**, not use
 as a human demo.
 
 - **Fixed origin:** `https://api.assetfare.dev` (any other base URL is rejected).
-- **Surface:** 4 chains (solana, base, arbitrum, robinhood), 9 `(chain, token)`
-  asset endpoints, 72 directed routes, amount **$1–$1000**.
+- **Surface:** 5 source chains (solana, base, arbitrum, robinhood, polygon), 10
+  `(chain, token)` source endpoints, 74 directed routes, amount **$1–$1000**.
+  Polygon is native-USDC source-only to Base or Arbitrum USDC.
 - **Never** authenticates a wallet, opens a session, prepares an unsigned action,
   signs, or submits. The server itself never signs or submits; the tool
   **fails closed** on any response that claims otherwise.

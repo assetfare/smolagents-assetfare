@@ -28,7 +28,7 @@ Published Static Spaces:
 
 - Fixed origin `https://api.assetfare.dev`; any other base URL rejected (injected
   `requests.Session` included — `trust_env` is forced off).
-- Exact surface: 4 chains, 9 `(chain, token)` endpoints, 72 routes, $1–$1000.
+- Exact surface: 5 source chains, 10 `(chain, token)` source endpoints, 74 routes, $1–$1000. Polygon is native-USDC source-only to Base or Arbitrum USDC.
 - Strict response validation, RFC3339 tz-aware freshness (stale + future-skew;
   a trailing `Z` is normalized so it validates on Python 3.10 as well as 3.11+),
   1 MiB cap, single fixed sanitized error (no upstream text leaks). Every failure

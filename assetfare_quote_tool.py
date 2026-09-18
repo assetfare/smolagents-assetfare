@@ -23,8 +23,9 @@ class AssetFareQuoteTool(Tool):
         "API (fixed origin https://api.assetfare.dev). This tool's entire scope is "
         "to fetch and validate a single conversion quote and return it; it is not "
         "the AssetFare service and exposes none of its other endpoints. It covers "
-        "4 chains (solana, base, arbitrum, robinhood), 9 (chain, token) asset "
-        "endpoints and 72 directed routes, for a USD amount of 1 to 1000. It never "
+        "5 source chains (solana, base, arbitrum, robinhood, polygon), 10 "
+        "(chain, token) source endpoints and 74 directed routes, for a USD amount "
+        "of 1 to 1000. Polygon is native-USDC source-only to Base or Arbitrum USDC. It never "
         "authenticates a wallet, opens a session, prepares an unsigned action, "
         "signs or submits, and the returned 'server_signs_or_submits' is always "
         "false. It returns expected/minimum receive amounts (native and USD), fee "
@@ -40,7 +41,7 @@ class AssetFareQuoteTool(Tool):
     inputs = {
         "from_chain": {
             "type": "string",
-            "description": "Source chain: one of solana, base, arbitrum, robinhood.",
+            "description": "Source chain: one of solana, base, arbitrum, robinhood, polygon.",
         },
         "from_token": {
             "type": "string",
@@ -69,7 +70,7 @@ class AssetFareQuoteTool(Tool):
     MAX_FUTURE_SKEW_S = 300
     MIN_USD = 1.0
     MAX_USD = 1000.0
-    CHAINS = {"arbitrum", "base", "robinhood", "solana"}
+    CHAINS = {"arbitrum", "base", "polygon", "robinhood", "solana"}
     ENDPOINTS = {
         "solana:SOL",
         "solana:USDC",
@@ -80,6 +81,7 @@ class AssetFareQuoteTool(Tool):
         "arbitrum:USDC",
         "robinhood:ETH",
         "robinhood:USDG",
+        "polygon:USDC",
     }
 
     def __init__(
@@ -285,6 +287,10 @@ class AssetFareQuoteTool(Tool):
         to_u = self._endpoint(to_chain, to_token, "destination")
         if (from_chain, from_u) == (to_chain, to_u):
             raise ValueError("assetfare_identity_route_rejected")
+        if to_chain == "polygon":
+            raise ValueError("assetfare_destination_endpoint_invalid")
+        if from_chain == "polygon" and not (from_u == "USDC" and to_chain in {"base", "arbitrum"} and to_u == "USDC"):
+            raise ValueError("assetfare_source_endpoint_invalid")
         budget_deadline = self._monotonic() + self.STALE_BUDGET_S
         data = self._request(
             "POST",

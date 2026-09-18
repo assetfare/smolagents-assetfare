@@ -89,11 +89,11 @@ def caps_payload():
     return {
         "status": "capped_public_agent_release",
         "public_api_enabled": True,
-        "directed_conversion_routes": 72,
-        "unsigned_route_plans_ready": 72,
+        "directed_conversion_routes": 74,
+        "unsigned_route_plans_ready": 74,
         "server_signing": False,
         "server_submission": False,
-        "chains": ["solana", "base", "arbitrum", "robinhood"],
+        "chains": ["solana", "base", "arbitrum", "robinhood", "polygon"],
         "asset_endpoints": [
             {"chain": "solana", "token": "SOL"},
             {"chain": "solana", "token": "USDC"},
@@ -104,6 +104,7 @@ def caps_payload():
             {"chain": "arbitrum", "token": "USDC"},
             {"chain": "robinhood", "token": "ETH"},
             {"chain": "robinhood", "token": "USDG"},
+            {"chain": "polygon", "token": "USDC"},
         ],
     }
 
@@ -225,9 +226,9 @@ def test_origin_accepts_canonical_and_trailing_slash():
 def test_capabilities_happy():
     s = _Session([_Resp(caps_payload()), _Resp(status_payload())])
     out = caps_tool(s).forward()
-    assert out["directed_conversion_routes"] == 72
-    assert out["chains"] == ["arbitrum", "base", "robinhood", "solana"]
-    assert len(out["asset_endpoints"]) == 9
+    assert out["directed_conversion_routes"] == 74
+    assert out["chains"] == ["arbitrum", "base", "polygon", "robinhood", "solana"]
+    assert len(out["asset_endpoints"]) == 10
     assert out["tool_scope_quote_only"] is True
     assert out["server_signs_or_submits"] is False
     assert s.calls[0][1] == "https://api.assetfare.dev/v2/capabilities"
@@ -310,6 +311,22 @@ def test_quote_happy():
     assert out["non_atomic"] is True
     assert out["execution_supported"] is True
     assert out["server_signs_or_submits"] is False
+
+
+def test_polygon_source_quote_happy():
+    payload = quote_payload()
+    payload["intent"].update(**{"from": "polygon:USDC", "to": "arbitrum:USDC", "amount_usd": 10.0})
+    payload["route"]["route"] = "polygon:USDC->arbitrum:USDC"
+    payload["offer"]["output_symbol"] = "USDC"
+    out = quote_tool(quote_session(payload)).forward("polygon", "USDC", "arbitrum", "USDC", 10)
+    assert out["from"] == "polygon:USDC" and out["to"] == "arbitrum:USDC"
+
+
+def test_polygon_destination_and_wrong_corridor_rejected():
+    with pytest.raises(ValueError, match="assetfare_destination_endpoint_invalid"):
+        quote_tool(quote_session()).forward("base", "USDC", "polygon", "USDC", 10)
+    with pytest.raises(ValueError, match="assetfare_source_endpoint_invalid"):
+        quote_tool(quote_session()).forward("polygon", "USDC", "solana", "USDC", 10)
 
 
 def test_quote_posts_normalised_payload():

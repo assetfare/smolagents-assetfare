@@ -8,18 +8,18 @@ import urllib
 
 class AssetFareCapabilitiesTool(Tool):
     name = "assetfare_capabilities"
-    description = "Read-only capabilities probe for the AssetFare v2 API (fixed origin https://api.assetfare.dev). This tool's entire scope is to fetch and validate the public capability/status surface and return it; it is not the AssetFare service and exposes none of its other endpoints. It reports the supported chains (solana, base, arbitrum, robinhood), the 9 (chain, token) asset endpoints, the count of directed conversion routes (72) and unsigned route plans ready, and the USD amount bounds (1 to 1000). It validates that the surface it reads is a quote-only, non-custodial public agent release whose server never signs or submits for these endpoints, failing closed otherwise; this is a property of what this tool exercises, not a blanket claim about all of AssetFare. Takes no inputs. Use it to check which cross-chain corridors can be quoted before requesting a quote. This tool does NOT execute, bridge, swap, sign or move funds."
+    description = "Read-only capabilities probe for the AssetFare v2 API (fixed origin https://api.assetfare.dev). This tool's entire scope is to fetch and validate the public capability/status surface and return it; it is not the AssetFare service and exposes none of its other endpoints. It reports the supported source chains (solana, base, arbitrum, robinhood, polygon), the 10 (chain, token) source endpoints, the directed routes (74), the Polygon source-only constraint, and unsigned route plans ready, and the USD amount bounds (1 to 1000). It validates that the surface it reads is a quote-only, non-custodial public agent release whose server never signs or submits for these endpoints, failing closed otherwise; this is a property of what this tool exercises, not a blanket claim about all of AssetFare. Takes no inputs. Use it to check which cross-chain corridors can be quoted before requesting a quote. This tool does NOT execute, bridge, swap, sign or move funds."
     inputs = {}
     output_type = "object"
     ALLOWED_ORIGIN = "https://api.assetfare.dev"
     SOCKET_TIMEOUT_S = 45.0
     STALE_BUDGET_S = 45.0
     MAX_BYTES = 1048576
-    EXPECTED_ROUTES = 72
+    EXPECTED_ROUTES = 74
     MIN_USD = 1.0
     MAX_USD = 1000.0
-    CHAINS = {'arbitrum', 'base', 'robinhood', 'solana'}
-    ENDPOINTS = {'arbitrum:ETH', 'arbitrum:USDC', 'base:ETH', 'base:USDC', 'robinhood:ETH', 'robinhood:USDG', 'solana:SOL', 'solana:USDC', 'solana:USDG'}
+    CHAINS = {'arbitrum', 'base', 'polygon', 'robinhood', 'solana'}
+    ENDPOINTS = {'arbitrum:ETH', 'arbitrum:USDC', 'base:ETH', 'base:USDC', 'polygon:USDC', 'robinhood:ETH', 'robinhood:USDG', 'solana:SOL', 'solana:USDC', 'solana:USDG'}
 
     def __init__(
         self,
