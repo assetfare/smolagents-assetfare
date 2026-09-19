@@ -1,34 +1,50 @@
-# smolagents-assetfare — read-only AssetFare tools for smolagents agents
+# smolagents-assetfare — non-custodial AssetFare tools for smolagents agents
 
-Public source for two self-contained [smolagents](https://github.com/huggingface/smolagents)
-`Tool` classes that let an agent **load and call** AssetFare's read-only
-cross-chain quote surface — the current, supported Hub tool path (a Space tagged
+Public source for nine self-contained [smolagents](https://github.com/huggingface/smolagents)
+`Tool` classes that let an agent **load and call** AssetFare's non-custodial
+cross-chain surface — read-only quote/capabilities discovery **plus** the explicit,
+caller-approved v2 action surface (one-shot `/v2/prepare` and the full `/v2/session`
+receipt-driven lifecycle). This is the supported Hub tool path (a Space tagged
 `smolagents`+`tool`, whose `tool.py` an agent loads via
 `load_tool(repo_id, trust_remote_code=True)`), **not** a human-facing Space promo.
+No tool signs, submits, or receives a private key; the action tools are never
+auto-called from a quote and require an explicit `caller_approved: true`.
 
-Published Static Spaces:
+Static Spaces (one per tool; nine total):
 
-- `https://huggingface.co/spaces/odaiin/assetfare-quote`
-- `https://huggingface.co/spaces/odaiin/assetfare-capabilities`
+- `odaiin/assetfare-quote`, `odaiin/assetfare-capabilities` (read-only)
+- `odaiin/assetfare-new-session-capability` (local-only token; no network)
+- `odaiin/assetfare-prepare` (one-shot `/v2/prepare`)
+- `odaiin/assetfare-session-create`, `-session-get`, `-observe-source`,
+  `-observe-output`, `-refresh-action` (full `/v2/session` lifecycle)
 
 | file | what |
 |------|------|
-| `assetfare_quote_tool.py` | `AssetFareQuoteTool` — validated `POST /v2/quote` |
+| `assetfare_quote_tool.py` | `AssetFareQuoteTool` — validated `POST /v2/quote`, fail-closed handoff passthrough |
 | `assetfare_capabilities_tool.py` | `AssetFareCapabilitiesTool` — validated `GET /v2/capabilities` + `/v2/status` |
-| `tests/test_tools.py` | offline mock tests (no network) |
+| `assetfare_session_capability_tool.py` | `AssetFareNewSessionCapabilityTool` — local-only 256-bit token, **zero network** |
+| `assetfare_prepare_tool.py` | `AssetFarePrepareTool` — caller-approved one-shot `POST /v2/prepare` |
+| `assetfare_session_tools.py` | `AssetFareSessionCreate/Get/ObserveSource/ObserveOutput/RefreshAction` — full `/v2/session` lifecycle |
+| `tests/test_tools.py` | offline mock tests for quote + capabilities (no network) |
+| `tests/test_action_tools.py` | offline mock tests for prepare/session/token + 76-route e2e matrix (no network) |
 | `tests/test_bundle.py` | builds + loads each Static-Space bundle in a subprocess (no network) |
-| `hub/index_quote.html`, `hub/index_capabilities.html` | static Space landing pages (`app_file`) |
-| `hub/build_bundles.py` | deterministic builder → `hub_bundles/<space>/` |
-| `hub_bundles/<space>/` | generated, atomically-uploadable Space bundle |
+| `hub/build_bundles.py` | deterministic builder → `hub_bundles/<space>/` (generates `index.html`) |
+| `hub_bundles/<space>/` | generated, atomically-uploadable Space bundle (9 spaces) |
 | `hub_cards/<space>/README.md` | per-Space Hub card (frontmatter + usage) |
+| `BLOCKERS.md` | Hub-model coverage notes for the action/session tools |
 | `LICENSE` / `PRIVACY.md` | MIT license / privacy statement |
 | `pyproject.toml` | pins + ruff config |
 
-## Guarantees (both tools)
+## Guarantees (all tools)
 
 - Fixed origin `https://api.assetfare.dev`; any other base URL rejected (injected
-  `requests.Session` included — `trust_env` is forced off).
-- Exact surface: 6 source chains, 11 `(chain, token)` source endpoints, 76 routes, $1–$1000. Polygon and Optimism are native-USDC source-only to Base or Arbitrum USDC (Polygon 1bp on its audited executor step, Optimism 0bp).
+  `requests.Session` included — `trust_env` is forced off). The
+  `new_session_capability` token tool makes **no network call** at all.
+- Exact surface: 6 source chains, 11 `(chain, token)` source endpoints, **76**
+  directed quote routes (execution ready for **72**; **4** source-only Phase-B
+  routes blocked), $1–$1000. Polygon and Optimism are native-USDC source-only to
+  Base or Arbitrum USDC (Polygon models 1bp, Optimism 0bp) and are **not**
+  execution-ready this phase.
 - Strict response validation, RFC3339 tz-aware freshness (stale + future-skew;
   a trailing `Z` is normalized so it validates on Python 3.10 as well as 3.11+),
   1 MiB cap, single fixed sanitized error (no upstream text leaks). Every failure
@@ -37,15 +53,35 @@ Published Static Spaces:
   `__cause__ is None` — a bare `raise ... from None` would still leave the upstream
   exception object on `__context__`. Internal budget/size stops use a sentinel, so
   a hostile `iter_content` raising its own `ValueError` is sanitized, not surfaced.
-- **No** wallet auth, session, unsigned-action prepare, sign, or submit. A
-  quote result carries only a documentation-only, caller-operated REST
-  `/v2/prepare` handoff — **surfaced from the upstream `/v2/quote` response** and
-  validated (local fallback only if upstream omits it; `origin` marks which),
-  usable after explicit caller approval with public wallet addresses. It is never
-  auto-called and fails closed if a response (or the handoff) claims the server
-  signs or submits. The quote also reports fee **eligibility**
-  (`fee_collection_steps`, `fee_collectible`): `assetfare_fee_bps` is collected
-  only on an eligible successful executor step, never as an unconditional flat fee.
+- **AssetFare never signs or submits, and never receives a private key/seed.** The
+  quote result carries the caller-operated `caller_action_plan_handoff` as a
+  **FAIL-CLOSED passthrough** of the upstream `/v2/quote` handoff — **no local
+  fallback**: a missing/null/array/extra/wrong-field handoff is a real contract
+  regression and is rejected, never synthesized. For an execution-ready route it
+  carries `available: true`, `url: …/v2/prepare`, and **two options** (one-shot
+  `POST /v2/prepare` + full `POST /v2/session` lifecycle), the exact **8-field**
+  `request_fields` (`caller_approved` first), and the invariants
+  `requires_explicit_caller_approval` / `requires_public_wallet_addresses` /
+  `requires_fresh_requote` / `automatic_prepare_call_forbidden` /
+  `assetfare_server_signing=false` / `assetfare_server_submission=false` /
+  `caller_must_verify_sign_and_submit=true`. A source-only route carries
+  `available: false` + `blocker: execution_not_ready_phase_b` and **no** prepare
+  url/options (accepted without offering prepare).
+- **Fee is EXACTLY `{0, 1}`bp.** `assetfare_fee_bps` is validated to be exactly 0
+  or 1 (8bp/2bp/negative rejected); `fee=1` ⇒ exactly one eligible
+  `fee_collection_steps` index, `fee=0` ⇒ `[]`. Plus `fee_modeled_bps`,
+  `fee_collectible_now` (always `false` for source-only), and the constant
+  `fee_collection = "only_on_eligible_successful_executor_step"`.
+- **Action tools are explicit and caller-owned.** `assetfare_prepare` and
+  `assetfare_session_create` require the literal `caller_approved: true` and the
+  route's own PUBLIC wallet addresses (private key/seed/signed material rejected
+  before any network call); source-only routes are fail-closed rejected. The
+  session capability token is **caller-generated** by `new_session_capability`
+  (256-bit CSPRNG, marked sensitive, not a private key) and passed as **required**
+  input to `session_create` (sent only in the `X-AssetFare-Session-Token` header),
+  so a lost create response retried with the same token + idempotency_key recovers
+  the **same** session. observe-source/observe-output observe only the caller's
+  already-submitted tx hashes; nothing auto-submits or auto-chains.
 - Self-contained per smolagents `validate_tool_attributes` — each serialises to a
   single `tool.py` via `to_dict()` and round-trips through `from_code` (the
   Hub-load path), asserted in tests.
@@ -53,7 +89,7 @@ Published Static Spaces:
 ## Test / lint locally (offline)
 
 ```bash
-python -m pytest tests/ -q     # 140 passed with SMOLAGENTS_ALT_PYTHON set; otherwise 139 passed + 1 skipped
+python -m pytest tests/ -q     # 277 passed with SMOLAGENTS_ALT_PYTHON set; otherwise 276 passed + 1 skipped
 ruff check .                   # clean (generated hub_bundles/ excluded)
 ```
 
@@ -107,7 +143,7 @@ from smolagents import load_tool
 quote = load_tool(
     "odaiin/assetfare-quote",
     trust_remote_code=True,          # required for any Hub tool: runs Space code in-process
-    revision="8e0f9ffbf4308f496f88c64dc912499845f4e371", # reviewed release SHA (pre-Optimism; re-pin to the 6-chain build once published)
+    revision="<pin-reviewed-6chain-SHA-after-publish>", # pin the reviewed 6-chain SHA only AFTER publish (do not advertise a pre-Optimism SHA)
 )
 ```
 

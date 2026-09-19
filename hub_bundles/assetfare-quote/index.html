@@ -20,37 +20,30 @@
 <body>
 <main>
   <h1>AssetFare Quote Tool</h1>
-  <p class="sub">A read-only, quote-only <a href="https://github.com/huggingface/smolagents">smolagents</a> agent tool.</p>
-  <p><span class="tag">smolagents</span><span class="tag">tool</span><span class="tag">read-only</span><span class="tag">cross-chain</span></p>
+  <p class="sub">A non-custodial <a href="https://github.com/huggingface/smolagents">smolagents</a> agent tool &mdash; read-only, quote-only cross-chain quote.</p>
+  <p><span class="tag">smolagents</span><span class="tag">tool</span><span class="tag">non-custodial</span><span class="tag">cross-chain</span></p>
 
-  <p>This Space hosts an <strong>agent tool</strong> (<code>tool.py</code>), meant to be loaded by an
-  agent — not run as a web app. It fetches and strictly validates one non-custodial
-  cross-chain conversion <strong>quote</strong> from the AssetFare v2 API
-  (<code>https://api.assetfare.dev</code>). It never authenticates a wallet, opens a
-  session, prepares an unsigned action, signs, or submits, and it fails closed if a
-  response claims the server will sign or submit.</p>
+  <p>This Space hosts an <strong>agent tool</strong> (<code>tool.py</code>), meant to be loaded
+  by an agent &mdash; not run as a web app. Read-only quote client for one cross-chain corridor via the AssetFare v2 API (fixed origin https://api.assetfare.dev). This tool's entire scope is to fetch and validate a single conversion quote and return it; it is not the AssetFare service and does not itself prepare, sign or submit. It covers 6 source chains (solana, base, arbitrum, robinhood, polygon, optimism), 11 (chain, token) source endpoi
+  AssetFare never signs or submits; this tool never receives a private key and fails
+  closed on any response that claims the server will sign or submit.</p>
 
   <div class="box">
     <strong>Load it in an agent (review <code>tool.py</code> first):</strong>
 <pre>from smolagents import load_tool
 
-quote = load_tool(
+tool = load_tool(
     "odaiin/assetfare-quote",
     trust_remote_code=True,           # runs the reviewed tool code in your process
-    revision="8e0f9ffbf4308f496f88c64dc912499845f4e371",  # reviewed release SHA (pre-Optimism; re-pin to the 6-chain build once published)
-)
-result = quote(
-    from_chain="solana", from_token="SOL",
-    to_chain="base",     to_token="ETH",
-    amount_usd=250,
+    revision="<pin-reviewed-6chain-SHA-after-publish>",  # pin the reviewed 6-chain SHA only AFTER publish
 )</pre>
   </div>
 
-  <p>Surface: 6 source chains (solana, base, arbitrum, robinhood, polygon, optimism), 11 (chain, token) source endpoints,
-  76 directed routes, USD 1&ndash;1000. Polygon and Optimism are native-USDC source-only to Base or Arbitrum USDC (Polygon 1bp on its audited executor step, Optimism 0bp). Does <strong>not</strong> execute, bridge, swap,
-  sign, or move funds &mdash; acting on a quote is a separate wallet action taken outside
-  this tool. Review the <a href="https://github.com/odaiin/smolagents-assetfare">source and tests</a>
-  and the <a href="https://assetfare.dev/agents/">AssetFare agent integration guide</a>.</p>
+  <p>Tool name: <code>assetfare_quote</code>. Does <strong>not</strong> execute, bridge, swap,
+  sign, or move funds &mdash; any transfer is a separate caller wallet action taken after
+  explicit approval. Review the
+  <a href="https://github.com/odaiin/smolagents-assetfare">source and tests</a> and the
+  <a href="https://assetfare.dev/agents/">AssetFare agent integration guide</a>.</p>
 </main>
 </body>
 </html>

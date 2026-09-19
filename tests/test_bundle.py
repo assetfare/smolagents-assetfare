@@ -12,7 +12,10 @@ For the built bundles this:
     tool.py, pinning an exact revision, and asserting the loaded tool's schema,
   - asserts byte-identical bundles across PYTHONHASHSEED.
 
-No network, no login, no push, no live quote (forward() is never called).
+Covers all nine AssetFare tool Spaces (two read-only + the seven caller-approved,
+non-custodial action / session / token tools).
+
+No network, no login, no push, no live call (forward() is never called).
 """
 
 from __future__ import annotations
@@ -29,13 +32,36 @@ sys.path.insert(0, str(ROOT))
 
 import build_bundles
 
-SPACES = ["assetfare-quote", "assetfare-capabilities"]
 # The exact allowlist a static Space carries (HF adds a managed .gitattributes).
 ALLOWLIST = ["LICENSE", "PRIVACY.md", "README.md", "index.html", "requirements.txt", "tool.py"]
+
+# space -> (tool name, ordered input keys)
 EXPECTED = {
     "assetfare-quote": ("assetfare_quote", ["from_chain", "from_token", "to_chain", "to_token", "amount_usd"]),
     "assetfare-capabilities": ("assetfare_capabilities", []),
+    "assetfare-new-session-capability": ("assetfare_new_session_capability", []),
+    "assetfare-prepare": (
+        "assetfare_prepare",
+        ["caller_approved", "from_chain", "from_token", "to_chain", "to_token", "amount_usd", "wallets", "event_signer_public"],
+    ),
+    "assetfare-session-create": (
+        "assetfare_session_create",
+        [
+            "caller_approved", "from_chain", "from_token", "to_chain", "to_token", "amount_usd",
+            "wallets", "session_token", "idempotency_key", "event_signer_public",
+        ],
+    ),
+    "assetfare-session-get": ("assetfare_session_get", ["session_token", "session_id"]),
+    "assetfare-observe-source": ("assetfare_observe_source", ["session_token", "session_id", "idempotency_key", "transaction_hashes"]),
+    "assetfare-observe-output": ("assetfare_observe_output", ["session_token", "session_id", "idempotency_key", "transaction_hash"]),
+    "assetfare-refresh-action": ("assetfare_refresh_action", ["session_token", "session_id", "idempotency_key"]),
 }
+SPACES = list(EXPECTED)
+# Read-only tools may touch only capabilities/status/quote; action tools additionally
+# operate the caller-approved prepare/session endpoints.
+READONLY_SPACES = {"assetfare-quote", "assetfare-capabilities"}
+# The token tool makes no network call at all.
+NO_NETWORK_SPACES = {"assetfare-new-session-capability"}
 
 
 @pytest.fixture(scope="module")
@@ -52,7 +78,7 @@ cls = [getattr(tool_mod, n) for n in dir(tool_mod)
 t = cls()
 assert t.output_type == "object"
 d = t.to_dict()              # validate_tool_attributes must pass on the bundled code
-assert d["name"] in ("assetfare_quote", "assetfare_capabilities")
+assert isinstance(d["name"], str) and d["name"].startswith("assetfare_")
 import sys
 assert "gradio" not in sys.modules, "tool.py must not import gradio"
 print("BOOT OK", d["name"])
@@ -90,6 +116,8 @@ def test_index_html_is_static(bundles, space):
     assert html.lstrip().lower().startswith("<!doctype html>")
     assert "load_tool" in html and "trust_remote_code=True" in html
     assert "gradio" not in html.lower()
+    # SHA-pin principle: no pre-publish/pre-Optimism SHA advertised as canonical.
+    assert build_bundles.REVISION_PLACEHOLDER in html
 
 
 @pytest.mark.parametrize("space", SPACES)
@@ -106,7 +134,7 @@ def test_load_tool_exact_revision_mocked(bundles, space, monkeypatch):
     # Prove the agent load path works from a Space *regardless of SDK*: from_hub
     # downloads only tool.py (repo_type="space", revision=...). Mock hf_hub_download
     # to return this bundle's tool.py and assert the revision is forwarded and the
-    # loaded tool has the right schema. forward() is never called (no live quote).
+    # loaded tool has the right schema. forward() is never called (no live call).
     import smolagents.tools as st
 
     d = bundles[space]
@@ -145,23 +173,43 @@ def test_load_tool_requires_trust_remote_code(bundles, monkeypatch):
         load_tool("odaiin/assetfare-quote")  # default trust_remote_code=False
 
 
+# The recursive no-sign denylist: no sign/submit machinery anywhere in any bundle.
+_SIGN_SUBMIT_DENYLIST = [
+    ".sign(", "sign_transaction", "submit_transaction", "send_transaction",
+    "eth_send", "approve(", "authorization", "api_key", "api-key", "wallet_connect",
+]
+# Read-only tools additionally must not even name secret material.
+_SECRET_KEY_DENYLIST = ["private_key", "mnemonic", "seed_phrase"]
+
+
 @pytest.mark.parametrize("space", SPACES)
 def test_tool_py_no_auth_sign_submit(bundles, space):
-    src = (bundles[space] / "tool.py").read_text()
-    # only the three read-only endpoints
     import re
 
-    eps = set(re.findall(r"/v2/(capabilities|status|quote)", src))
-    assert eps and eps <= {"capabilities", "status", "quote"}
-    # no auth/sign/submit machinery (validation strings server_signing/_submission
-    # are checks that these are False and do not match the denylist below)
-    denylist = ["authorization", "api_key", "api-key", "private_key", "mnemonic",
-                "seed_phrase", "wallet_connect", ".sign(", "sign_transaction",
-                "submit_transaction", "send_transaction", "eth_send", "approve("]
+    src = (bundles[space] / "tool.py").read_text()
     low = src.lower()
-    for bad in denylist:
-        assert bad not in low, f"forbidden token in tool.py: {bad}"
-    assert '"server_signs_or_submits": False' in src or "server_signs_or_submits" in src
+
+    # Anchor on the leading quote so only RELATIVE request-path literals passed to
+    # self._request match -- the absolute PREPARE_URL/SESSION_URL constants and the
+    # handoff URLs the quote tool merely validates (…dev/v2/prepare) do NOT.
+    eps = set(re.findall(r'"/v2/(capabilities|status|quote|prepare|session)', src))
+    if space in READONLY_SPACES:
+        assert eps and eps <= {"capabilities", "status", "quote"}
+    elif space in NO_NETWORK_SPACES:
+        assert eps == set()  # the token tool makes no network call
+    else:
+        assert eps and eps <= {"prepare", "session"}
+
+    # No sign/submit machinery in ANY bundle (the recursive no-sign guarantee).
+    for bad in _SIGN_SUBMIT_DENYLIST:
+        assert bad not in low, f"forbidden token in {space} tool.py: {bad}"
+    # Read-only tools never even mention secret-material key names; action tools DO
+    # (they list them as REJECTED keys), which is correct, so exempt them here.
+    if space in READONLY_SPACES:
+        for bad in _SECRET_KEY_DENYLIST:
+            assert bad not in low, f"forbidden token in {space} tool.py: {bad}"
+    # Every bundle asserts the server never signs/submits somewhere.
+    assert "server_signing" in src
 
 
 # ---- reproducibility: identical bundle bytes across different PYTHONHASHSEED ----
@@ -202,7 +250,7 @@ def test_bundle_bytes_deterministic_across_hashseeds():
 
 # ---- canonical form (guarantees cross-interpreter identical tool.py) ---------
 
-@pytest.mark.parametrize("space", SPACES)
+@pytest.mark.parametrize("space", ["assetfare-quote", "assetfare-capabilities"])
 def test_tool_py_canonical_form(bundles, space):
     import re
 
@@ -215,6 +263,28 @@ def test_tool_py_canonical_form(bundles, space):
         # textual element order (NOT list(set(...)), whose order is hash-dependent)
         elems = re.findall(r"'([^']*)'", m.group(1))
         assert elems == sorted(elems), f"{name} elements must be sorted (textually)"
+
+
+@pytest.mark.parametrize("space", SPACES)
+def test_tool_py_imports_sorted(bundles, space):
+    src = (bundles[space] / "tool.py").read_text()
+    imports = [l for l in src.split("\n") if l.startswith(("import ", "from "))]
+    assert imports == sorted(imports), f"{space}: top-level imports must be sorted"
+
+
+@pytest.mark.parametrize("space", SPACES)
+def test_tool_py_set_attrs_sorted(bundles, space):
+    # Every UPPER_CASE set-literal class attribute must be textually sorted so the
+    # serialized bundle is deterministic across hash seeds / interpreters.
+    import re
+
+    src = (bundles[space] / "tool.py").read_text()
+    for m in re.finditer(r"^[ \t]*([A-Z_][A-Z0-9_]*) = (\{[^{}]*\})$", src, flags=re.MULTILINE):
+        rhs = m.group(2)
+        if ":" in rhs:  # dict literal, not a set
+            continue
+        elems = re.findall(r"'([^']*)'", rhs)
+        assert elems == sorted(elems), f"{space}: set attr {m.group(1)} not sorted"
 
 
 def test_bundle_bytes_deterministic_across_interpreters():

@@ -50,7 +50,7 @@ from smolagents import load_tool
 caps = load_tool(
     "odaiin/assetfare-capabilities",
     trust_remote_code=True,
-    revision="526b65ad9d04faa786f60f7ee10591cdae496ede", # reviewed release SHA (pre-Optimism; re-pin to the 6-chain build once published)
+    revision="<pin-reviewed-6chain-SHA-after-publish>", # pin the reviewed 6-chain SHA only AFTER publish
 )
 print(caps())  # -> dict of chains, endpoints, route counts, amount bounds
 ```
@@ -58,7 +58,9 @@ print(caps())  # -> dict of chains, endpoints, route counts, amount bounds
 ## Output (object)
 
 `status`, `chains`, `asset_endpoints`, `directed_conversion_routes` (76),
-`unsigned_route_plans_ready` (76), `source_only_asset_endpoints`
+`unsigned_route_plans_ready` (76), `execution_ready_routes` (72),
+`phase_b_blocked_routes` (4), `blocked_source_only_routes` (the 4 source-only
+routes), `source_only_asset_endpoints`
 (`optimism:USDC`, `polygon:USDC`), exact `source_only_routes`
 (`polygon:USDC->base:USDC`, `polygon:USDC->arbitrum:USDC`,
 `optimism:USDC->base:USDC`, `optimism:USDC->arbitrum:USDC`),

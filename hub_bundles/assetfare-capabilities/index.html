@@ -20,33 +20,30 @@
 <body>
 <main>
   <h1>AssetFare Capabilities Tool</h1>
-  <p class="sub">A read-only <a href="https://github.com/huggingface/smolagents">smolagents</a> agent tool.</p>
-  <p><span class="tag">smolagents</span><span class="tag">tool</span><span class="tag">read-only</span><span class="tag">cross-chain</span></p>
+  <p class="sub">A non-custodial <a href="https://github.com/huggingface/smolagents">smolagents</a> agent tool &mdash; read-only capability/status probe.</p>
+  <p><span class="tag">smolagents</span><span class="tag">tool</span><span class="tag">non-custodial</span><span class="tag">cross-chain</span></p>
 
-  <p>This Space hosts an <strong>agent tool</strong> (<code>tool.py</code>), meant to be loaded by an
-  agent — not run as a web app. It fetches and strictly validates the AssetFare v2
-  public capability/status surface (<code>https://api.assetfare.dev</code>): the
-  six source chains, the 11 (chain, token) source endpoints, the 76 directed routes, the Polygon and Optimism native-USDC source-only constraint (Polygon 1bp on its audited executor step, Optimism 0bp), and the
-  USD amount bounds. It confirms the surface it reads is quote-only and that the
-  server never signs or submits for these endpoints, failing closed otherwise.</p>
+  <p>This Space hosts an <strong>agent tool</strong> (<code>tool.py</code>), meant to be loaded
+  by an agent &mdash; not run as a web app. Read-only capabilities probe for the AssetFare v2 API (fixed origin https://api.assetfare.dev). This tool's entire scope is to fetch and validate the public capability/status surface and return it; it is not the AssetFare service and exposes none of its other endpoints. It reports the supported source chains (solana, base, arbitrum, robinhood, polygon, optimism), the 11 (chain, token) source endpo
+  AssetFare never signs or submits; this tool never receives a private key and fails
+  closed on any response that claims the server will sign or submit.</p>
 
   <div class="box">
     <strong>Load it in an agent (review <code>tool.py</code> first):</strong>
 <pre>from smolagents import load_tool
 
-caps = load_tool(
+tool = load_tool(
     "odaiin/assetfare-capabilities",
     trust_remote_code=True,           # runs the reviewed tool code in your process
-    revision="526b65ad9d04faa786f60f7ee10591cdae496ede",  # reviewed release SHA (pre-Optimism; re-pin to the 6-chain build once published)
-)
-print(caps())  # dict of chains, endpoints, route counts, amount bounds</pre>
+    revision="<pin-reviewed-6chain-SHA-after-publish>",  # pin the reviewed 6-chain SHA only AFTER publish
+)</pre>
   </div>
 
-  <p>Takes no inputs. Does <strong>not</strong> execute, bridge, swap, sign, or move funds.
-  Use it to check which cross-chain corridors can be quoted before requesting a quote
-  with <code>odaiin/assetfare-quote</code>. Review the
-  <a href="https://github.com/odaiin/smolagents-assetfare">source and tests</a>
-  and the <a href="https://assetfare.dev/agents/">AssetFare agent integration guide</a>.</p>
+  <p>Tool name: <code>assetfare_capabilities</code>. Does <strong>not</strong> execute, bridge, swap,
+  sign, or move funds &mdash; any transfer is a separate caller wallet action taken after
+  explicit approval. Review the
+  <a href="https://github.com/odaiin/smolagents-assetfare">source and tests</a> and the
+  <a href="https://assetfare.dev/agents/">AssetFare agent integration guide</a>.</p>
 </main>
 </body>
 </html>

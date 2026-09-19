@@ -1,22 +1,38 @@
 # Privacy
 
-The AssetFare smolagents tools (`assetfare_quote`, `assetfare_capabilities`) are
-**read-only** and **quote-only**.
+The AssetFare smolagents tools are **non-custodial**: the read-only tools
+(`assetfare_quote`, `assetfare_capabilities`) plus the explicit, caller-approved
+action tools (`assetfare_new_session_capability`, `assetfare_prepare`,
+`assetfare_session_create`, `assetfare_session_get`, `assetfare_observe_source`,
+`assetfare_observe_output`, `assetfare_refresh_action`). None sign, submit, or
+receive a private key or seed.
 
 ## What is sent
 
 - **Only** to the fixed origin `https://api.assetfare.dev` over HTTPS. Any other
   base URL is rejected before a request is made.
+- `assetfare_new_session_capability`: **nothing** — it makes no network call. It
+  only generates a local session capability token.
 - `assetfare_capabilities`: a public `GET /v2/capabilities` and `GET /v2/status`
   with no body.
 - `assetfare_quote`: a `POST /v2/quote` whose body contains **only** the route
   you request — `from_chain`, `from_token`, `to_chain`, `to_token` — and the USD
   `amount_usd`. Nothing else is added.
+- `assetfare_prepare` / `assetfare_session_create`: the route, `amount_usd`, the
+  literal `caller_approved: true`, and the caller's **PUBLIC** wallet addresses (and
+  an optional PUBLIC `event_signer_public` for Solana-CCTP). Session create also
+  sends the caller-owned session capability token — only in the
+  `X-AssetFare-Session-Token` header, never in the body — and an `idempotency_key`.
+- The session read/observe/refresh tools send the session id, the header token, an
+  `idempotency_key`, and (for observe) only the caller's **already-submitted**
+  transaction hashes.
 
 ## What is NOT sent or collected
 
-- No wallet address, private key, seed phrase, API key, token, or account/session
-  credential. The tools never add an `Authorization` header or any auth material.
+- No private key, seed phrase, mnemonic, or signed transaction — these are rejected
+  before any network call. Only PUBLIC wallet addresses are ever sent.
+- No API key or `Authorization` header; `trust_env` is forced off. The session
+  capability token is a sensitive bearer credential, not a private key.
 - No user identity, email, or account identifier is added by the tools.
 
 ## Transport details you should know

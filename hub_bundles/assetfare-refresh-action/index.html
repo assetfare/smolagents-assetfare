@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AssetFare Refresh Action Tool (smolagents)</title>
+<style>
+  :root { color-scheme: light dark; }
+  body { margin: 0; font: 15px/1.6 system-ui, sans-serif; background: #0f1420; color: #e7ecf3; }
+  main { max-width: 760px; margin: 0 auto; padding: 40px 20px; }
+  h1 { font-size: 1.6rem; margin: 0 0 .2em; }
+  .sub { color: #9fb0c7; margin-top: 0; }
+  code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  pre { background: #171f2e; border: 1px solid #263349; border-radius: 8px; padding: 14px; overflow-x: auto; }
+  .tag { display: inline-block; background: #1c2740; color: #9ec1ff; border-radius: 6px; padding: 2px 8px; font-size: .8rem; margin-right: 6px; }
+  .box { background: #171f2e; border: 1px solid #263349; border-radius: 8px; padding: 12px 16px; margin: 14px 0; }
+  a { color: #7fb0ff; }
+</style>
+</head>
+<body>
+<main>
+  <h1>AssetFare Refresh Action Tool</h1>
+  <p class="sub">A non-custodial <a href="https://github.com/huggingface/smolagents">smolagents</a> agent tool &mdash; refresh an expired unsigned session action.</p>
+  <p><span class="tag">smolagents</span><span class="tag">tool</span><span class="tag">non-custodial</span><span class="tag">cross-chain</span></p>
+
+  <p>This Space hosts an <strong>agent tool</strong> (<code>tool.py</code>), meant to be loaded
+  by an agent &mdash; not run as a web app. Explicit caller-approved POST /v2/session/{session_id}/refresh-action for a caller-owned AssetFare session (fixed origin https://api.assetfare.dev). It replaces an expired, UNSUBMITTED session action with a fresh quote-bound unsigned action for the caller to verify, sign and submit. It never signs, never submits, and never auto-chains. Requires the caller-owned session capability token (sent only 
+  AssetFare never signs or submits; this tool never receives a private key and fails
+  closed on any response that claims the server will sign or submit.</p>
+
+  <div class="box">
+    <strong>Load it in an agent (review <code>tool.py</code> first):</strong>
+<pre>from smolagents import load_tool
+
+tool = load_tool(
+    "odaiin/assetfare-refresh-action",
+    trust_remote_code=True,           # runs the reviewed tool code in your process
+    revision="<pin-reviewed-6chain-SHA-after-publish>",  # pin the reviewed 6-chain SHA only AFTER publish
+)</pre>
+  </div>
+
+  <p>Tool name: <code>assetfare_refresh_action</code>. Does <strong>not</strong> execute, bridge, swap,
+  sign, or move funds &mdash; any transfer is a separate caller wallet action taken after
+  explicit approval. Review the
+  <a href="https://github.com/odaiin/smolagents-assetfare">source and tests</a> and the
+  <a href="https://assetfare.dev/agents/">AssetFare agent integration guide</a>.</p>
+</main>
+</body>
+</html>

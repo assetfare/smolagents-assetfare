@@ -47,7 +47,7 @@ as a human demo.
   quote = load_tool(
       "odaiin/assetfare-quote",
       trust_remote_code=True,
-      revision="8e0f9ffbf4308f496f88c64dc912499845f4e371", # reviewed release SHA (pre-Optimism; re-pin to the 6-chain build once published)
+      revision="<pin-reviewed-6chain-SHA-after-publish>", # pin the reviewed 6-chain SHA only AFTER publish (do not advertise a pre-Optimism SHA as canonical)
   )
   ```
 
@@ -65,7 +65,7 @@ from smolagents import load_tool, CodeAgent, InferenceClientModel
 quote = load_tool(
     "odaiin/assetfare-quote",
     trust_remote_code=True,
-    revision="8e0f9ffbf4308f496f88c64dc912499845f4e371",
+    revision="<pin-reviewed-6chain-SHA-after-publish>",
 )
 agent = CodeAgent(tools=[quote], model=InferenceClientModel())
 agent.run("Get an AssetFare quote to convert $250 from Solana SOL to Base ETH.")
@@ -96,27 +96,54 @@ result = quote(
 Validated fields only: `from`, `to`, `amount_usd`, `output_symbol`,
 `expected_receive_amount`, `estimated_min_receive_amount`,
 `expected_receive_usd`, `estimated_min_receive_usd`, `assetfare_fee_bps`,
-`fee_collection_steps`, `fee_collectible`, `fee_note`, `estimated_time_seconds`,
-`non_atomic`, `quote_id`, `as_of`, `ttl_seconds`, `execution_supported`,
-`server_signs_or_submits` (always `false`), and `caller_action_plan_handoff`.
+`fee_modeled_bps`, `fee_collectible_now`, `assetfare_fee_conditional`,
+`fee_collection_steps`, `fee_collection`, `fee_note`, `estimated_time_seconds`,
+`non_atomic`, `quote_id`, `as_of`, `ttl_seconds`, `source_only`,
+`execution_supported`, `execution_blocker`, `server_signs_or_submits` (always
+`false`), and `caller_action_plan_handoff`.
 
-**Fee eligibility.** `assetfare_fee_bps` is **conditional**, never an unconditional
-flat charge: it is collected only on an eligible **successful executor step**
-(named in `fee_collection_steps`). `fee_collectible` is `true` only when the fee is
-positive **and** at least one collection step exists (so a `0`bp route — e.g.
-Optimism — reports `fee_collectible: false`); a positive fee that names no step
-fails closed. `fee_note` states this in words.
+**Fee — EXACTLY `{0, 1}` bp.** `assetfare_fee_bps` is validated to be exactly `0`
+or `1` (anything else — `8`bp, `2`bp, negative — fails closed). It is
+**conditional**, never an unconditional flat charge: a `1`bp fee is collected only
+on **one** eligible **successful executor step** named in `fee_collection_steps`
+(`fee=1` ⇒ exactly one step; `fee=0` ⇒ `[]`; any mismatch fails closed). The
+constant `fee_collection` is always
+`"only_on_eligible_successful_executor_step"`. `fee_modeled_bps` is what AssetFare
+models; `fee_collectible_now` is whether it can be collected in this phase — for a
+**source-only** (Polygon/Optimism) route it is always `false` even when `1`bp is
+modeled, because those routes are not execution-ready. `assetfare_fee_conditional`
+is `true` iff the fee is positive.
 
-**`caller_action_plan_handoff`.** After explicit caller approval, the result names
-the separate, caller-operated REST `/v2/prepare` step. It is **surfaced from the
-upstream `/v2/quote` response** (validated; a local descriptor is used only if
-upstream omits it, marked by `origin: "upstream" | "local_fallback"`). Its six
-invariants: (1) `requires_explicit_caller_approval: true`, (2)
-`requires_public_wallet_addresses: true`, (3) `assetfare_server_signing: false`,
-(4) `assetfare_server_submission: false`, (5) `caller_must_verify_sign_and_submit:
-true`, (6) `automatic: false` — this tool never calls `/v2/prepare`, never
-receives a private key, and never signs or submits. It fails closed if the handoff
-claims the server signs or submits.
+**`caller_action_plan_handoff` — FAIL-CLOSED passthrough (no local fallback).** The
+upstream `/v2/quote` handoff is passed through **verbatim after strict validation**;
+there is **no** synthesized local descriptor. A missing / null / array / extra-field
+/ wrong-field handoff is a real contract regression and is **rejected**. For an
+**execution-ready** route it carries `available: true`, `url:
+https://api.assetfare.dev/v2/prepare`, and **two options** — a one-shot
+`POST /v2/prepare` first unsigned bundle and a full caller-approved
+`POST /v2/session` lifecycle (create / `GET {id}` / observe-source / observe-output
+/ refresh-action). Its invariants: `requires_explicit_caller_approval: true`,
+`requires_public_wallet_addresses: true`, `requires_fresh_requote: true`,
+`automatic_prepare_call_forbidden: true`, `assetfare_server_signing: false`,
+`assetfare_server_submission: false`, `caller_must_verify_sign_and_submit: true`,
+and the exact **8-field** `request_fields`
+`["caller_approved", "from_chain", "from_token", "to_chain", "to_token",
+"amount_usd", "wallets", "event_signer_public"]`. For a **source-only** Phase-B
+route it carries `available: false`, `blocker: "execution_not_ready_phase_b"`, and
+**no** prepare `url`/`options` — this tool accepts that and never offers prepare.
+This tool never calls `/v2/prepare` or `/v2/session`, never receives a private key,
+and never signs or submits.
+
+## Companion action tools
+
+Execution is a **separate, explicit, caller-approved** step, exposed as separate
+Hub tools that this quote tool only names (it never auto-calls them):
+`assetfare_new_session_capability` (local-only token; no network),
+`assetfare_prepare` (one-shot `/v2/prepare`), and the full session lifecycle
+`assetfare_session_create` / `assetfare_session_get` / `assetfare_observe_source` /
+`assetfare_observe_output` / `assetfare_refresh_action`. All require an explicit
+`caller_approved: true` and the caller's own PUBLIC wallet addresses; none sign or
+submit. Source-only (Polygon/Optimism) routes are fail-closed rejected there.
 
 ## Validation & safety
 

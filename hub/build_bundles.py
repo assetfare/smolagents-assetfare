@@ -11,7 +11,8 @@ Space needs, so the owner can upload the whole directory in one atomic commit:
 
     tool.py           serialized, canonicalized, self-contained tool code
                       (== canonicalize(to_dict()["code"]); loads identically)
-    index.html        static landing page (Space app_file for sdk: static)
+    index.html        static landing page (Space app_file for sdk: static),
+                      generated deterministically from a shared template
     requirements.txt  the tool's runtime deps for the loading agent's env only
                       (smolagents==1.26.0, requests>=2.32.3,<3) -- NOT executed by
                       the static Space; no gradio
@@ -20,15 +21,24 @@ Space needs, so the owner can upload the whole directory in one atomic commit:
     LICENSE, PRIVACY.md
 
 Reproducibility (cross-process AND cross-interpreter): smolagents'
-``instance_to_source`` emits the top-level ``import`` block and the set-literal
-class attributes (CHAINS/ENDPOINTS) in an order that varies both with
-``PYTHONHASHSEED`` and between CPython versions (e.g. 3.10 vs 3.12). Pinning the
-hash seed alone is therefore not enough. ``_canonicalize`` normalizes exactly those
-two things -- it sorts the top-level imports and re-emits each set literal with its
-elements sorted -- while leaving every other line (method bodies from ``get_source``,
-the ``inputs`` dict, string/number constants) byte-for-byte unchanged. The result is
-identical ``tool.py`` bytes (and whole-bundle SHA) on any interpreter and any hash
-seed, with the tool's semantics preserved (same members, same imports).
+``instance_to_source`` emits the top-level ``import`` block and any set-literal
+class attributes via ``repr(set)`` in an order that varies both with
+``PYTHONHASHSEED`` and between CPython versions. Pinning the hash seed alone is not
+enough. ``_canonicalize`` normalizes exactly those two things -- it sorts the
+top-level imports and re-emits EVERY set-literal class attribute (any UPPER_CASE
+name: CHAINS, ENDPOINTS, SOURCE_ONLY_CHAINS, FORBIDDEN_SECRET_KEYS,
+HANDOFF_ALLOWED_KEYS, ...) with its elements sorted -- while leaving every other
+line (method bodies, ``inputs`` dict, list literals, string/number constants)
+byte-for-byte unchanged. List literals keep their authored order (they carry an
+ast.Load ctx, so smolagents cannot host them as class attributes anyway; the exact
+8-field request_fields list lives inside a method, not as a class attribute). The
+result is identical ``tool.py`` bytes (and whole-bundle SHA) on any interpreter and
+any hash seed, with the tool's semantics preserved.
+
+SHA-pin principle: the generated card/landing page do NOT advertise a
+pre-publish / pre-Optimism commit as the 6-chain canonical revision. The reviewed
+revision SHA is pinned only AFTER the 6-chain build is published; until then the
+snippet carries a clearly annotated placeholder.
 
 Run: python hub/build_bundles.py   (no network, no login, no push)
 """
@@ -45,15 +55,36 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
 from assetfare_capabilities_tool import AssetFareCapabilitiesTool
+from assetfare_prepare_tool import AssetFarePrepareTool
 from assetfare_quote_tool import AssetFareQuoteTool
+from assetfare_session_capability_tool import AssetFareNewSessionCapabilityTool
+from assetfare_session_tools import (
+    AssetFareObserveOutputTool,
+    AssetFareObserveSourceTool,
+    AssetFareRefreshActionTool,
+    AssetFareSessionCreateTool,
+    AssetFareSessionGetTool,
+)
 
 # The tool's runtime deps for the *loading agent's* environment only. The static
 # Space itself runs nothing, so no gradio (and no gradio vuln surface) is shipped.
 BUNDLE_REQUIREMENTS = "smolagents==1.26.0\nrequests>=2.32.3,<3\n"
 
+# The reviewed revision SHA is pinned only AFTER the 6-chain build is published; do
+# NOT advertise a pre-publish/pre-Optimism SHA as the 6-chain canonical revision.
+REVISION_PLACEHOLDER = "<pin-reviewed-6chain-SHA-after-publish>"
+
+# (space, Class, human title, one-line tagline). space == card dir == repo name.
 SPECS = [
-    ("assetfare-quote", AssetFareQuoteTool, "index_quote.html", "assetfare-quote"),
-    ("assetfare-capabilities", AssetFareCapabilitiesTool, "index_capabilities.html", "assetfare-capabilities"),
+    ("assetfare-quote", AssetFareQuoteTool, "AssetFare Quote Tool", "read-only, quote-only cross-chain quote"),
+    ("assetfare-capabilities", AssetFareCapabilitiesTool, "AssetFare Capabilities Tool", "read-only capability/status probe"),
+    ("assetfare-new-session-capability", AssetFareNewSessionCapabilityTool, "AssetFare Session Capability Token", "local-only session capability token generator (no network)"),
+    ("assetfare-prepare", AssetFarePrepareTool, "AssetFare Prepare Tool", "explicit caller-approved one-shot /v2/prepare (unsigned bundle)"),
+    ("assetfare-session-create", AssetFareSessionCreateTool, "AssetFare Session Create Tool", "explicit caller-approved /v2/session create (idempotent)"),
+    ("assetfare-session-get", AssetFareSessionGetTool, "AssetFare Session Get Tool", "read-only /v2/session/{id}"),
+    ("assetfare-observe-source", AssetFareObserveSourceTool, "AssetFare Observe Source Tool", "observe caller-submitted source tx hashes"),
+    ("assetfare-observe-output", AssetFareObserveOutputTool, "AssetFare Observe Output Tool", "observe caller-produced destination output"),
+    ("assetfare-refresh-action", AssetFareRefreshActionTool, "AssetFare Refresh Action Tool", "refresh an expired unsigned session action"),
 ]
 
 
@@ -74,7 +105,10 @@ def canonicalize(code: str) -> str:
         rest.pop(0)
     code = "\n".join(sorted(imports) + [""] + rest)
 
-    # 2. Re-emit each set-literal assignment with its elements stably sorted.
+    # 2. Re-emit each set-literal class attribute (any UPPER_CASE name) with its
+    #    elements stably sorted. `repr(set)` order is hash-dependent; a dict literal
+    #    matches the same brace regex but literal_eval returns a dict, so it is left
+    #    unchanged. List literals use [ ] and never match this brace regex.
     def _sort_set(m: re.Match[str]) -> str:
         indent, name, rhs = m.group("indent"), m.group("name"), m.group("rhs")
         try:
@@ -86,30 +120,88 @@ def canonicalize(code: str) -> str:
         return m.group(0)
 
     return re.sub(
-        r"(?P<indent>^[ \t]*)(?P<name>CHAINS|ENDPOINTS) = (?P<rhs>\{[^{}]*\})",
+        r"(?P<indent>^[ \t]*)(?P<name>[A-Z_][A-Z0-9_]*) = (?P<rhs>\{[^{}]*\})",
         _sort_set,
         code,
         flags=re.MULTILINE,
     )
 
 
+def _index_html(space: str, title: str, tagline: str, tool_name: str, description: str) -> str:
+    """Deterministic static landing page. Contains load_tool + trust_remote_code=True,
+    no gradio, and an SHA-pin placeholder (no pre-publish SHA advertised)."""
+    summary = description[:400]
+    return f"""<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{title} (smolagents)</title>
+<style>
+  :root {{ color-scheme: light dark; }}
+  body {{ margin: 0; font: 15px/1.6 system-ui, sans-serif; background: #0f1420; color: #e7ecf3; }}
+  main {{ max-width: 760px; margin: 0 auto; padding: 40px 20px; }}
+  h1 {{ font-size: 1.6rem; margin: 0 0 .2em; }}
+  .sub {{ color: #9fb0c7; margin-top: 0; }}
+  code, pre {{ font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }}
+  pre {{ background: #171f2e; border: 1px solid #263349; border-radius: 8px; padding: 14px; overflow-x: auto; }}
+  .tag {{ display: inline-block; background: #1c2740; color: #9ec1ff; border-radius: 6px; padding: 2px 8px; font-size: .8rem; margin-right: 6px; }}
+  .box {{ background: #171f2e; border: 1px solid #263349; border-radius: 8px; padding: 12px 16px; margin: 14px 0; }}
+  a {{ color: #7fb0ff; }}
+</style>
+</head>
+<body>
+<main>
+  <h1>{title}</h1>
+  <p class="sub">A non-custodial <a href="https://github.com/huggingface/smolagents">smolagents</a> agent tool &mdash; {tagline}.</p>
+  <p><span class="tag">smolagents</span><span class="tag">tool</span><span class="tag">non-custodial</span><span class="tag">cross-chain</span></p>
+
+  <p>This Space hosts an <strong>agent tool</strong> (<code>tool.py</code>), meant to be loaded
+  by an agent &mdash; not run as a web app. {summary}
+  AssetFare never signs or submits; this tool never receives a private key and fails
+  closed on any response that claims the server will sign or submit.</p>
+
+  <div class="box">
+    <strong>Load it in an agent (review <code>tool.py</code> first):</strong>
+<pre>from smolagents import load_tool
+
+tool = load_tool(
+    "odaiin/{space}",
+    trust_remote_code=True,           # runs the reviewed tool code in your process
+    revision="{REVISION_PLACEHOLDER}",  # pin the reviewed 6-chain SHA only AFTER publish
+)</pre>
+  </div>
+
+  <p>Tool name: <code>{tool_name}</code>. Does <strong>not</strong> execute, bridge, swap,
+  sign, or move funds &mdash; any transfer is a separate caller wallet action taken after
+  explicit approval. Review the
+  <a href="https://github.com/odaiin/smolagents-assetfare">source and tests</a> and the
+  <a href="https://assetfare.dev/agents/">AssetFare agent integration guide</a>.</p>
+</main>
+</body>
+</html>
+"""
+
+
 def _build_impl() -> list[Path]:
-    hub = Path(__file__).resolve().parent
     out_root = ROOT / "hub_bundles"
     built = []
-    for space, cls, index_name, card_dir in SPECS:
+    for space, cls, title, tagline in SPECS:
         out = out_root / space
         if out.exists():
             shutil.rmtree(out)
         out.mkdir(parents=True)
+        instance = cls()
         # 1. serialized, canonicalized, self-contained tool code (== Hub-loaded code)
-        (out / "tool.py").write_text(canonicalize(cls().to_dict()["code"]), encoding="utf-8")
+        (out / "tool.py").write_text(canonicalize(instance.to_dict()["code"]), encoding="utf-8")
         # 2. static landing page (Space app_file for sdk: static; not agent-facing)
-        (out / "index.html").write_text((hub / index_name).read_text(encoding="utf-8"), encoding="utf-8")
+        (out / "index.html").write_text(
+            _index_html(space, title, tagline, cls.name, cls.description), encoding="utf-8"
+        )
         # 3. runtime deps for the loading agent's env (no gradio; static Space runs none)
         (out / "requirements.txt").write_text(BUNDLE_REQUIREMENTS, encoding="utf-8")
         # 4. card + license + privacy
-        card = ROOT / "hub_cards" / card_dir
+        card = ROOT / "hub_cards" / space
         for fname in ("README.md", "LICENSE", "PRIVACY.md"):
             shutil.copyfile(card / fname, out / fname)
         built.append(out)

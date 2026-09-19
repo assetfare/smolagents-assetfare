@@ -42,6 +42,8 @@ class AssetFareCapabilitiesTool(Tool):
     STALE_BUDGET_S = 45.0
     MAX_BYTES = 1048576
     EXPECTED_ROUTES = 76
+    EXECUTION_READY_ROUTES = 72
+    PHASE_B_BLOCKED_ROUTES = 4
     MIN_USD = 1.0
     MAX_USD = 1000.0
     CHAINS = {"arbitrum", "base", "optimism", "polygon", "robinhood", "solana"}
@@ -228,9 +230,13 @@ class AssetFareCapabilitiesTool(Tool):
         self._no_sign_tree(status)
         if caps.get("status") != "capped_public_agent_release" or caps.get("public_api_enabled") is not True:
             raise ValueError("assetfare_safety_boundary_failed")
+        # Quote discovery spans all 76 routes; execution is ready for 72 (four-chain),
+        # with exactly 4 source-only routes blocked (future Phase B).
         if (
             caps.get("directed_conversion_routes") != self.EXPECTED_ROUTES
             or caps.get("unsigned_route_plans_ready") != self.EXPECTED_ROUTES
+            or caps.get("execution_ready_routes") != self.EXECUTION_READY_ROUTES
+            or caps.get("phase_b_blocked_routes") != self.PHASE_B_BLOCKED_ROUTES
         ):
             raise ValueError("assetfare_safety_boundary_failed")
         self._no_sign(caps)
@@ -270,6 +276,13 @@ class AssetFareCapabilitiesTool(Tool):
         }
         if not isinstance(source_only_routes, list) or len(source_only_routes) != 4 or set(source_only_routes) != expected_source_only_routes:
             raise ValueError("assetfare_safety_boundary_failed")
+        blocked_source_only_routes = caps.get("blocked_source_only_routes")
+        if (
+            not isinstance(blocked_source_only_routes, list)
+            or len(blocked_source_only_routes) != 4
+            or set(blocked_source_only_routes) != expected_source_only_routes
+        ):
+            raise ValueError("assetfare_safety_boundary_failed")
         destinations = caps.get("destination_chains")
         if not isinstance(destinations, list) or len(destinations) != 4 or set(destinations) != {"arbitrum", "base", "robinhood", "solana"}:
             raise ValueError("assetfare_safety_boundary_failed")
@@ -279,8 +292,11 @@ class AssetFareCapabilitiesTool(Tool):
             "asset_endpoints": sorted(self.ENDPOINTS),
             "directed_conversion_routes": self.EXPECTED_ROUTES,
             "unsigned_route_plans_ready": self.EXPECTED_ROUTES,
+            "execution_ready_routes": self.EXECUTION_READY_ROUTES,
+            "phase_b_blocked_routes": self.PHASE_B_BLOCKED_ROUTES,
             "source_only_asset_endpoints": sorted(expected_source_only_eps),
             "source_only_routes": sorted(expected_source_only_routes),
+            "blocked_source_only_routes": sorted(expected_source_only_routes),
             "destination_chains": sorted(destinations),
             "amount_usd_min": self.MIN_USD,
             "amount_usd_max": self.MAX_USD,
