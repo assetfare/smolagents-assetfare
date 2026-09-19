@@ -450,6 +450,26 @@ def test_quote_handoff_rejects_server_signing_claim():
         quote_tool(quote_session(p)).forward("solana", "SOL", "base", "ETH", 250)
 
 
+@pytest.mark.parametrize(
+    "fields",
+    [
+        ["from_chain"],
+        [
+            "from_chain", "from_token", "to_chain", "to_token", "amount_usd",
+            "wallets", "event_signer_public", "private_key",
+        ],
+        [
+            "wallets", "from_chain", "from_token", "to_chain", "to_token",
+            "amount_usd", "event_signer_public",
+        ],
+    ],
+)
+def test_quote_handoff_rejects_noncanonical_request_fields(fields):
+    p = _mutated(lambda q: q["caller_action_plan_handoff"].__setitem__("request_fields", fields))
+    with pytest.raises(ValueError, match="assetfare_response_invalid"):
+        quote_tool(quote_session(p)).forward("solana", "SOL", "base", "ETH", 250)
+
+
 def test_quote_handoff_rejects_wrong_url():
     p = _mutated(lambda q: q["caller_action_plan_handoff"].__setitem__("url", "https://api.assetfare.dev/v2/execute"))
     with pytest.raises(ValueError, match="assetfare_response_invalid"):

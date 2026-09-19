@@ -340,11 +340,8 @@ class AssetFareQuoteTool(Tool):
             ):
                 raise ValueError("assetfare_safety_boundary_failed")
             fields = upstream.get("request_fields")
-            if not isinstance(fields, list):
+            if not isinstance(fields, list) or fields != request_fields:
                 raise ValueError("assetfare_response_invalid")
-            for request_field in fields:
-                if not isinstance(request_field, str):
-                    raise ValueError("assetfare_response_invalid")
             upstream_note = upstream.get("note")
             if upstream_note is not None and not isinstance(upstream_note, str):
                 raise ValueError("assetfare_response_invalid")
