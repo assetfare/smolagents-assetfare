@@ -3,7 +3,7 @@
 Report vulnerabilities privately through AssetFare's canonical GitHub security
 channel:
 
-https://github.com/odaiin/assetfare-mcp/security/advisories/new
+https://github.com/odaiin/smolagents-assetfare/security/advisories/new
 
 Do not open a public issue for an unpatched vulnerability. Never include wallet
 private keys, seed phrases, API tokens, signed transactions, or customer data in

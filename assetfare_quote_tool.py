@@ -24,9 +24,11 @@ class AssetFareQuoteTool(Tool):
         "API (fixed origin https://api.assetfare.dev). This tool's entire scope is "
         "to fetch and validate a single conversion quote and return it; it is not "
         "the AssetFare service and exposes none of its other endpoints. It covers "
-        "5 source chains (solana, base, arbitrum, robinhood, polygon), 10 "
-        "(chain, token) source endpoints and 74 directed routes, for a USD amount "
-        "of 1 to 1000. Polygon is native-USDC source-only to Base or Arbitrum USDC. It never "
+        "6 source chains (solana, base, arbitrum, robinhood, polygon, optimism), 11 "
+        "(chain, token) source endpoints and 76 directed routes, for a USD amount "
+        "of 1 to 1000. Polygon and Optimism are native-USDC source-only to Base or "
+        "Arbitrum USDC (Polygon collects 1bp on its audited executor step, Optimism "
+        "0bp). It never "
         "authenticates a wallet, opens a session, prepares an unsigned action, "
         "signs or submits. After explicit caller approval, its result names the "
         "separate REST /v2/prepare action-plan handoff; the returned "
@@ -44,7 +46,7 @@ class AssetFareQuoteTool(Tool):
     inputs = {
         "from_chain": {
             "type": "string",
-            "description": "Source chain: one of solana, base, arbitrum, robinhood, polygon.",
+            "description": "Source chain: one of solana, base, arbitrum, robinhood, polygon, optimism.",
         },
         "from_token": {
             "type": "string",
@@ -73,7 +75,7 @@ class AssetFareQuoteTool(Tool):
     MAX_FUTURE_SKEW_S = 300
     MIN_USD = 1.0
     MAX_USD = 1000.0
-    CHAINS = {"arbitrum", "base", "polygon", "robinhood", "solana"}
+    CHAINS = {"arbitrum", "base", "optimism", "polygon", "robinhood", "solana"}
     ENDPOINTS = {
         "solana:SOL",
         "solana:USDC",
@@ -85,6 +87,7 @@ class AssetFareQuoteTool(Tool):
         "robinhood:ETH",
         "robinhood:USDG",
         "polygon:USDC",
+        "optimism:USDC",
     }
 
     def __init__(
@@ -292,6 +295,76 @@ class AssetFareQuoteTool(Tool):
         # smolagents 1.26.0 (which itself requires requests>=2.32.3).
         return "smolagents==1.26.0\nrequests>=2.32.3,<3"
 
+    def _handoff(self, data: Any) -> Any:
+        # Non-custodial, caller-approved REST /v2/prepare handoff. This tool NEVER
+        # calls prepare, authenticates a wallet, signs or submits -- it only names
+        # the separate caller-operated step. Prefer the upstream /v2/quote handoff
+        # (validated + fail-closed on any server-sign/submit claim); fall back to a
+        # local descriptor only if upstream omits it.
+        fallback_note = (
+            "Guidance only: this tool does not call prepare or receive a private key."
+        )
+        request_fields = [
+            "from_chain",
+            "from_token",
+            "to_chain",
+            "to_token",
+            "amount_usd",
+            "wallets",
+            "event_signer_public",
+        ]
+        upstream = data.get("caller_action_plan_handoff")
+        if upstream is None:
+            fields = request_fields
+            note = fallback_note
+            origin = "local_fallback"
+        else:
+            if not isinstance(upstream, dict):
+                raise ValueError("assetfare_response_invalid")
+            if upstream.get("kind") != "caller_operated_rest_prepare":
+                raise ValueError("assetfare_response_invalid")
+            if upstream.get("url") != "https://api.assetfare.dev/v2/prepare":
+                raise ValueError("assetfare_response_invalid")
+            if upstream.get("method") != "POST":
+                raise ValueError("assetfare_response_invalid")
+            if upstream.get("requires_explicit_caller_approval") is not True:
+                raise ValueError("assetfare_response_invalid")
+            if upstream.get("requires_public_wallet_addresses") is not True:
+                raise ValueError("assetfare_response_invalid")
+            if upstream.get("caller_must_verify_sign_and_submit") is not True:
+                raise ValueError("assetfare_response_invalid")
+            # Fail closed if the handoff itself claims the server signs or submits.
+            if (
+                upstream.get("assetfare_server_signing") is not False
+                or upstream.get("assetfare_server_submission") is not False
+            ):
+                raise ValueError("assetfare_safety_boundary_failed")
+            fields = upstream.get("request_fields")
+            if not isinstance(fields, list):
+                raise ValueError("assetfare_response_invalid")
+            for request_field in fields:
+                if not isinstance(request_field, str):
+                    raise ValueError("assetfare_response_invalid")
+            upstream_note = upstream.get("note")
+            if upstream_note is not None and not isinstance(upstream_note, str):
+                raise ValueError("assetfare_response_invalid")
+            note = upstream_note if isinstance(upstream_note, str) else fallback_note
+            origin = "upstream"
+        return {
+            "kind": "caller_operated_rest_prepare",
+            "url": "https://api.assetfare.dev/v2/prepare",
+            "method": "POST",
+            "requires_explicit_caller_approval": True,
+            "requires_public_wallet_addresses": True,
+            "request_fields": list(fields),
+            "assetfare_server_signing": False,
+            "assetfare_server_submission": False,
+            "caller_must_verify_sign_and_submit": True,
+            "automatic": False,
+            "origin": origin,
+            "note": note,
+        }
+
     def forward(
         self,
         from_chain: str,
@@ -308,9 +381,11 @@ class AssetFareQuoteTool(Tool):
         to_u = self._endpoint(to_chain, to_token, "destination")
         if (from_chain, from_u) == (to_chain, to_u):
             raise ValueError("assetfare_identity_route_rejected")
-        if to_chain == "polygon":
+        if to_chain in {"polygon", "optimism"}:
             raise ValueError("assetfare_destination_endpoint_invalid")
-        if from_chain == "polygon" and not (from_u == "USDC" and to_chain in {"base", "arbitrum"} and to_u == "USDC"):
+        if from_chain in {"polygon", "optimism"} and not (
+            from_u == "USDC" and to_chain in {"base", "arbitrum"} and to_u == "USDC"
+        ):
             raise ValueError("assetfare_source_endpoint_invalid")
         budget_deadline = self._monotonic() + self.STALE_BUDGET_S
         data = self._request(
@@ -412,6 +487,13 @@ class AssetFareQuoteTool(Tool):
         for fee_step in fee_steps:
             if not self._is_int(fee_step) or fee_step < 0:
                 raise ValueError("assetfare_response_invalid")
+        # Fee eligibility: assetfare_fee_bps is collected ONLY on an eligible
+        # successful executor step (fee_collection_steps). Never present a
+        # non-collectible fee as a flat charge: a positive fee with no eligible
+        # step is contradictory and fails closed.
+        if fee > 0 and len(fee_steps) == 0:
+            raise ValueError("assetfare_response_invalid")
+        fee_collectible = bool(fee > 0 and len(fee_steps) > 0)
         eta = offer.get("estimated_time_seconds")
         if eta is not None and (not self._is_int(eta) or eta < 0):
             raise ValueError("assetfare_response_invalid")
@@ -439,6 +521,13 @@ class AssetFareQuoteTool(Tool):
             "expected_receive_usd": float(exp_usd),
             "estimated_min_receive_usd": float(mn_usd),
             "assetfare_fee_bps": fee,
+            "fee_collection_steps": list(fee_steps),
+            "fee_collectible": fee_collectible,
+            "fee_note": (
+                "assetfare_fee_bps applies only on an eligible successful executor "
+                "step (see fee_collection_steps); an unexecuted or failed step "
+                "collects nothing, so it is conditional, not an unconditional flat fee."
+            ),
             "estimated_time_seconds": eta if self._is_int(eta) else None,
             "non_atomic": risk["non_atomic"],
             "quote_id": data["quote_id"],
@@ -446,16 +535,5 @@ class AssetFareQuoteTool(Tool):
             "ttl_seconds": ttl,
             "execution_supported": True,
             "server_signs_or_submits": False,
-            "caller_action_plan_handoff": {
-                "kind": "caller_operated_rest_prepare",
-                "url": "https://api.assetfare.dev/v2/prepare",
-                "method": "POST",
-                "requires_explicit_caller_approval": True,
-                "requires_public_wallet_addresses": True,
-                "request_fields": ["from_chain", "from_token", "to_chain", "to_token", "amount_usd", "wallets", "event_signer_public"],
-                "assetfare_server_signing": False,
-                "assetfare_server_submission": False,
-                "caller_must_verify_sign_and_submit": True,
-                "note": "Guidance only: this tool does not call prepare or receive a private key.",
-            },
+            "caller_action_plan_handoff": self._handoff(data),
         }

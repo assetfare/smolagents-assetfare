@@ -28,7 +28,7 @@ Published Static Spaces:
 
 - Fixed origin `https://api.assetfare.dev`; any other base URL rejected (injected
   `requests.Session` included — `trust_env` is forced off).
-- Exact surface: 5 source chains, 10 `(chain, token)` source endpoints, 74 routes, $1–$1000. Polygon is native-USDC source-only to Base or Arbitrum USDC.
+- Exact surface: 6 source chains, 11 `(chain, token)` source endpoints, 76 routes, $1–$1000. Polygon and Optimism are native-USDC source-only to Base or Arbitrum USDC (Polygon 1bp on its audited executor step, Optimism 0bp).
 - Strict response validation, RFC3339 tz-aware freshness (stale + future-skew;
   a trailing `Z` is normalized so it validates on Python 3.10 as well as 3.11+),
   1 MiB cap, single fixed sanitized error (no upstream text leaks). Every failure
@@ -38,9 +38,14 @@ Published Static Spaces:
   exception object on `__context__`. Internal budget/size stops use a sentinel, so
   a hostile `iter_content` raising its own `ValueError` is sanitized, not surfaced.
 - **No** wallet auth, session, unsigned-action prepare, sign, or submit. A
-  quote result includes only a documentation-only REST `/v2/prepare` handoff,
-  usable after explicit caller approval with public wallet addresses; it fails
-  closed if a response claims the server signs or submits.
+  quote result carries only a documentation-only, caller-operated REST
+  `/v2/prepare` handoff — **surfaced from the upstream `/v2/quote` response** and
+  validated (local fallback only if upstream omits it; `origin` marks which),
+  usable after explicit caller approval with public wallet addresses. It is never
+  auto-called and fails closed if a response (or the handoff) claims the server
+  signs or submits. The quote also reports fee **eligibility**
+  (`fee_collection_steps`, `fee_collectible`): `assetfare_fee_bps` is collected
+  only on an eligible successful executor step, never as an unconditional flat fee.
 - Self-contained per smolagents `validate_tool_attributes` — each serialises to a
   single `tool.py` via `to_dict()` and round-trips through `from_code` (the
   Hub-load path), asserted in tests.
@@ -48,7 +53,7 @@ Published Static Spaces:
 ## Test / lint locally (offline)
 
 ```bash
-python -m pytest tests/ -q     # 128 passed with SMOLAGENTS_ALT_PYTHON set; otherwise 127 passed + 1 skipped
+python -m pytest tests/ -q     # 140 passed with SMOLAGENTS_ALT_PYTHON set; otherwise 139 passed + 1 skipped
 ruff check .                   # clean (generated hub_bundles/ excluded)
 ```
 
@@ -102,7 +107,7 @@ from smolagents import load_tool
 quote = load_tool(
     "odaiin/assetfare-quote",
     trust_remote_code=True,          # required for any Hub tool: runs Space code in-process
-    revision="8e0f9ffbf4308f496f88c64dc912499845f4e371", # reviewed Polygon-capable quote release
+    revision="8e0f9ffbf4308f496f88c64dc912499845f4e371", # reviewed release SHA (pre-Optimism; re-pin to the 6-chain build once published)
 )
 ```
 

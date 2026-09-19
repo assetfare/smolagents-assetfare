@@ -89,11 +89,11 @@ def caps_payload():
     return {
         "status": "capped_public_agent_release",
         "public_api_enabled": True,
-        "directed_conversion_routes": 74,
-        "unsigned_route_plans_ready": 74,
+        "directed_conversion_routes": 76,
+        "unsigned_route_plans_ready": 76,
         "server_signing": False,
         "server_submission": False,
-        "chains": ["solana", "base", "arbitrum", "robinhood", "polygon"],
+        "chains": ["solana", "base", "arbitrum", "robinhood", "polygon", "optimism"],
         "asset_endpoints": [
             {"chain": "solana", "token": "SOL"},
             {"chain": "solana", "token": "USDC"},
@@ -105,9 +105,18 @@ def caps_payload():
             {"chain": "robinhood", "token": "ETH"},
             {"chain": "robinhood", "token": "USDG"},
             {"chain": "polygon", "token": "USDC"},
+            {"chain": "optimism", "token": "USDC"},
         ],
-        "source_only_asset_endpoints": [{"chain": "polygon", "token": "USDC"}],
-        "source_only_routes": ["polygon:USDC->base:USDC", "polygon:USDC->arbitrum:USDC"],
+        "source_only_asset_endpoints": [
+            {"chain": "polygon", "token": "USDC"},
+            {"chain": "optimism", "token": "USDC"},
+        ],
+        "source_only_routes": [
+            "polygon:USDC->base:USDC",
+            "polygon:USDC->arbitrum:USDC",
+            "optimism:USDC->base:USDC",
+            "optimism:USDC->arbitrum:USDC",
+        ],
         "destination_chains": ["arbitrum", "base", "robinhood", "solana"],
     }
 
@@ -159,6 +168,21 @@ def quote_payload():
             "supported": True,
             "first_unsigned_action_supported": True,
             "future_actions_require_verified_receipts": True,
+        },
+        "caller_action_plan_handoff": {
+            "kind": "caller_operated_rest_prepare",
+            "url": "https://api.assetfare.dev/v2/prepare",
+            "method": "POST",
+            "requires_explicit_caller_approval": True,
+            "requires_public_wallet_addresses": True,
+            "request_fields": [
+                "from_chain", "from_token", "to_chain", "to_token",
+                "amount_usd", "wallets", "event_signer_public",
+            ],
+            "assetfare_server_signing": False,
+            "assetfare_server_submission": False,
+            "caller_must_verify_sign_and_submit": True,
+            "note": "Upstream guidance: caller-operated; AssetFare never signs or submits.",
         },
     }
 
@@ -229,9 +253,18 @@ def test_origin_accepts_canonical_and_trailing_slash():
 def test_capabilities_happy():
     s = _Session([_Resp(caps_payload()), _Resp(status_payload())])
     out = caps_tool(s).forward()
-    assert out["directed_conversion_routes"] == 74
-    assert out["chains"] == ["arbitrum", "base", "polygon", "robinhood", "solana"]
-    assert len(out["asset_endpoints"]) == 10
+    assert out["directed_conversion_routes"] == 76
+    assert out["unsigned_route_plans_ready"] == 76
+    assert out["chains"] == ["arbitrum", "base", "optimism", "polygon", "robinhood", "solana"]
+    assert len(out["asset_endpoints"]) == 11
+    assert out["source_only_asset_endpoints"] == ["optimism:USDC", "polygon:USDC"]
+    assert sorted(out["source_only_routes"]) == [
+        "optimism:USDC->arbitrum:USDC",
+        "optimism:USDC->base:USDC",
+        "polygon:USDC->arbitrum:USDC",
+        "polygon:USDC->base:USDC",
+    ]
+    assert out["destination_chains"] == ["arbitrum", "base", "robinhood", "solana"]
     assert out["tool_scope_quote_only"] is True
     assert out["server_signs_or_submits"] is False
     assert s.calls[0][1] == "https://api.assetfare.dev/v2/capabilities"
@@ -298,8 +331,10 @@ def test_capabilities_rejects_endpoint_substitution():
     "mut",
     [
         lambda c: c.update(source_only_asset_endpoints=[]),
-        lambda c: c.update(source_only_asset_endpoints=[{"chain": "polygon", "token": "ETH"}]),
-        lambda c: c.update(source_only_routes=["polygon:USDC->base:ETH", "polygon:USDC->arbitrum:USDC"]),
+        lambda c: c.update(source_only_asset_endpoints=[{"chain": "polygon", "token": "ETH"}, {"chain": "optimism", "token": "USDC"}]),
+        lambda c: c.update(source_only_asset_endpoints=[{"chain": "arbitrum", "token": "USDC"}, {"chain": "optimism", "token": "USDC"}]),
+        lambda c: c.update(source_only_routes=["polygon:USDC->base:ETH", "polygon:USDC->arbitrum:USDC", "optimism:USDC->base:USDC", "optimism:USDC->arbitrum:USDC"]),
+        lambda c: c.update(source_only_routes=["polygon:USDC->base:USDC", "polygon:USDC->arbitrum:USDC"]),
         lambda c: c.update(destination_chains=["arbitrum", "base", "polygon", "solana"]),
     ],
 )
@@ -359,6 +394,96 @@ def test_polygon_destination_and_wrong_corridor_rejected():
         quote_tool(quote_session()).forward("base", "USDC", "polygon", "USDC", 10)
     with pytest.raises(ValueError, match="assetfare_source_endpoint_invalid"):
         quote_tool(quote_session()).forward("polygon", "USDC", "solana", "USDC", 10)
+
+
+def test_optimism_source_quote_happy():
+    payload = quote_payload()
+    payload["intent"].update(**{"from": "optimism:USDC", "to": "base:USDC", "amount_usd": 10.0})
+    payload["route"]["route"] = "optimism:USDC->base:USDC"
+    payload["offer"]["output_symbol"] = "USDC"
+    payload["offer"]["assetfare_fee_bps"] = 0  # optimism executor step is 0bp
+    payload["offer"]["fee_collection_steps"] = []
+    out = quote_tool(quote_session(payload)).forward("optimism", "USDC", "base", "USDC", 10)
+    assert out["from"] == "optimism:USDC" and out["to"] == "base:USDC"
+    assert out["assetfare_fee_bps"] == 0
+    assert out["fee_collectible"] is False  # 0bp / no eligible step -> not collectible
+
+
+def test_optimism_destination_and_wrong_corridor_rejected():
+    with pytest.raises(ValueError, match="assetfare_destination_endpoint_invalid"):
+        quote_tool(quote_session()).forward("base", "USDC", "optimism", "USDC", 10)
+    with pytest.raises(ValueError, match="assetfare_source_endpoint_invalid"):
+        quote_tool(quote_session()).forward("optimism", "USDC", "solana", "USDC", 10)
+
+
+# ---- caller_action_plan_handoff surfacing (upstream preferred; local fallback) ----
+
+def test_quote_handoff_surfaced_from_upstream():
+    # quote_payload carries an upstream handoff with a distinctive note; it is
+    # surfaced (validated), not the fabricated local one.
+    out = quote_tool(quote_session()).forward("solana", "SOL", "base", "ETH", 250)
+    h = out["caller_action_plan_handoff"]
+    assert h["origin"] == "upstream"
+    assert h["note"] == "Upstream guidance: caller-operated; AssetFare never signs or submits."
+    assert h["kind"] == "caller_operated_rest_prepare"
+    assert h["url"] == "https://api.assetfare.dev/v2/prepare"
+    assert h["automatic"] is False
+    assert h["assetfare_server_signing"] is False and h["assetfare_server_submission"] is False
+    assert h["caller_must_verify_sign_and_submit"] is True
+    assert "event_signer_public" in h["request_fields"]
+
+
+def test_quote_handoff_local_fallback_when_upstream_omits():
+    p = _mutated(lambda q: q.pop("caller_action_plan_handoff"))
+    out = quote_tool(quote_session(p)).forward("solana", "SOL", "base", "ETH", 250)
+    h = out["caller_action_plan_handoff"]
+    assert h["origin"] == "local_fallback"
+    assert h["url"] == "https://api.assetfare.dev/v2/prepare"
+    assert h["requires_explicit_caller_approval"] is True
+    assert h["requires_public_wallet_addresses"] is True
+    assert h["automatic"] is False
+
+
+def test_quote_handoff_rejects_server_signing_claim():
+    p = _mutated(lambda q: q["caller_action_plan_handoff"].__setitem__("assetfare_server_signing", True))
+    with pytest.raises(ValueError, match="assetfare_safety_boundary_failed"):
+        quote_tool(quote_session(p)).forward("solana", "SOL", "base", "ETH", 250)
+
+
+def test_quote_handoff_rejects_wrong_url():
+    p = _mutated(lambda q: q["caller_action_plan_handoff"].__setitem__("url", "https://api.assetfare.dev/v2/execute"))
+    with pytest.raises(ValueError, match="assetfare_response_invalid"):
+        quote_tool(quote_session(p)).forward("solana", "SOL", "base", "ETH", 250)
+
+
+def test_quote_handoff_rejects_missing_caller_approval_flag():
+    p = _mutated(lambda q: q["caller_action_plan_handoff"].__setitem__("requires_explicit_caller_approval", False))
+    with pytest.raises(ValueError, match="assetfare_response_invalid"):
+        quote_tool(quote_session(p)).forward("solana", "SOL", "base", "ETH", 250)
+
+
+# ---- fee eligibility (conditional, not an unconditional flat fee) ----
+
+def test_quote_fee_eligibility_surfaced():
+    out = quote_tool(quote_session()).forward("solana", "SOL", "base", "ETH", 250)
+    assert out["assetfare_fee_bps"] == 8
+    assert out["fee_collection_steps"] == [0, 1]
+    assert out["fee_collectible"] is True
+    assert "eligible successful executor step" in out["fee_note"]
+
+
+def test_quote_zero_fee_not_collectible():
+    p = _mutated(lambda q: (q["offer"].__setitem__("assetfare_fee_bps", 0), q["offer"].__setitem__("fee_collection_steps", [])))
+    out = quote_tool(quote_session(p)).forward("solana", "SOL", "base", "ETH", 250)
+    assert out["assetfare_fee_bps"] == 0
+    assert out["fee_collectible"] is False
+
+
+def test_quote_rejects_positive_fee_with_no_collection_step():
+    # a positive fee that names no eligible step is contradictory -> fail closed
+    p = _mutated(lambda q: (q["offer"].__setitem__("assetfare_fee_bps", 1), q["offer"].__setitem__("fee_collection_steps", [])))
+    with pytest.raises(ValueError, match="assetfare_response_invalid"):
+        quote_tool(quote_session(p)).forward("solana", "SOL", "base", "ETH", 250)
 
 
 @pytest.mark.parametrize(

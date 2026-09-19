@@ -19,10 +19,13 @@ tags:
 
 A **read-only** [smolagents](https://github.com/huggingface/smolagents) `Tool`
 that reports and strictly validates the AssetFare v2 public capabilities: the
-five source chains, the 10 `(chain, token)` source endpoints, the 74 directed
-conversion routes, and the USD amount bounds. Use it to check which cross-chain
-corridors AssetFare can quote before requesting a quote with
-[`odaiin/assetfare-quote`](https://huggingface.co/spaces/odaiin/assetfare-quote).
+six source chains, the 11 `(chain, token)` source endpoints, the 76 directed
+conversion routes, and the USD amount bounds. Polygon and Optimism are native-USDC
+**source-only** (to Base or Arbitrum USDC; Polygon **1bp** on its audited executor
+step, Optimism **0bp**). Use it to check which cross-chain corridors AssetFare can
+quote before requesting a quote with
+[`odaiin/assetfare-quote`](https://huggingface.co/spaces/odaiin/assetfare-quote),
+whose result then names the separate caller-operated REST `/v2/prepare` handoff.
 
 - **Fixed origin:** `https://api.assetfare.dev` (any other base URL is rejected).
 - Confirms that the surface this tool reads is a quote-only, non-custodial public
@@ -47,25 +50,28 @@ from smolagents import load_tool
 caps = load_tool(
     "odaiin/assetfare-capabilities",
     trust_remote_code=True,
-    revision="526b65ad9d04faa786f60f7ee10591cdae496ede", # reviewed Polygon-capable release
+    revision="526b65ad9d04faa786f60f7ee10591cdae496ede", # reviewed release SHA (pre-Optimism; re-pin to the 6-chain build once published)
 )
 print(caps())  # -> dict of chains, endpoints, route counts, amount bounds
 ```
 
 ## Output (object)
 
-`status`, `chains`, `asset_endpoints`, `directed_conversion_routes` (74),
-`unsigned_route_plans_ready` (74), `source_only_asset_endpoints`
-(`polygon:USDC`), exact `source_only_routes` (`polygon:USDC->base:USDC` and
-`polygon:USDC->arbitrum:USDC`), `destination_chains`, `amount_usd_min` (1.0),
-`amount_usd_max` (1000.0), `tool_scope_quote_only` (`true`, scoped to this
-tool's surface), and `server_signs_or_submits` (`false`).
+`status`, `chains`, `asset_endpoints`, `directed_conversion_routes` (76),
+`unsigned_route_plans_ready` (76), `source_only_asset_endpoints`
+(`optimism:USDC`, `polygon:USDC`), exact `source_only_routes`
+(`polygon:USDC->base:USDC`, `polygon:USDC->arbitrum:USDC`,
+`optimism:USDC->base:USDC`, `optimism:USDC->arbitrum:USDC`),
+`destination_chains`, `amount_usd_min` (1.0), `amount_usd_max` (1000.0),
+`tool_scope_quote_only` (`true`, scoped to this tool's surface), and
+`server_signs_or_submits` (`false`).
 
 ## Validation & safety
 
-The reported surface is checked for exact identity: the chain set and the 10
+The reported surface is checked for exact identity: the chain set and the 11
 endpoints must match exactly (a substituted or duplicated entry is rejected), the
-route counts must equal 74, Polygon must be source-only, and `server_signing` /
+route counts must equal 76, Polygon and Optimism must be the two source-only
+endpoints (to Base/Arbitrum USDC), and `server_signing` /
 `server_submission` must be
 `false` on both `capabilities` and `status`. Any mismatch raises a single, fixed,
 sanitized error. Response body is capped at 1 MiB and must be `application/json`.

@@ -24,9 +24,11 @@ AssetFare v2 API. It is meant to be **discovered and loaded by agents**, not use
 as a human demo.
 
 - **Fixed origin:** `https://api.assetfare.dev` (any other base URL is rejected).
-- **Surface:** 5 source chains (solana, base, arbitrum, robinhood, polygon), 10
-  `(chain, token)` source endpoints, 74 directed routes, amount **$1–$1000**.
-  Polygon is native-USDC source-only to Base or Arbitrum USDC.
+- **Surface:** 6 source chains (solana, base, arbitrum, robinhood, polygon,
+  optimism), 11 `(chain, token)` source endpoints, 76 directed routes, amount
+  **$1–$1000**. Polygon and Optimism are native-USDC **source-only** to Base or
+  Arbitrum USDC (Polygon collects **1bp** on its audited executor step, Optimism
+  **0bp**).
 - **Never** authenticates a wallet, opens a session, prepares an unsigned action,
   signs, or submits. The server itself never signs or submits; the tool
   **fails closed** on any response that claims otherwise.
@@ -45,7 +47,7 @@ as a human demo.
   quote = load_tool(
       "odaiin/assetfare-quote",
       trust_remote_code=True,
-      revision="8e0f9ffbf4308f496f88c64dc912499845f4e371", # reviewed Polygon-capable release
+      revision="8e0f9ffbf4308f496f88c64dc912499845f4e371", # reviewed release SHA (pre-Optimism; re-pin to the 6-chain build once published)
   )
   ```
 
@@ -83,7 +85,7 @@ result = quote(
 
 | name | type | notes |
 |------|------|-------|
-| `from_chain` | string | one of `solana`, `base`, `arbitrum`, `robinhood`, `polygon`; Polygon supports native USDC source-only to Base/Arbitrum USDC |
+| `from_chain` | string | one of `solana`, `base`, `arbitrum`, `robinhood`, `polygon`, `optimism`; Polygon and Optimism are native-USDC source-only to Base/Arbitrum USDC |
 | `from_token` | string | token symbol on the source chain (e.g. `SOL`, `ETH`, `USDC`, `USDG`) |
 | `to_chain`   | string | destination chain |
 | `to_token`   | string | destination token symbol |
@@ -94,8 +96,27 @@ result = quote(
 Validated fields only: `from`, `to`, `amount_usd`, `output_symbol`,
 `expected_receive_amount`, `estimated_min_receive_amount`,
 `expected_receive_usd`, `estimated_min_receive_usd`, `assetfare_fee_bps`,
-`estimated_time_seconds`, `non_atomic`, `quote_id`, `as_of`, `ttl_seconds`,
-`execution_supported`, `server_signs_or_submits` (always `false`).
+`fee_collection_steps`, `fee_collectible`, `fee_note`, `estimated_time_seconds`,
+`non_atomic`, `quote_id`, `as_of`, `ttl_seconds`, `execution_supported`,
+`server_signs_or_submits` (always `false`), and `caller_action_plan_handoff`.
+
+**Fee eligibility.** `assetfare_fee_bps` is **conditional**, never an unconditional
+flat charge: it is collected only on an eligible **successful executor step**
+(named in `fee_collection_steps`). `fee_collectible` is `true` only when the fee is
+positive **and** at least one collection step exists (so a `0`bp route — e.g.
+Optimism — reports `fee_collectible: false`); a positive fee that names no step
+fails closed. `fee_note` states this in words.
+
+**`caller_action_plan_handoff`.** After explicit caller approval, the result names
+the separate, caller-operated REST `/v2/prepare` step. It is **surfaced from the
+upstream `/v2/quote` response** (validated; a local descriptor is used only if
+upstream omits it, marked by `origin: "upstream" | "local_fallback"`). Its six
+invariants: (1) `requires_explicit_caller_approval: true`, (2)
+`requires_public_wallet_addresses: true`, (3) `assetfare_server_signing: false`,
+(4) `assetfare_server_submission: false`, (5) `caller_must_verify_sign_and_submit:
+true`, (6) `automatic: false` — this tool never calls `/v2/prepare`, never
+receives a private key, and never signs or submits. It fails closed if the handoff
+claims the server signs or submits.
 
 ## Validation & safety
 

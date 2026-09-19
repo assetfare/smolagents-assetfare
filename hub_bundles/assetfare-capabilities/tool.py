@@ -8,18 +8,18 @@ import urllib
 
 class AssetFareCapabilitiesTool(Tool):
     name = "assetfare_capabilities"
-    description = "Read-only capabilities probe for the AssetFare v2 API (fixed origin https://api.assetfare.dev). This tool's entire scope is to fetch and validate the public capability/status surface and return it; it is not the AssetFare service and exposes none of its other endpoints. It reports the supported source chains (solana, base, arbitrum, robinhood, polygon), the 10 (chain, token) source endpoints, the directed routes (74), the Polygon source-only constraint, and unsigned route plans ready, and the USD amount bounds (1 to 1000). It validates that the surface it reads is a quote-only, non-custodial public agent release whose server never signs or submits for these endpoints, failing closed otherwise; this is a property of what this tool exercises, not a blanket claim about all of AssetFare. Takes no inputs. Use it to check which cross-chain corridors can be quoted before requesting a quote. This tool does NOT execute, bridge, swap, sign or move funds."
+    description = "Read-only capabilities probe for the AssetFare v2 API (fixed origin https://api.assetfare.dev). This tool's entire scope is to fetch and validate the public capability/status surface and return it; it is not the AssetFare service and exposes none of its other endpoints. It reports the supported source chains (solana, base, arbitrum, robinhood, polygon, optimism), the 11 (chain, token) source endpoints, the directed routes (76), the Polygon and Optimism native-USDC source-only constraint (to Base or Arbitrum USDC; Polygon 1bp on its audited executor step, Optimism 0bp), and unsigned route plans ready, and the USD amount bounds (1 to 1000). It validates that the surface it reads is a quote-only, non-custodial public agent release whose server never signs or submits for these endpoints, failing closed otherwise; this is a property of what this tool exercises, not a blanket claim about all of AssetFare. Takes no inputs. Use it to check which cross-chain corridors can be quoted before requesting a quote. This tool does NOT execute, bridge, swap, sign or move funds."
     inputs = {}
     output_type = "object"
     ALLOWED_ORIGIN = "https://api.assetfare.dev"
     SOCKET_TIMEOUT_S = 45.0
     STALE_BUDGET_S = 45.0
     MAX_BYTES = 1048576
-    EXPECTED_ROUTES = 74
+    EXPECTED_ROUTES = 76
     MIN_USD = 1.0
     MAX_USD = 1000.0
-    CHAINS = {'arbitrum', 'base', 'polygon', 'robinhood', 'solana'}
-    ENDPOINTS = {'arbitrum:ETH', 'arbitrum:USDC', 'base:ETH', 'base:USDC', 'polygon:USDC', 'robinhood:ETH', 'robinhood:USDG', 'solana:SOL', 'solana:USDC', 'solana:USDG'}
+    CHAINS = {'arbitrum', 'base', 'optimism', 'polygon', 'robinhood', 'solana'}
+    ENDPOINTS = {'arbitrum:ETH', 'arbitrum:USDC', 'base:ETH', 'base:USDC', 'optimism:USDC', 'polygon:USDC', 'robinhood:ETH', 'robinhood:USDG', 'solana:SOL', 'solana:USDC', 'solana:USDG'}
 
     def __init__(
         self,
@@ -212,11 +212,25 @@ class AssetFareCapabilitiesTool(Tool):
             got.add(str(ep["chain"]) + ":" + str(ep["token"]).upper())
         if len(got) != len(self.ENDPOINTS) or got != self.ENDPOINTS:
             raise ValueError("assetfare_safety_boundary_failed")
-        if caps.get("source_only_asset_endpoints") != [{"chain": "polygon", "token": "USDC"}]:
+        source_only_eps = caps.get("source_only_asset_endpoints")
+        if not isinstance(source_only_eps, list) or len(source_only_eps) != 2:
+            raise ValueError("assetfare_safety_boundary_failed")
+        got_source_only = set()
+        for ep in source_only_eps:
+            if not isinstance(ep, dict) or "chain" not in ep or "token" not in ep:
+                raise ValueError("assetfare_safety_boundary_failed")
+            got_source_only.add(str(ep["chain"]) + ":" + str(ep["token"]).upper())
+        expected_source_only_eps = {"polygon:USDC", "optimism:USDC"}
+        if got_source_only != expected_source_only_eps:
             raise ValueError("assetfare_safety_boundary_failed")
         source_only_routes = caps.get("source_only_routes")
-        expected_source_only_routes = {"polygon:USDC->base:USDC", "polygon:USDC->arbitrum:USDC"}
-        if not isinstance(source_only_routes, list) or len(source_only_routes) != 2 or set(source_only_routes) != expected_source_only_routes:
+        expected_source_only_routes = {
+            "polygon:USDC->base:USDC",
+            "polygon:USDC->arbitrum:USDC",
+            "optimism:USDC->base:USDC",
+            "optimism:USDC->arbitrum:USDC",
+        }
+        if not isinstance(source_only_routes, list) or len(source_only_routes) != 4 or set(source_only_routes) != expected_source_only_routes:
             raise ValueError("assetfare_safety_boundary_failed")
         destinations = caps.get("destination_chains")
         if not isinstance(destinations, list) or len(destinations) != 4 or set(destinations) != {"arbitrum", "base", "robinhood", "solana"}:
@@ -227,7 +241,7 @@ class AssetFareCapabilitiesTool(Tool):
             "asset_endpoints": sorted(self.ENDPOINTS),
             "directed_conversion_routes": self.EXPECTED_ROUTES,
             "unsigned_route_plans_ready": self.EXPECTED_ROUTES,
-            "source_only_asset_endpoints": ["polygon:USDC"],
+            "source_only_asset_endpoints": sorted(expected_source_only_eps),
             "source_only_routes": sorted(expected_source_only_routes),
             "destination_chains": sorted(destinations),
             "amount_usd_min": self.MIN_USD,

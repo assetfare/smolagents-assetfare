@@ -37,7 +37,7 @@
 quote = load_tool(
     "odaiin/assetfare-quote",
     trust_remote_code=True,           # runs the reviewed tool code in your process
-    revision="8e0f9ffbf4308f496f88c64dc912499845f4e371",  # reviewed Polygon-capable release
+    revision="8e0f9ffbf4308f496f88c64dc912499845f4e371",  # reviewed release SHA (pre-Optimism; re-pin to the 6-chain build once published)
 )
 result = quote(
     from_chain="solana", from_token="SOL",
@@ -46,8 +46,8 @@ result = quote(
 )</pre>
   </div>
 
-  <p>Surface: 5 source chains (solana, base, arbitrum, robinhood, polygon), 10 (chain, token) source endpoints,
-  74 directed routes, USD 1&ndash;1000. Polygon is native-USDC source-only to Base or Arbitrum USDC. Does <strong>not</strong> execute, bridge, swap,
+  <p>Surface: 6 source chains (solana, base, arbitrum, robinhood, polygon, optimism), 11 (chain, token) source endpoints,
+  76 directed routes, USD 1&ndash;1000. Polygon and Optimism are native-USDC source-only to Base or Arbitrum USDC (Polygon 1bp on its audited executor step, Optimism 0bp). Does <strong>not</strong> execute, bridge, swap,
   sign, or move funds &mdash; acting on a quote is a separate wallet action taken outside
   this tool. Review the <a href="https://github.com/odaiin/smolagents-assetfare">source and tests</a>
   and the <a href="https://assetfare.dev/agents/">AssetFare agent integration guide</a>.</p>

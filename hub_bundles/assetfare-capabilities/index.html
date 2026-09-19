@@ -26,7 +26,7 @@
   <p>This Space hosts an <strong>agent tool</strong> (<code>tool.py</code>), meant to be loaded by an
   agent — not run as a web app. It fetches and strictly validates the AssetFare v2
   public capability/status surface (<code>https://api.assetfare.dev</code>): the
-  five source chains, the 10 (chain, token) source endpoints, the 74 directed routes, Polygon source-only constraint, and the
+  six source chains, the 11 (chain, token) source endpoints, the 76 directed routes, the Polygon and Optimism native-USDC source-only constraint (Polygon 1bp on its audited executor step, Optimism 0bp), and the
   USD amount bounds. It confirms the surface it reads is quote-only and that the
   server never signs or submits for these endpoints, failing closed otherwise.</p>
 
@@ -37,7 +37,7 @@
 caps = load_tool(
     "odaiin/assetfare-capabilities",
     trust_remote_code=True,           # runs the reviewed tool code in your process
-    revision="526b65ad9d04faa786f60f7ee10591cdae496ede",  # reviewed Polygon-capable release
+    revision="526b65ad9d04faa786f60f7ee10591cdae496ede",  # reviewed release SHA (pre-Optimism; re-pin to the 6-chain build once published)
 )
 print(caps())  # dict of chains, endpoints, route counts, amount bounds</pre>
   </div>
