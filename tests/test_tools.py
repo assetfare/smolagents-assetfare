@@ -338,6 +338,11 @@ def test_quote_happy():
     assert out["non_atomic"] is True
     assert out["execution_supported"] is True
     assert out["server_signs_or_submits"] is False
+    handoff = out["caller_action_plan_handoff"]
+    assert handoff["url"] == "https://api.assetfare.dev/v2/prepare"
+    assert handoff["requires_explicit_caller_approval"] is True
+    assert handoff["assetfare_server_signing"] is False
+    assert handoff["assetfare_server_submission"] is False
 
 
 def test_polygon_source_quote_happy():

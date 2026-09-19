@@ -1,9 +1,10 @@
 """AssetFare read-only quote tool for smolagents agents.
 
-Self-contained smolagents ``Tool`` (Hub-loadable via ``load_tool``). Quote-only:
-it never authenticates a wallet, opens a session, prepares an unsigned action,
-signs, or submits, and it validates every response against the live AssetFare v2
-contract, failing closed on anything that claims the server will sign or submit.
+Self-contained smolagents ``Tool`` (Hub-loadable via ``load_tool``). It fetches
+one quote and returns a documentation-only, caller-approved REST action-plan
+handoff; it never authenticates a wallet, opens a session, prepares an unsigned
+action, signs, or submits. It fails closed on anything that claims the server
+will sign or submit.
 
 All logic lives inside this class (imports done inside methods, no sibling-module
 imports) so ``Tool.to_dict`` / ``push_to_hub`` can serialise it to a single file.
@@ -27,7 +28,9 @@ class AssetFareQuoteTool(Tool):
         "(chain, token) source endpoints and 74 directed routes, for a USD amount "
         "of 1 to 1000. Polygon is native-USDC source-only to Base or Arbitrum USDC. It never "
         "authenticates a wallet, opens a session, prepares an unsigned action, "
-        "signs or submits, and the returned 'server_signs_or_submits' is always "
+        "signs or submits. After explicit caller approval, its result names the "
+        "separate REST /v2/prepare action-plan handoff; the returned "
+        "'server_signs_or_submits' is always "
         "false. It returns expected/minimum receive amounts (native and USD), fee "
         "bps, ETA, the non-atomic risk flag, a quote id, an as_of timestamp and a "
         "ttl. Every response is validated and the call fails closed if anything "
@@ -443,4 +446,16 @@ class AssetFareQuoteTool(Tool):
             "ttl_seconds": ttl,
             "execution_supported": True,
             "server_signs_or_submits": False,
+            "caller_action_plan_handoff": {
+                "kind": "caller_operated_rest_prepare",
+                "url": "https://api.assetfare.dev/v2/prepare",
+                "method": "POST",
+                "requires_explicit_caller_approval": True,
+                "requires_public_wallet_addresses": True,
+                "request_fields": ["from_chain", "from_token", "to_chain", "to_token", "amount_usd", "wallets", "event_signer_public"],
+                "assetfare_server_signing": False,
+                "assetfare_server_submission": False,
+                "caller_must_verify_sign_and_submit": True,
+                "note": "Guidance only: this tool does not call prepare or receive a private key.",
+            },
         }

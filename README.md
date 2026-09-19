@@ -37,7 +37,9 @@ Published Static Spaces:
   `__cause__ is None` — a bare `raise ... from None` would still leave the upstream
   exception object on `__context__`. Internal budget/size stops use a sentinel, so
   a hostile `iter_content` raising its own `ValueError` is sanitized, not surfaced.
-- **No** wallet auth, session, unsigned-action prepare, sign, or submit; fails
+- **No** wallet auth, session, unsigned-action prepare, sign, or submit. A
+  quote result includes only a documentation-only REST `/v2/prepare` handoff,
+  usable after explicit caller approval with public wallet addresses; it fails
   closed if a response claims the server signs or submits.
 - Self-contained per smolagents `validate_tool_attributes` — each serialises to a
   single `tool.py` via `to_dict()` and round-trips through `from_code` (the
