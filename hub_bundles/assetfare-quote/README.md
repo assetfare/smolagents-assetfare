@@ -27,8 +27,7 @@ as a human demo.
 - **Surface:** 6 source chains (solana, base, arbitrum, robinhood, polygon,
   optimism), 11 `(chain, token)` source endpoints, 76 directed routes, amount
   **$1–$1000**. Polygon and Optimism are native-USDC **source-only** to Base or
-  Arbitrum USDC (Polygon collects **1bp** on its audited executor step, Optimism
-  **0bp**).
+  Arbitrum USDC; both collect exactly **1bp** on their audited executor step.
 - **Never** authenticates a wallet, opens a session, prepares an unsigned action,
   signs, or submits. The server itself never signs or submits; the tool
   **fails closed** on any response that claims otherwise.
@@ -102,11 +101,10 @@ Validated fields only: `from`, `to`, `amount_usd`, `output_symbol`,
 `execution_supported`, `execution_blocker`, `server_signs_or_submits` (always
 `false`), and `caller_action_plan_handoff`.
 
-**Fee — EXACTLY `{0, 1}` bp.** `assetfare_fee_bps` is validated to be exactly `0`
-or `1` (anything else — `8`bp, `2`bp, negative — fails closed). It is
-**conditional**, never an unconditional flat charge: a `1`bp fee is collected only
-on **one** eligible **successful executor step** named in `fee_collection_steps`
-(`fee=1` ⇒ exactly one step; `fee=0` ⇒ `[]`; any mismatch fails closed). The
+**Fee — EXACTLY `1bp` on every route.** A 0bp, 8bp, 2bp, or negative fee fails
+closed. It is **conditional**, never an unconditional flat charge: the 1bp fee is
+collected only on **one** eligible **successful atomic action** named in
+`fee_collection_steps`; any mismatch fails closed. The
 constant `fee_collection` is always
 `"only_on_eligible_successful_executor_step"`. `fee_modeled_bps` is what AssetFare
 models; `fee_collectible_now` is `true` exactly for a `1`bp route. Polygon and

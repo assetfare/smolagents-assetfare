@@ -42,11 +42,11 @@ class AssetFareQuoteTool(Tool):
         "separate caller-operated POST /v2/prepare (one-shot) and POST /v2/session "
         "(full lifecycle) steps; the returned 'server_signs_or_submits' is always "
         "false. It returns expected/minimum receive amounts (native and USD), the "
-        "exact assetfare_fee_bps (0 or 1) with modeled/collectible flags and the "
+        "exact assetfare_fee_bps (always 1) with modeled/collectible flags and the "
         "eligible fee_collection_steps, ETA, the non-atomic risk flag, a quote id, an "
         "as_of timestamp and a ttl. Every response is validated and the call fails "
         "closed if anything claims the server will sign or submit, if the quote is "
-        "stale or future-dated, if the fee is out of the exact {0,1} contract, if the "
+        "stale or future-dated, if the fee is not exactly 1bp, if the "
         "handoff is missing or deviates from the caller-approved 8-field contract, or "
         "if the route does not match the requested corridor. Inputs: from_chain, "
         "from_token, to_chain, to_token (a supported chain/token pair, source != "
@@ -328,18 +328,18 @@ class AssetFareQuoteTool(Tool):
         return "smolagents==1.26.0\nrequests>=2.32.3,<3"
 
     def _validate_offer_fee(self, offer: Any, step_count: int) -> None:
-        # Fee is EXACTLY {0,1}bp, collected at most once on an eligible successful
-        # executor step. fee=1 => fee_collection_steps holds EXACTLY one valid,
-        # in-range, non-duplicate index; fee=0 => []. Rejects fee>1 / negative / 8bp,
+        # Fee is EXACTLY 1bp, collected once on an eligible successful atomic
+        # action. fee_collection_steps holds EXACTLY one valid in-range index.
+        # Rejects 0bp, fee>1 / negative / 8bp,
         # 2-step or 0-step mismatches, out-of-range or duplicate indices. Also
         # validates fee_modeled_bps, fee_collectible_now, and the fee_collection literal.
         if offer.get("fee_collection") != self.FEE_COLLECTION_CONST:
             raise ValueError("assetfare_response_invalid")
         fee = offer.get("assetfare_fee_bps")
-        if not self._is_int(fee) or fee not in (0, 1):
+        if not self._is_int(fee) or fee != 1:
             raise ValueError("assetfare_response_invalid")
         modeled = offer.get("fee_modeled_bps")
-        if not self._is_int(modeled) or modeled not in (0, 1):
+        if not self._is_int(modeled) or modeled != 1:
             raise ValueError("assetfare_response_invalid")
         if not isinstance(offer.get("fee_collectible_now"), bool):
             raise ValueError("assetfare_response_invalid")
@@ -356,9 +356,7 @@ class AssetFareQuoteTool(Tool):
                 raise ValueError("assetfare_fee_step_out_of_range")
         if len(set(steps)) != len(steps):
             raise ValueError("assetfare_fee_step_duplicate")
-        if fee == 1 and len(steps) != 1:
-            raise ValueError("assetfare_fee_step_count_mismatch")
-        if fee == 0 and steps != []:
+        if len(steps) != 1:
             raise ValueError("assetfare_fee_step_count_mismatch")
 
     def _validate_caller_handoff(self, node: Any) -> Any:
@@ -564,7 +562,7 @@ class AssetFareQuoteTool(Tool):
             raise ValueError("assetfare_response_invalid")
         if offer.get("output_symbol") != to_u:
             raise ValueError("assetfare_response_invalid")
-        # Fee EXACTLY {0,1}bp + modeled/collectible + fee_collection literal.
+        # Fee EXACTLY 1bp + modeled/collectible + fee_collection literal.
         self._validate_offer_fee(offer, len(steps))
         fee = offer["assetfare_fee_bps"]
         fee_steps = offer["fee_collection_steps"]
@@ -595,13 +593,7 @@ class AssetFareQuoteTool(Tool):
         caller_action_plan_handoff = self._validate_caller_handoff(data.get("caller_action_plan_handoff"))
 
         fee_steps_out = [int(s) for s in fee_steps]
-        if fee > 0:
-            fee_note = (
-                "AssetFare " + str(fee) + "bp is collected only on an eligible successful executor "
-                "step (conditional, not an unconditional flat fee)."
-            )
-        else:
-            fee_note = "No AssetFare fee is collected on this route (0bp)."
+        fee_note = "AssetFare 1bp is collected only on the eligible successful atomic action."
 
         return {
             "from": expected_from,

@@ -612,7 +612,7 @@ def test_quote_handoff_rejects_missing_requires_fresh_requote():
         quote_tool(quote_session(p)).forward("solana", "SOL", "base", "ETH", 250)
 
 
-# ---- fee EXACTLY {0,1}bp (conditional, not an unconditional flat fee) ----
+# ---- fee EXACTLY 1bp (conditional, not an unconditional flat fee) ----
 
 def test_quote_fee_eligibility_surfaced():
     out = quote_tool(quote_session()).forward("solana", "SOL", "base", "ETH", 250)
@@ -622,24 +622,23 @@ def test_quote_fee_eligibility_surfaced():
     assert out["fee_collectible_now"] is True
     assert out["assetfare_fee_conditional"] is True
     assert out["fee_collection"] == "only_on_eligible_successful_executor_step"
-    assert "eligible successful executor" in out["fee_note"]
+    assert "eligible successful atomic action" in out["fee_note"]
 
 
-def test_quote_zero_fee_not_collectible():
+def test_quote_zero_fee_rejected():
     def mut(q):
         q["offer"]["assetfare_fee_bps"] = 0
         q["offer"]["fee_modeled_bps"] = 0
         q["offer"]["fee_collectible_now"] = False
         q["offer"]["fee_collection_steps"] = []
     p = _mutated(mut)
-    out = quote_tool(quote_session(p)).forward("solana", "SOL", "base", "ETH", 250)
-    assert out["assetfare_fee_bps"] == 0
-    assert out["assetfare_fee_conditional"] is False
+    with pytest.raises(ValueError, match="assetfare_response_invalid"):
+        quote_tool(quote_session(p)).forward("solana", "SOL", "base", "ETH", 250)
 
 
 @pytest.mark.parametrize("fee_bps", [2, 8, -1, 5])
 def test_quote_rejects_fee_out_of_exact_range(fee_bps):
-    # fee must be EXACTLY {0,1}; 8bp / 2bp / negative are rejected.
+    # fee must be EXACTLY 1; 8bp / 2bp / negative are rejected.
     p = _mutated(lambda q: q["offer"].__setitem__("assetfare_fee_bps", fee_bps))
     with pytest.raises(ValueError, match="assetfare_response_invalid"):
         quote_tool(quote_session(p)).forward("solana", "SOL", "base", "ETH", 250)
@@ -660,14 +659,13 @@ def test_quote_rejects_positive_fee_with_no_collection_step():
 
 
 def test_quote_rejects_zero_fee_with_step():
-    # fee=0 must have [] steps
     def mut(q):
         q["offer"]["assetfare_fee_bps"] = 0
         q["offer"]["fee_modeled_bps"] = 0
         q["offer"]["fee_collectible_now"] = False
         q["offer"]["fee_collection_steps"] = [0]
     p = _mutated(mut)
-    with pytest.raises(ValueError, match="assetfare_fee_step_count_mismatch"):
+    with pytest.raises(ValueError, match="assetfare_response_invalid"):
         quote_tool(quote_session(p)).forward("solana", "SOL", "base", "ETH", 250)
 
 

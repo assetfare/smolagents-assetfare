@@ -65,9 +65,9 @@ Static Spaces (one per tool; nine total):
   `assetfare_server_signing=false` / `assetfare_server_submission=false` /
   `caller_must_verify_sign_and_submit=true`. Directional source-only routes carry
   the same available caller-approved prepare/session handoff.
-- **Fee is EXACTLY `{0, 1}`bp.** `assetfare_fee_bps` is validated to be exactly 0
-  or 1 (8bp/2bp/negative rejected); `fee=1` ⇒ exactly one eligible
-  `fee_collection_steps` index, `fee=0` ⇒ `[]`. Plus `fee_modeled_bps`,
+- **Fee is EXACTLY `1bp` on every route.** `assetfare_fee_bps` and
+  `fee_modeled_bps` must both be 1 (0bp/8bp/2bp/negative rejected), with exactly
+  one eligible `fee_collection_steps` index. Plus
   `fee_collectible_now` (true exactly for 1bp routes), and the constant
   `fee_collection = "only_on_eligible_successful_executor_step"`.
 - **Action tools are explicit and caller-owned.** `assetfare_prepare` and
