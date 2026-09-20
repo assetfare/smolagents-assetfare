@@ -176,6 +176,8 @@ def quote_payload():
             "future_actions_require_verified_receipts": True,
         },
         "caller_action_plan_handoff": executable_handoff(),
+        "caller_action_plan_handoff_v2": executable_handoff_v2(),
+        "handoff_schema_version": 2,
     }
 
 
@@ -222,6 +224,33 @@ def executable_handoff():
             },
         ],
         "note": "Upstream guidance: caller-operated; AssetFare never signs or submits.",
+    }
+
+
+PREPARE_URL = "https://api.assetfare.dev/v2/prepare"
+SESSION_URL = "https://api.assetfare.dev/v2/session"
+
+
+def executable_handoff_v2():
+    return {
+        "kind": "caller_operated_rest_prepare", "url": PREPARE_URL, "method": "POST",
+        "requires_explicit_caller_approval": True, "requires_public_wallet_addresses": True,
+        "request_fields": ["caller_approved", "from_chain", "from_token", "to_chain", "to_token", "amount_usd", "wallets", "event_signer_public"],
+        "assetfare_server_signing": False, "assetfare_server_submission": False, "caller_must_verify_sign_and_submit": True,
+        "requires_fresh_requote": True, "automatic_prepare_call_forbidden": True,
+        "schema_version": 2, "selection": "choose_exactly_one", "mutually_exclusive": True, "do_not_call_both": True,
+        "selection_before_signing": True, "once_any_action_submitted_do_not_start_other_mode": True, "enforcement": "advisory_caller_side",
+        "options": [
+            {"kind": "one_shot_first_unsigned_bundle", "method": "POST", "url": PREPARE_URL, "requires_explicit_caller_approval": True, "requires_public_wallet_addresses": True, "assetfare_never_signs_submits_or_auto_calls": True, "preview_or_manual_first_action_only": True, "not_a_session": True, "do_not_start_session_after_submission": True, "note": "one-shot"},
+            {"kind": "caller_approved_full_workflow_session", "method": "POST", "url": SESSION_URL, "requires_explicit_caller_approval": True, "requires_public_wallet_addresses": True, "assetfare_never_signs_submits_or_auto_calls": True, "recommended_for_multistep": True, "note": "session", "lifecycle_urls": {
+                "create": {"method": "POST", "url": SESSION_URL},
+                "read": {"method": "GET", "url": SESSION_URL + "/{session_id}"},
+                "observe_source": {"method": "POST", "url": SESSION_URL + "/{session_id}/observe-source"},
+                "observe_output": {"method": "POST", "url": SESSION_URL + "/{session_id}/observe-output"},
+                "refresh_action": {"method": "POST", "url": SESSION_URL + "/{session_id}/refresh-action"},
+            }},
+        ],
+        "note": "Machine-readable v2.", "available": True,
     }
 
 
@@ -516,6 +545,51 @@ def test_quote_handoff_surfaced_from_upstream():
     assert "event_signer_public" in h["request_fields"]
     kinds = [o["kind"] for o in h["options"]]
     assert kinds == ["one_shot_first_unsigned_bundle", "caller_approved_full_workflow_session"]
+    # v1 stays old-exact: NO machine fields on the v1 handoff.
+    assert not ({"selection", "mutually_exclusive", "do_not_call_both", "enforcement", "schema_version"} & set(h))
+
+
+def test_quote_surfaces_v2_sibling():
+    out = quote_tool(quote_session()).forward("solana", "SOL", "base", "ETH", 250)
+    v2 = out["caller_action_plan_handoff_v2"]
+    assert out["handoff_schema_version"] == 2 and v2["schema_version"] == 2
+    assert v2["selection"] == "choose_exactly_one" and v2["enforcement"] == "advisory_caller_side"
+    assert v2["options"][0]["not_a_session"] is True and v2["options"][1]["recommended_for_multistep"] is True
+
+
+def test_rollback_core_no_v2_still_quotes():
+    p = _mutated(lambda q: (q.pop("caller_action_plan_handoff_v2"), q.pop("handoff_schema_version")))
+    out = quote_tool(quote_session(p)).forward("solana", "SOL", "base", "ETH", 250)
+    assert out["caller_action_plan_handoff_v2"] is None and out["handoff_schema_version"] is None
+    assert out["caller_action_plan_handoff"]["available"] is True
+
+
+@pytest.mark.parametrize(
+    "mut",
+    [
+        lambda q: q.pop("caller_action_plan_handoff_v2"),
+        lambda q: q.pop("handoff_schema_version"),
+        lambda q: q.__setitem__("caller_action_plan_handoff_v2", None),
+        lambda q: q.__setitem__("handoff_schema_version", 3),
+        lambda q: q["caller_action_plan_handoff_v2"].__setitem__("schema_version", 1),
+        lambda q: q["caller_action_plan_handoff_v2"].pop("do_not_call_both"),
+        lambda q: q["caller_action_plan_handoff_v2"].__setitem__("enforcement", "server_enforced"),
+        lambda q: q["caller_action_plan_handoff_v2"]["options"][0].pop("note"),
+        lambda q: q["caller_action_plan_handoff_v2"]["options"][0].pop("not_a_session"),
+        lambda q: q["caller_action_plan_handoff_v2"]["options"][0].__setitem__("recommended_for_multistep", True),
+        lambda q: q["caller_action_plan_handoff_v2"]["options"][1]["lifecycle_urls"].pop("create"),
+        lambda q: q["caller_action_plan_handoff_v2"]["options"][1]["lifecycle_urls"]["create"].__setitem__("url", "https://api.assetfare.dev/v2/evil"),
+        lambda q: q["caller_action_plan_handoff_v2"]["options"][1]["lifecycle_urls"]["create"].pop("method"),
+        lambda q: q["caller_action_plan_handoff_v2"]["options"][1]["lifecycle_urls"].__setitem__("extra", {"method": "POST", "url": SESSION_URL}),
+        lambda q: (q.__setitem__("caller_action_plan_handoff_v2", None), q.pop("handoff_schema_version")),
+        lambda q: q.__setitem__("caller_action_plan_handoff_v2", []),
+        lambda q: q["caller_action_plan_handoff_v2"].__setitem__("blocker", None),
+    ],
+)
+def test_quote_v2_sibling_malformed_rejected(mut):
+    p = _mutated(mut)
+    with pytest.raises(ValueError):
+        quote_tool(quote_session(p)).forward("solana", "SOL", "base", "ETH", 250)
 
 
 @pytest.mark.parametrize(
