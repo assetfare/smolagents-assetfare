@@ -8,9 +8,8 @@ Covers the new smolagents tools:
 No network. A stateful fake session models the server's create idempotency (keyed on
 the caller-owned X-AssetFare-Session-Token + idempotency_key) so replay / crash /
 independent-session behaviour can be asserted. Also runs the full 76-route multi-step
-MOCK e2e matrix: 72 execution-ready routes complete quote -> prepare -> session
-lifecycle, and 4 source-only Phase-B routes are fail-closed at quote (available:false)
-and at prepare/session (execution_not_ready_phase_b).
+MOCK e2e matrix: all 76 execution-ready routes complete quote -> prepare ->
+session lifecycle, including the four directional Polygon/Optimism source-only routes.
 """
 
 from __future__ import annotations
@@ -248,11 +247,10 @@ def test_prepare_caller_approved_gate(approved):
     assert s.calls == []
 
 
-def test_prepare_rejects_source_only_before_network():
-    s = _Session([])
-    with pytest.raises(ValueError, match="execution_not_ready_phase_b"):
-        prepare_tool(s).forward(True, "polygon", "USDC", "base", "USDC", 10, {"polygon": EVM, "base": EVM})
-    assert s.calls == []
+def test_prepare_accepts_source_only_execution_route():
+    s = _Session([prepare_bundle_resp()])
+    out = prepare_tool(s).forward(True, "polygon", "USDC", "base", "USDC", 10, {"polygon": EVM, "base": EVM})
+    assert out["action_prepared"] is True
 
 
 @pytest.mark.parametrize(
@@ -344,11 +342,10 @@ def test_session_create_rejects_bad_idempotency(bad):
     assert s.calls == []
 
 
-def test_session_create_rejects_source_only():
-    s = _Session([])
-    with pytest.raises(ValueError, match="execution_not_ready_phase_b"):
-        create_tool(s).forward(True, "optimism", "USDC", "base", "USDC", 10, {"optimism": EVM, "base": EVM}, TOKEN, "key-00000001")
-    assert s.calls == []
+def test_session_create_accepts_source_only_execution_route():
+    s = _Session([session_resp()])
+    out = create_tool(s).forward(True, "optimism", "USDC", "base", "USDC", 10, {"optimism": EVM, "base": EVM}, TOKEN, "key-00000001")
+    assert out["session_id"] == "3f2504e0-4f89-41d3-9a0c-0305e82c3301"
 
 
 # ---- idempotency / crash-recovery via the stateful FakeServer ------------------
@@ -464,7 +461,7 @@ def test_session_rejects_unsafe_response():
         create_tool(s).forward(True, "solana", "SOL", "base", "ETH", 250, WALLETS, TOKEN, "key-unsafe")
 
 
-# ---- 76-route multi-step MOCK e2e matrix (72 executable + 4 blocked) ----------
+# ---- 76-route multi-step MOCK e2e matrix (all executable) ---------------------
 
 SOURCE_ENDPOINTS = [
     ("solana", "SOL"), ("solana", "USDC"), ("solana", "USDG"),
@@ -493,9 +490,8 @@ def _enumerate_routes():
 
 
 def _quote_payload(sc, st, dc, dt):
-    source_only = sc in SOURCE_ONLY
     from_s, to_s = f"{sc}:{st}", f"{dc}:{dt}"
-    fee = 0 if source_only else 1
+    fee = 1
     steps_meta = [{"kind": "swap"}, {"kind": "bridge"}]
     handoff = {
         "kind": "caller_operated_rest_prepare",
@@ -513,19 +509,9 @@ def _quote_payload(sc, st, dc, dt):
         "automatic_prepare_call_forbidden": True,
         "note": "Caller-operated; AssetFare never signs or submits.",
     }
-    if source_only:
-        handoff["available"] = False
-        handoff["blocker"] = "execution_not_ready_phase_b"
-        execution = {
-            "supported": False,
-            "first_unsigned_action_supported": False,
-            "future_actions_require_verified_receipts": True,
-            "blocker": "execution_not_ready_phase_b",
-        }
-    else:
-        handoff["available"] = True
-        handoff["url"] = "https://api.assetfare.dev/v2/prepare"
-        handoff["options"] = [
+    handoff["available"] = True
+    handoff["url"] = "https://api.assetfare.dev/v2/prepare"
+    handoff["options"] = [
             {
                 "kind": "one_shot_first_unsigned_bundle", "method": "POST",
                 "url": "https://api.assetfare.dev/v2/prepare",
@@ -547,12 +533,12 @@ def _quote_payload(sc, st, dc, dt):
                     "refresh_action": {"url": "https://api.assetfare.dev/v2/session/{session_id}/refresh-action"},
                 },
             },
-        ]
-        execution = {
-            "supported": True,
-            "first_unsigned_action_supported": True,
-            "future_actions_require_verified_receipts": True,
-        }
+    ]
+    execution = {
+        "supported": True,
+        "first_unsigned_action_supported": True,
+        "future_actions_require_verified_receipts": True,
+    }
     return {
         "status": "capped_public_agent_release",
         "quote_id": "3f2504e0-4f89-41d3-9a0c-0305e82c3301",
@@ -565,7 +551,7 @@ def _quote_payload(sc, st, dc, dt):
             "expected_receive_amount": 1.02, "estimated_min_receive_amount": 1.0,
             "expected_receive_usd": 249.0, "estimated_min_receive_usd": 247.0,
             "output_symbol": dt, "assetfare_fee_bps": fee, "fee_modeled_bps": fee,
-            "fee_collectible_now": (fee == 1 and not source_only),
+            "fee_collectible_now": fee == 1,
             "fee_collection_steps": [1] if fee == 1 else [],
             "fee_collection": "only_on_eligible_successful_executor_step",
             "estimated_time_seconds": 30,
@@ -603,7 +589,6 @@ def test_e2e_76_route_matrix():
 
     routes = _enumerate_routes()
     executed_full = 0
-    blocked_count = 0
     for sc, st, dc, dt in routes:
         # 1) quote (all 76)
         qs = _Session([_Resp(_quote_payload(sc, st, dc, dt))])
@@ -611,23 +596,8 @@ def test_e2e_76_route_matrix():
         quote = q.forward(sc, st, dc, dt, 250)
         assert quote["from"] == f"{sc}:{st}" and quote["to"] == f"{dc}:{dt}"
 
-        if sc in SOURCE_ONLY:
-            # blocked: quote source_only, and prepare/session fail-closed BEFORE net.
-            blocked_count += 1
-            assert quote["source_only"] is True
-            assert quote["execution_supported"] is False
-            assert quote["caller_action_plan_handoff"]["available"] is False
-            ps = _Session([])
-            with pytest.raises(ValueError, match="execution_not_ready_phase_b"):
-                prepare_tool(ps).forward(True, sc, st, dc, dt, 250, {sc: WALLET_ADDR[sc], dc: WALLET_ADDR[dc]})
-            cs = _Session([])
-            with pytest.raises(ValueError, match="execution_not_ready_phase_b"):
-                create_tool(cs).forward(True, sc, st, dc, dt, 250, {sc: WALLET_ADDR[sc], dc: WALLET_ADDR[dc]}, TOKEN, "key-blocked")
-            assert ps.calls == [] and cs.calls == []
-            continue
-
-        # executable: full multi-step lifecycle over a stateful server.
-        assert quote["source_only"] is False
+        # Every route executes through the caller-approved multi-step lifecycle.
+        assert quote["source_only"] is (sc in SOURCE_ONLY)
         assert quote["execution_supported"] is True
         wallets = {sc: WALLET_ADDR[sc], dc: WALLET_ADDR[dc]}
         # 2) prepare one-shot bundle
@@ -644,5 +614,4 @@ def test_e2e_76_route_matrix():
         assert refresh_tool(srv).forward(TOKEN, sid, "key-e2e-0004")["session_id"] == sid
         executed_full += 1
 
-    assert executed_full == 72
-    assert blocked_count == 4
+    assert executed_full == 76

@@ -22,8 +22,8 @@ An **explicit caller-approved**, non-custodial [smolagents](https://github.com/h
 **execution-ready** route and returns its first workflow state / unsigned action.
 
 - **caller_approved gate** (literal `true`), **public wallets only**, and the
-  **source-only Phase-B boundary** are all enforced before any network call, exactly
-  as in the prepare tool.
+  directional Polygon/Optimism native-USDC source constraint are all enforced
+  before any network call, exactly as in the prepare tool.
 - **Caller-owned session token is REQUIRED input.** Generate it first with
   `assetfare_new_session_capability` and pass it as `session_token`; this tool does
   **not** generate it. It is sent only in the `X-AssetFare-Session-Token` header.

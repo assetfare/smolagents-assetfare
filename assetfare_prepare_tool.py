@@ -10,8 +10,8 @@ literal ``True`` and the route's own PUBLIC wallet addresses.
 Fail-closed guarantees:
   - caller_approved must be the literal boolean True (false/missing/string/number rejected)
     before any network call;
-  - source-only Phase-B routes (polygon/optimism source) are rejected with
-    execution_not_ready_phase_b before any network call -- prepare is never offered;
+  - directional Polygon/Optimism source routes are limited to native-USDC to
+    Base/Arbitrum USDC before any network call;
   - any private key / seed / mnemonic / signed transaction anywhere in the intent is
     rejected before any network call;
   - the returned bundle must explicitly assert it is neither signed nor submitted and
@@ -37,9 +37,8 @@ class AssetFarePrepareTool(Tool):
         "submits, never receives a private key or seed, and is NEVER auto-called from a "
         "quote: you must call it deliberately with caller_approved set to the literal "
         "true and the route's own PUBLIC wallet addresses. It fails closed before any "
-        "network call if caller_approved is not literally true, if the route is a "
-        "source-only Phase-B route (polygon/optimism source: execution_not_ready_phase_b, "
-        "no prepare offered), or if any private key / seed / signed transaction appears "
+        "network call if caller_approved is not literally true or if any private key / "
+        "seed / signed transaction appears "
         "anywhere in the input. Inputs: caller_approved (must be true), from_chain, "
         "from_token, to_chain, to_token, amount_usd (1-1000), wallets (a map of the "
         "route's chains to PUBLIC addresses only), and event_signer_public (optional, "
@@ -54,7 +53,7 @@ class AssetFarePrepareTool(Tool):
         },
         "from_chain": {
             "type": "string",
-            "description": "Source chain: one of solana, base, arbitrum, robinhood (polygon/optimism sources are source-only and rejected).",
+            "description": "Source chain: one of solana, base, arbitrum, robinhood, polygon, optimism.",
         },
         "from_token": {
             "type": "string",
@@ -90,7 +89,6 @@ class AssetFarePrepareTool(Tool):
     MAX_BYTES = 1048576
     MIN_USD = 1.0
     MAX_USD = 1000.0
-    EXECUTION_NOT_READY = "execution_not_ready_phase_b"
     CHAINS = {"arbitrum", "base", "optimism", "polygon", "robinhood", "solana"}
     SOURCE_ONLY_CHAINS = {"optimism", "polygon"}
     ENDPOINTS = {
@@ -246,10 +244,10 @@ class AssetFarePrepareTool(Tool):
             raise ValueError("assetfare_identity_route_rejected")
         if to_chain in self.SOURCE_ONLY_CHAINS:
             raise ValueError("assetfare_destination_endpoint_invalid")
-        # Source-only routes are NOT execution-ready this phase: fail closed BEFORE any
-        # network call; never offer/call prepare or session for them.
-        if from_chain in self.SOURCE_ONLY_CHAINS:
-            raise ValueError(self.EXECUTION_NOT_READY)
+        if from_chain in self.SOURCE_ONLY_CHAINS and not (
+            from_u == "USDC" and to_chain in {"base", "arbitrum"} and to_u == "USDC"
+        ):
+            raise ValueError("assetfare_source_endpoint_invalid")
         # Reject any private key / seed / signed material anywhere in the intent.
         self._reject_secret_material(
             {

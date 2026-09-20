@@ -41,10 +41,9 @@ Static Spaces (one per tool; nine total):
   `requests.Session` included — `trust_env` is forced off). The
   `new_session_capability` token tool makes **no network call** at all.
 - Exact surface: 6 source chains, 11 `(chain, token)` source endpoints, **76**
-  directed quote routes (execution ready for **72**; **4** source-only Phase-B
-  routes blocked), $1–$1000. Polygon and Optimism are native-USDC source-only to
-  Base or Arbitrum USDC (Polygon models 1bp, Optimism 0bp) and are **not**
-  execution-ready this phase.
+  execution-ready directed routes, $1–$1000. Polygon and Optimism are directional
+  native-USDC source-only origins to Base or Arbitrum USDC and each uses an
+  audited 1bp executor.
 - Strict response validation, RFC3339 tz-aware freshness (stale + future-skew;
   a trailing `Z` is normalized so it validates on Python 3.10 as well as 3.11+),
   1 MiB cap, single fixed sanitized error (no upstream text leaks). Every failure
@@ -64,18 +63,18 @@ Static Spaces (one per tool; nine total):
   `requires_explicit_caller_approval` / `requires_public_wallet_addresses` /
   `requires_fresh_requote` / `automatic_prepare_call_forbidden` /
   `assetfare_server_signing=false` / `assetfare_server_submission=false` /
-  `caller_must_verify_sign_and_submit=true`. A source-only route carries
-  `available: false` + `blocker: execution_not_ready_phase_b` and **no** prepare
-  url/options (accepted without offering prepare).
+  `caller_must_verify_sign_and_submit=true`. Directional source-only routes carry
+  the same available caller-approved prepare/session handoff.
 - **Fee is EXACTLY `{0, 1}`bp.** `assetfare_fee_bps` is validated to be exactly 0
   or 1 (8bp/2bp/negative rejected); `fee=1` ⇒ exactly one eligible
   `fee_collection_steps` index, `fee=0` ⇒ `[]`. Plus `fee_modeled_bps`,
-  `fee_collectible_now` (always `false` for source-only), and the constant
+  `fee_collectible_now` (true exactly for 1bp routes), and the constant
   `fee_collection = "only_on_eligible_successful_executor_step"`.
 - **Action tools are explicit and caller-owned.** `assetfare_prepare` and
   `assetfare_session_create` require the literal `caller_approved: true` and the
   route's own PUBLIC wallet addresses (private key/seed/signed material rejected
-  before any network call); source-only routes are fail-closed rejected. The
+  before any network call); Polygon/Optimism routes are constrained to native
+  USDC sources for Base/Arbitrum USDC destinations. The
   session capability token is **caller-generated** by `new_session_capability`
   (256-bit CSPRNG, marked sensitive, not a private key) and passed as **required**
   input to `session_create` (sent only in the `X-AssetFare-Session-Token` header),

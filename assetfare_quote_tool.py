@@ -10,10 +10,8 @@ The caller_action_plan_handoff is passed through verbatim (validated) with NO
 local fallback: a missing/null/array/extra/wrong-field/private-key handoff is a
 real contract regression and is REJECTED, not synthesized. Executable routes
 carry the dual-option handoff (POST /v2/prepare one-shot + full POST /v2/session
-lifecycle). Polygon and Optimism are native-USDC source-only (to Base/Arbitrum
-USDC) and are NOT execution-ready this phase: their quotes carry
-execution.supported=false and a blocked handoff (available=false, no prepare
-url/options) which is accepted WITHOUT offering prepare.
+lifecycle). Polygon and Optimism are directional native-USDC source-only origins
+(to Base/Arbitrum USDC) and use the same executable caller-approved handoff.
 
 All logic lives inside this class (imports done inside methods, no sibling-module
 imports) so ``Tool.to_dict`` / ``push_to_hub`` can serialise it to a single file.
@@ -35,12 +33,10 @@ class AssetFareQuoteTool(Tool):
         "the AssetFare service and does not itself prepare, sign or submit. It "
         "covers 6 source chains (solana, base, arbitrum, robinhood, polygon, "
         "optimism), 11 (chain, token) source endpoints and 76 directed quote routes, "
-        "for a USD amount of 1 to 1000. Execution is ready for 72 four-chain routes; "
-        "Polygon and Optimism are native-USDC source-only to Base or Arbitrum USDC "
-        "(Polygon models 1bp, Optimism 0bp) and are NOT execution-ready this phase "
-        "(execution_not_ready_phase_b): their quotes carry execution.supported=false "
-        "and a blocked action-plan handoff, so never offer or call prepare/session "
-        "for them. It never authenticates a wallet, opens a session, prepares an "
+        "for a USD amount of 1 to 1000. All 76 routes are execution-ready; Polygon "
+        "and Optimism are directional native-USDC source-only origins to Base or "
+        "Arbitrum USDC and each uses an audited 1bp executor. It never authenticates "
+        "a wallet, opens a session, prepares an "
         "unsigned action, signs or submits. For an execution-ready route its result "
         "passes through (validated) the caller_action_plan_handoff, which names the "
         "separate caller-operated POST /v2/prepare (one-shot) and POST /v2/session "
@@ -92,7 +88,6 @@ class AssetFareQuoteTool(Tool):
     MAX_USD = 1000.0
     PREPARE_URL = "https://api.assetfare.dev/v2/prepare"
     SESSION_URL = "https://api.assetfare.dev/v2/session"
-    EXECUTION_NOT_READY = "execution_not_ready_phase_b"
     FEE_COLLECTION_CONST = "only_on_eligible_successful_executor_step"
     CHAINS = {"arbitrum", "base", "optimism", "polygon", "robinhood", "solana"}
     SOURCE_ONLY_CHAINS = {"optimism", "polygon"}
@@ -332,7 +327,7 @@ class AssetFareQuoteTool(Tool):
         # smolagents 1.26.0 (which itself requires requests>=2.32.3).
         return "smolagents==1.26.0\nrequests>=2.32.3,<3"
 
-    def _validate_offer_fee(self, offer: Any, step_count: int, source_only: bool) -> None:
+    def _validate_offer_fee(self, offer: Any, step_count: int) -> None:
         # Fee is EXACTLY {0,1}bp, collected at most once on an eligible successful
         # executor step. fee=1 => fee_collection_steps holds EXACTLY one valid,
         # in-range, non-duplicate index; fee=0 => []. Rejects fee>1 / negative / 8bp,
@@ -348,8 +343,8 @@ class AssetFareQuoteTool(Tool):
             raise ValueError("assetfare_response_invalid")
         if not isinstance(offer.get("fee_collectible_now"), bool):
             raise ValueError("assetfare_response_invalid")
-        if source_only and offer.get("fee_collectible_now") is not False:
-            raise ValueError("assetfare_fee_collectible_while_blocked")
+        if modeled != fee or offer.get("fee_collectible_now") is not (fee == 1):
+            raise ValueError("assetfare_fee_collectibility_mismatch")
         steps = offer.get("fee_collection_steps")
         if not isinstance(steps, list):
             raise ValueError("assetfare_response_invalid")
@@ -366,13 +361,12 @@ class AssetFareQuoteTool(Tool):
         if fee == 0 and steps != []:
             raise ValueError("assetfare_fee_step_count_mismatch")
 
-    def _validate_caller_handoff(self, node: Any, source_only: bool) -> Any:
+    def _validate_caller_handoff(self, node: Any) -> Any:
         # FAIL-CLOSED passthrough of the upstream caller_action_plan_handoff. There is
         # NO local fallback: a missing / null / array / extra-field / wrong-field /
         # private-key handoff is a real contract regression and is REJECTED. Executable
         # routes must carry the dual-option handoff (POST /v2/prepare one-shot + full
-        # POST /v2/session lifecycle). Source-only routes must carry the blocked form:
-        # available=false, blocker, and NO prepare url / options.
+        # POST /v2/session lifecycle).
         # EXACT 8-field caller-approved request contract (caller_approved first).
         request_fields = [
             "caller_approved",
@@ -411,15 +405,6 @@ class AssetFareQuoteTool(Tool):
         for key in node:
             if key not in self.HANDOFF_ALLOWED_KEYS:
                 raise ValueError("assetfare_handoff_extra_field")
-
-        if source_only:
-            if node.get("available") is not False:
-                raise ValueError("assetfare_handoff_invalid")
-            if node.get("blocker") != self.EXECUTION_NOT_READY:
-                raise ValueError("assetfare_handoff_invalid")
-            if "url" in node or "options" in node:
-                raise ValueError("assetfare_handoff_source_only_offers_prepare")
-            return dict(node)
 
         if node.get("available") is not True:
             raise ValueError("assetfare_handoff_invalid")
@@ -580,7 +565,7 @@ class AssetFareQuoteTool(Tool):
         if offer.get("output_symbol") != to_u:
             raise ValueError("assetfare_response_invalid")
         # Fee EXACTLY {0,1}bp + modeled/collectible + fee_collection literal.
-        self._validate_offer_fee(offer, len(steps), source_only)
+        self._validate_offer_fee(offer, len(steps))
         fee = offer["assetfare_fee_bps"]
         fee_steps = offer["fee_collection_steps"]
         eta = offer.get("estimated_time_seconds")
@@ -593,36 +578,24 @@ class AssetFareQuoteTool(Tool):
             raise ValueError("assetfare_response_invalid")
         self._no_sign(risk)
 
-        # execution: discriminated by route class (Phase-B split). Source-only routes
-        # must be NOT execution-ready; executable routes must be ready.
+        # Every supported route is execution-ready through caller-operated wallets.
         if not isinstance(execution.get("first_unsigned_action_supported"), bool):
             raise ValueError("assetfare_response_invalid")
         if execution.get("future_actions_require_verified_receipts") is not True:
             raise ValueError("assetfare_response_invalid")
-        if source_only:
-            if (
-                execution.get("supported") is not False
-                or execution.get("first_unsigned_action_supported") is not False
-                or execution.get("blocker") != self.EXECUTION_NOT_READY
-            ):
-                raise ValueError("assetfare_execution_boundary_failed")
-        else:
-            if execution.get("supported") is not True or execution.get("first_unsigned_action_supported") is not True:
-                raise ValueError("assetfare_execution_boundary_failed")
+        if (
+            execution.get("supported") is not True
+            or execution.get("first_unsigned_action_supported") is not True
+            or ("blocker" in execution and execution.get("blocker") is not None)
+        ):
+            raise ValueError("assetfare_execution_boundary_failed")
 
         # FAIL-CLOSED passthrough of the upstream caller_action_plan_handoff. No local
         # fallback: a missing/malformed handoff is a real contract regression.
-        caller_action_plan_handoff = self._validate_caller_handoff(
-            data.get("caller_action_plan_handoff"), source_only
-        )
+        caller_action_plan_handoff = self._validate_caller_handoff(data.get("caller_action_plan_handoff"))
 
         fee_steps_out = [int(s) for s in fee_steps]
-        if source_only:
-            fee_note = (
-                "AssetFare models " + str(fee) + "bp for this source-only route, but it is NOT "
-                "collectible now (execution_not_ready_phase_b); no prepare/session action is offered."
-            )
-        elif fee > 0:
+        if fee > 0:
             fee_note = (
                 "AssetFare " + str(fee) + "bp is collected only on an eligible successful executor "
                 "step (conditional, not an unconditional flat fee)."
@@ -652,8 +625,8 @@ class AssetFareQuoteTool(Tool):
             "as_of": as_of,
             "ttl_seconds": ttl,
             "source_only": source_only,
-            "execution_supported": not source_only,
-            "execution_blocker": self.EXECUTION_NOT_READY if source_only else None,
+            "execution_supported": True,
+            "execution_blocker": None,
             "server_signs_or_submits": False,
             "caller_action_plan_handoff": caller_action_plan_handoff,
         }

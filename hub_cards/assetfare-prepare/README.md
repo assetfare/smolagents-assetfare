@@ -28,9 +28,8 @@ caller to verify, sign, and submit with their **own** wallet.
   quote never triggers it.
 - **caller_approved gate.** Rejects anything but the literal boolean `true` before
   any network call.
-- **Fail-closed source-only boundary.** Polygon/Optimism source routes are
-  `execution_not_ready_phase_b` and are rejected before any network call — prepare
-  is never offered for them.
+- **Fail-closed source-only boundary.** Polygon/Optimism are accepted only as
+  native-USDC origins to Base/Arbitrum USDC; other directions fail before network.
 - **Public wallets only.** The `wallets` map must contain PUBLIC addresses for the
   route's chains; any private key / seed / signed transaction anywhere in the input
   is rejected before any network call.

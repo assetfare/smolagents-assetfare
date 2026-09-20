@@ -109,10 +109,9 @@ on **one** eligible **successful executor step** named in `fee_collection_steps`
 (`fee=1` ⇒ exactly one step; `fee=0` ⇒ `[]`; any mismatch fails closed). The
 constant `fee_collection` is always
 `"only_on_eligible_successful_executor_step"`. `fee_modeled_bps` is what AssetFare
-models; `fee_collectible_now` is whether it can be collected in this phase — for a
-**source-only** (Polygon/Optimism) route it is always `false` even when `1`bp is
-modeled, because those routes are not execution-ready. `assetfare_fee_conditional`
-is `true` iff the fee is positive.
+models; `fee_collectible_now` is `true` exactly for a `1`bp route. Polygon and
+Optimism use audited 1bp executors, so their directional source-only routes are
+collectible now. `assetfare_fee_conditional` is `true` iff the fee is positive.
 
 **`caller_action_plan_handoff` — FAIL-CLOSED passthrough (no local fallback).** The
 upstream `/v2/quote` handoff is passed through **verbatim after strict validation**;
@@ -128,9 +127,8 @@ https://api.assetfare.dev/v2/prepare`, and **two options** — a one-shot
 `assetfare_server_submission: false`, `caller_must_verify_sign_and_submit: true`,
 and the exact **8-field** `request_fields`
 `["caller_approved", "from_chain", "from_token", "to_chain", "to_token",
-"amount_usd", "wallets", "event_signer_public"]`. For a **source-only** Phase-B
-route it carries `available: false`, `blocker: "execution_not_ready_phase_b"`, and
-**no** prepare `url`/`options` — this tool accepts that and never offers prepare.
+"amount_usd", "wallets", "event_signer_public"]`. The four directional
+Polygon/Optimism source-only routes carry the same available two-option handoff.
 This tool never calls `/v2/prepare` or `/v2/session`, never receives a private key,
 and never signs or submits.
 

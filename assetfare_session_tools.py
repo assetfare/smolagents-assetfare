@@ -42,9 +42,8 @@ class AssetFareSessionCreateTool(Tool):
         "assetfare_new_session_capability) sent only in the X-AssetFare-Session-Token "
         "header, and an idempotency_key; retrying with the SAME token + idempotency_key "
         "recovers the SAME session (lost-response crash recovery). It fails closed before "
-        "any network call if caller_approved is not literally true, if the route is a "
-        "source-only Phase-B route (polygon/optimism source), or if any private key / seed "
-        "/ signed transaction appears anywhere in the input. Inputs: caller_approved, "
+        "any network call if caller_approved is not literally true or if any private key / "
+        "seed / signed transaction appears anywhere in the input. Inputs: caller_approved, "
         "from_chain, from_token, to_chain, to_token, amount_usd (1-1000), wallets (public "
         "addresses only), event_signer_public (optional; Solana-CCTP only; public key), "
         "session_token (the caller-owned capability), idempotency_key. The returned "
@@ -58,7 +57,7 @@ class AssetFareSessionCreateTool(Tool):
         },
         "from_chain": {
             "type": "string",
-            "description": "Source chain: one of solana, base, arbitrum, robinhood (polygon/optimism sources are source-only and rejected).",
+            "description": "Source chain: one of solana, base, arbitrum, robinhood, polygon, optimism.",
         },
         "from_token": {
             "type": "string",
@@ -103,7 +102,6 @@ class AssetFareSessionCreateTool(Tool):
     MAX_BYTES = 1048576
     MIN_USD = 1.0
     MAX_USD = 1000.0
-    EXECUTION_NOT_READY = "execution_not_ready_phase_b"
     CHAINS = {"arbitrum", "base", "optimism", "polygon", "robinhood", "solana"}
     SOURCE_ONLY_CHAINS = {"optimism", "polygon"}
     ENDPOINTS = {
@@ -270,8 +268,10 @@ class AssetFareSessionCreateTool(Tool):
             raise ValueError("assetfare_identity_route_rejected")
         if to_chain in self.SOURCE_ONLY_CHAINS:
             raise ValueError("assetfare_destination_endpoint_invalid")
-        if from_chain in self.SOURCE_ONLY_CHAINS:
-            raise ValueError(self.EXECUTION_NOT_READY)
+        if from_chain in self.SOURCE_ONLY_CHAINS and not (
+            from_u == "USDC" and to_chain in {"base", "arbitrum"} and to_u == "USDC"
+        ):
+            raise ValueError("assetfare_source_endpoint_invalid")
         self._reject_secret_material(
             {
                 "wallets": wallets,

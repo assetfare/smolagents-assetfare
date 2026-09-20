@@ -91,14 +91,9 @@ def caps_payload():
         "public_api_enabled": True,
         "directed_conversion_routes": 76,
         "unsigned_route_plans_ready": 76,
-        "execution_ready_routes": 72,
-        "phase_b_blocked_routes": 4,
-        "blocked_source_only_routes": [
-            "polygon:USDC->base:USDC",
-            "polygon:USDC->arbitrum:USDC",
-            "optimism:USDC->base:USDC",
-            "optimism:USDC->arbitrum:USDC",
-        ],
+        "execution_ready_routes": 76,
+        "phase_b_blocked_routes": 0,
+        "blocked_source_only_routes": [],
         "server_signing": False,
         "server_submission": False,
         "chains": ["solana", "base", "arbitrum", "robinhood", "polygon", "optimism"],
@@ -230,27 +225,6 @@ def executable_handoff():
     }
 
 
-def blocked_handoff():
-    return {
-        "kind": "caller_operated_rest_prepare",
-        "method": "POST",
-        "available": False,
-        "blocker": "execution_not_ready_phase_b",
-        "requires_explicit_caller_approval": True,
-        "requires_public_wallet_addresses": True,
-        "request_fields": [
-            "caller_approved", "from_chain", "from_token", "to_chain", "to_token",
-            "amount_usd", "wallets", "event_signer_public",
-        ],
-        "assetfare_server_signing": False,
-        "assetfare_server_submission": False,
-        "caller_must_verify_sign_and_submit": True,
-        "requires_fresh_requote": True,
-        "automatic_prepare_call_forbidden": True,
-        "note": "Source-only Phase-B route: no prepare or session; discovery only.",
-    }
-
-
 def source_only_quote_payload(from_ep, to_ep, route, fee_bps, fee_modeled, steps):
     p = quote_payload()
     p["intent"].update(**{"from": from_ep_str(from_ep), "to": from_ep_str(to_ep), "amount_usd": 10.0})
@@ -258,15 +232,15 @@ def source_only_quote_payload(from_ep, to_ep, route, fee_bps, fee_modeled, steps
     p["offer"]["output_symbol"] = to_ep[1]
     p["offer"]["assetfare_fee_bps"] = fee_bps
     p["offer"]["fee_modeled_bps"] = fee_modeled
-    p["offer"]["fee_collectible_now"] = False
+    p["offer"]["fee_collectible_now"] = fee_bps == 1
     p["offer"]["fee_collection_steps"] = steps
     p["execution"] = {
-        "supported": False,
-        "first_unsigned_action_supported": False,
+        "supported": True,
+        "first_unsigned_action_supported": True,
         "future_actions_require_verified_receipts": True,
-        "blocker": "execution_not_ready_phase_b",
+        "blocker": None,
     }
-    p["caller_action_plan_handoff"] = blocked_handoff()
+    p["caller_action_plan_handoff"] = executable_handoff()
     return p
 
 
@@ -342,6 +316,9 @@ def test_capabilities_happy():
     out = caps_tool(s).forward()
     assert out["directed_conversion_routes"] == 76
     assert out["unsigned_route_plans_ready"] == 76
+    assert out["execution_ready_routes"] == 76
+    assert out["phase_b_blocked_routes"] == 0
+    assert out["blocked_source_only_routes"] == []
     assert out["chains"] == ["arbitrum", "base", "optimism", "polygon", "robinhood", "solana"]
     assert len(out["asset_endpoints"]) == 11
     assert out["source_only_asset_endpoints"] == ["optimism:USDC", "polygon:USDC"]
@@ -475,22 +452,22 @@ def test_quote_happy():
 
 
 def test_polygon_source_quote_happy():
-    # Polygon source is source-only Phase-B: models 1bp but not collectible now,
-    # execution.supported=false, blocked handoff (available=false, no prepare offered).
+    # Polygon is directional source-only, but its audited 1bp route is execution-ready.
     payload = source_only_quote_payload(
         ("polygon", "USDC"), ("arbitrum", "USDC"), "polygon:USDC->arbitrum:USDC", 1, 1, [1]
     )
     out = quote_tool(quote_session(payload)).forward("polygon", "USDC", "arbitrum", "USDC", 10)
     assert out["from"] == "polygon:USDC" and out["to"] == "arbitrum:USDC"
     assert out["source_only"] is True
-    assert out["execution_supported"] is False
-    assert out["execution_blocker"] == "execution_not_ready_phase_b"
+    assert out["execution_supported"] is True
+    assert out["execution_blocker"] is None
     assert out["assetfare_fee_bps"] == 1
     assert out["fee_modeled_bps"] == 1
-    assert out["fee_collectible_now"] is False
+    assert out["fee_collectible_now"] is True
     h = out["caller_action_plan_handoff"]
-    assert h["available"] is False and h["blocker"] == "execution_not_ready_phase_b"
-    assert "url" not in h and "options" not in h
+    assert h["available"] is True
+    assert h["url"] == "https://api.assetfare.dev/v2/prepare"
+    assert len(h["options"]) == 2
 
 
 def test_polygon_destination_and_wrong_corridor_rejected():
@@ -501,17 +478,17 @@ def test_polygon_destination_and_wrong_corridor_rejected():
 
 
 def test_optimism_source_quote_happy():
-    # Optimism source is source-only Phase-B and 0bp modeled.
+    # Optimism is directional source-only with an audited 1bp executor.
     payload = source_only_quote_payload(
-        ("optimism", "USDC"), ("base", "USDC"), "optimism:USDC->base:USDC", 0, 0, []
+        ("optimism", "USDC"), ("base", "USDC"), "optimism:USDC->base:USDC", 1, 1, [1]
     )
     out = quote_tool(quote_session(payload)).forward("optimism", "USDC", "base", "USDC", 10)
     assert out["from"] == "optimism:USDC" and out["to"] == "base:USDC"
     assert out["source_only"] is True
-    assert out["execution_supported"] is False
-    assert out["assetfare_fee_bps"] == 0
-    assert out["fee_collectible_now"] is False
-    assert out["assetfare_fee_conditional"] is False
+    assert out["execution_supported"] is True
+    assert out["assetfare_fee_bps"] == 1
+    assert out["fee_collectible_now"] is True
+    assert out["assetfare_fee_conditional"] is True
 
 
 def test_optimism_destination_and_wrong_corridor_rejected():

@@ -10,8 +10,8 @@ import urllib
 
 class AssetFarePrepareTool(Tool):
     name = "assetfare_prepare"
-    description = "Explicit caller-approved, non-custodial one-shot POST /v2/prepare for an execution-ready AssetFare route (fixed origin https://api.assetfare.dev). It fresh re-quotes and returns a bounded FIRST unsigned action bundle for the caller to verify, sign and submit with their OWN wallet. It never signs, never submits, never receives a private key or seed, and is NEVER auto-called from a quote: you must call it deliberately with caller_approved set to the literal true and the route's own PUBLIC wallet addresses. It fails closed before any network call if caller_approved is not literally true, if the route is a source-only Phase-B route (polygon/optimism source: execution_not_ready_phase_b, no prepare offered), or if any private key / seed / signed transaction appears anywhere in the input. Inputs: caller_approved (must be true), from_chain, from_token, to_chain, to_token, amount_usd (1-1000), wallets (a map of the route's chains to PUBLIC addresses only), and event_signer_public (optional, only for Solana-CCTP routes; a PUBLIC key, never a private key). The returned 'server_signs_or_submits' is always false. This tool prepares only an UNSIGNED action; it does NOT execute, bridge, swap, sign or move funds."
-    inputs = {'caller_approved': {'type': 'boolean', 'description': 'Must be the literal boolean true. It is the explicit caller approval gate; anything else is rejected before any network call.'}, 'from_chain': {'type': 'string', 'description': 'Source chain: one of solana, base, arbitrum, robinhood (polygon/optimism sources are source-only and rejected).'}, 'from_token': {'type': 'string', 'description': 'Source token symbol on the source chain, e.g. SOL, ETH, USDC, USDG.'}, 'to_chain': {'type': 'string', 'description': 'Destination chain: one of solana, base, arbitrum, robinhood.'}, 'to_token': {'type': 'string', 'description': 'Destination token symbol on the destination chain, e.g. ETH, USDC, USDG.'}, 'amount_usd': {'type': 'number', 'description': 'Notional amount in USD to convert, from 1 to 1000 inclusive.'}, 'wallets': {'type': 'object', 'description': "Map of the route's chains (at least the source and destination) to the caller's PUBLIC wallet addresses only. Never a private key or seed."}, 'event_signer_public': {'type': 'string', 'description': 'Optional PUBLIC key used only for Solana-CCTP routes. Never a private key. Omit when not applicable.', 'nullable': True}}
+    description = "Explicit caller-approved, non-custodial one-shot POST /v2/prepare for an execution-ready AssetFare route (fixed origin https://api.assetfare.dev). It fresh re-quotes and returns a bounded FIRST unsigned action bundle for the caller to verify, sign and submit with their OWN wallet. It never signs, never submits, never receives a private key or seed, and is NEVER auto-called from a quote: you must call it deliberately with caller_approved set to the literal true and the route's own PUBLIC wallet addresses. It fails closed before any network call if caller_approved is not literally true or if any private key / seed / signed transaction appears anywhere in the input. Inputs: caller_approved (must be true), from_chain, from_token, to_chain, to_token, amount_usd (1-1000), wallets (a map of the route's chains to PUBLIC addresses only), and event_signer_public (optional, only for Solana-CCTP routes; a PUBLIC key, never a private key). The returned 'server_signs_or_submits' is always false. This tool prepares only an UNSIGNED action; it does NOT execute, bridge, swap, sign or move funds."
+    inputs = {'caller_approved': {'type': 'boolean', 'description': 'Must be the literal boolean true. It is the explicit caller approval gate; anything else is rejected before any network call.'}, 'from_chain': {'type': 'string', 'description': 'Source chain: one of solana, base, arbitrum, robinhood, polygon, optimism.'}, 'from_token': {'type': 'string', 'description': 'Source token symbol on the source chain, e.g. SOL, ETH, USDC, USDG.'}, 'to_chain': {'type': 'string', 'description': 'Destination chain: one of solana, base, arbitrum, robinhood.'}, 'to_token': {'type': 'string', 'description': 'Destination token symbol on the destination chain, e.g. ETH, USDC, USDG.'}, 'amount_usd': {'type': 'number', 'description': 'Notional amount in USD to convert, from 1 to 1000 inclusive.'}, 'wallets': {'type': 'object', 'description': "Map of the route's chains (at least the source and destination) to the caller's PUBLIC wallet addresses only. Never a private key or seed."}, 'event_signer_public': {'type': 'string', 'description': 'Optional PUBLIC key used only for Solana-CCTP routes. Never a private key. Omit when not applicable.', 'nullable': True}}
     output_type = "object"
     ALLOWED_ORIGIN = "https://api.assetfare.dev"
     SOCKET_TIMEOUT_S = 45.0
@@ -19,7 +19,6 @@ class AssetFarePrepareTool(Tool):
     MAX_BYTES = 1048576
     MIN_USD = 1.0
     MAX_USD = 1000.0
-    EXECUTION_NOT_READY = "execution_not_ready_phase_b"
     CHAINS = {'arbitrum', 'base', 'optimism', 'polygon', 'robinhood', 'solana'}
     SOURCE_ONLY_CHAINS = {'optimism', 'polygon'}
     ENDPOINTS = {'arbitrum:ETH', 'arbitrum:USDC', 'base:ETH', 'base:USDC', 'optimism:USDC', 'polygon:USDC', 'robinhood:ETH', 'robinhood:USDG', 'solana:SOL', 'solana:USDC', 'solana:USDG'}
@@ -145,10 +144,10 @@ class AssetFarePrepareTool(Tool):
             raise ValueError("assetfare_identity_route_rejected")
         if to_chain in self.SOURCE_ONLY_CHAINS:
             raise ValueError("assetfare_destination_endpoint_invalid")
-        # Source-only routes are NOT execution-ready this phase: fail closed BEFORE any
-        # network call; never offer/call prepare or session for them.
-        if from_chain in self.SOURCE_ONLY_CHAINS:
-            raise ValueError(self.EXECUTION_NOT_READY)
+        if from_chain in self.SOURCE_ONLY_CHAINS and not (
+            from_u == "USDC" and to_chain in {"base", "arbitrum"} and to_u == "USDC"
+        ):
+            raise ValueError("assetfare_source_endpoint_invalid")
         # Reject any private key / seed / signed material anywhere in the intent.
         self._reject_secret_material(
             {
