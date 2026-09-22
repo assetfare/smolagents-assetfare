@@ -144,7 +144,13 @@ from smolagents import load_tool
 quote = load_tool(
     "odaiin/assetfare-quote",
     trust_remote_code=True,          # required for any Hub tool: runs Space code in-process
-    revision="<pin-reviewed-6chain-SHA-after-publish>", # pin the reviewed 6-chain SHA only AFTER publish (do not advertise a pre-Optimism SHA)
+    revision="e4bae16b38cf94e4b2feaa95fa6d28cb6d5ac680",
+)
+
+capabilities = load_tool(
+    "odaiin/assetfare-capabilities",
+    trust_remote_code=True,
+    revision="eb5856605dffd2c5b2a39168c2e093b49df21341",
 )
 ```
 
