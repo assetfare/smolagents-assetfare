@@ -31,7 +31,7 @@ class AssetFarePrepareTool(Tool):
     name = "assetfare_prepare"
     description = (
         "Explicit caller-approved, non-custodial one-shot POST /v2/prepare for an "
-        "execution-ready AssetFare route (fixed origin https://api.assetfare.dev). It "
+        "AssetFare route whose fresh quote reports current availability (fixed origin https://api.assetfare.dev). It "
         "fresh re-quotes and returns a bounded FIRST unsigned action bundle for the "
         "caller to verify, sign and submit with their OWN wallet. It never signs, never "
         "submits, never receives a private key or seed, and is NEVER auto-called from a "

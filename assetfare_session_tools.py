@@ -33,7 +33,7 @@ class AssetFareSessionCreateTool(Tool):
     name = "assetfare_session_create"
     description = (
         "Explicit caller-approved, non-custodial POST /v2/session create for an "
-        "execution-ready AssetFare route (fixed origin https://api.assetfare.dev). It "
+        "AssetFare route whose fresh quote reports current availability (fixed origin https://api.assetfare.dev). It "
         "opens one idempotent receipt-driven session and returns its first workflow "
         "state / unsigned action for the caller to verify, sign and submit with their "
         "OWN wallet. It never signs, never submits, never receives a private key or seed, "

@@ -118,7 +118,7 @@ is `true` iff the service fee is positive.
 upstream `/v2/quote` handoff is passed through **verbatim after strict validation**;
 there is **no** synthesized local descriptor. A missing / null / array / extra-field
 / wrong-field handoff is a real contract regression and is **rejected**. For an
-**execution-ready** route it carries `available: true`, `url:
+a route the fresh quote reports available it carries `available: true`, `url:
 https://api.assetfare.dev/v2/prepare`, and **two options** — a one-shot
 `POST /v2/prepare` first unsigned bundle and a full caller-approved
 `POST /v2/session` lifecycle (create / `GET {id}` / observe-source / observe-output

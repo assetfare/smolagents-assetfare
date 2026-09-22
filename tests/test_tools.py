@@ -189,7 +189,8 @@ def quote_payload():
 def with_cost_summary(quote):
     amount=float(quote["intent"]["amount_usd"]);expected=float(quote["offer"]["expected_receive_usd"]);minimum=float(quote["offer"]["estimated_min_receive_usd"])
     ec=max(0.0,amount-expected);mc=max(0.0,amount-minimum)
-    quote["cost_summary"]={"scope":"token_path_only_network_gas_excluded","input_value_usd":amount,"expected_receive_value_usd":expected,"minimum_receive_value_usd":minimum,"expected_total_cost_usd":ec,"maximum_total_cost_usd":mc,"expected_total_cost_percent":ec/amount*100,"maximum_total_cost_percent":mc/amount*100,"assetfare_service_fee":{"bps":1,"estimated_usd":min(amount/10_000,5.0),"included_in_receive_amount":True,"note":"service fee only"},"provider_fee_components":[],"unpriced_costs":["source_chain_network_fee"],"rankable_all_in":False,"small_amount_warning":mc/amount>=.01,"warning":None}
+    small=mc/amount>=.01
+    quote["cost_summary"]={"scope":"token_path_only_network_gas_excluded","input_value_usd":amount,"expected_receive_value_usd":expected,"minimum_receive_value_usd":minimum,"expected_total_cost_usd":ec,"maximum_total_cost_usd":mc,"expected_total_cost_percent":ec/amount*100,"maximum_total_cost_percent":mc/amount*100,"assetfare_service_fee":{"bps":1,"estimated_usd":min(amount/10_000,5.0),"included_in_receive_amount":True,"note":"service fee only"},"provider_fee_components":[],"unpriced_costs":["source_chain_network_fee"],"rankable_all_in":False,"small_amount_warning":small,"warning":"fixed cost" if small else None}
     quote["eta"]={"estimated_time_seconds":quote["offer"]["estimated_time_seconds"],"estimated_time_range_seconds":[8,45],"complete_route_estimate":True,"sources":[],"note":"estimate"}
     return quote
 
@@ -392,6 +393,15 @@ def test_capabilities_rejects_partial_current_availability():
         caps_tool(_Session([_Resp(p),_Resp(status_payload())])).forward()
 
 
+@pytest.mark.parametrize("mut",[
+    lambda c:c.update(currently_prepare_ready_routes=75,temporarily_unavailable_routes=["evil:USDC->base:USDC"],temporarily_unavailable_route_count=1,execution_availability={"status":"degraded","provider":"circle_iris","guarantees_future_availability":False}),
+    lambda c:c.update(execution_availability={"status":"degraded","provider":"circle_iris","guarantees_future_availability":False}),
+])
+def test_capabilities_live_availability_semantics_fail_closed(mut):
+    p=caps_payload();mut(p)
+    with pytest.raises(ValueError):caps_tool(_Session([_Resp(p),_Resp(status_payload())])).forward()
+
+
 def test_capabilities_rejects_server_signing_true():
     p = caps_payload()
     p["server_signing"] = True
@@ -507,6 +517,13 @@ def test_quote_happy():
     lambda q:q["cost_summary"]["assetfare_service_fee"].__setitem__("estimated_usd",1),
     lambda q:q["cost_summary"].__setitem__("rankable_all_in",True),
     lambda q:q["eta"].__setitem__("estimated_time_seconds",99),
+    lambda q:q["cost_summary"].__setitem__("provider_fee_components",[{"expected_usd":1,"maximum_usd":1}]),
+    lambda q:q["cost_summary"].__setitem__("provider_fee_components",[{"expected_usd":.02,"maximum_usd":.01}]),
+    lambda q:q["cost_summary"].__setitem__("unpriced_costs",[]),
+    lambda q:(q["cost_summary"].__setitem__("small_amount_warning",False),q["cost_summary"].__setitem__("warning",None)),
+    lambda q:q["eta"].__setitem__("estimated_time_range_seconds",[50,45]),
+    lambda q:q["eta"].__setitem__("complete_route_estimate",False),
+    lambda q:q.__setitem__("ttl_seconds",61),
 ])
 def test_quote_cost_and_eta_binding_hostiles(mut):
     payload=with_cost_summary(quote_payload());mut(payload)
@@ -519,8 +536,14 @@ def test_rollback_core_without_cost_derives_honest_total():
     assert "provider_fee_breakdown_unavailable_legacy_core" in out["cost_summary"]["unpriced_costs"]
 
 
+def test_quote_accepts_sub_micro_usd_rounding_alignment():
+    payload=with_cost_summary(quote_payload());payload["offer"]["expected_receive_usd"]=249.1234567;payload["cost_summary"]["expected_receive_value_usd"]=249.123457;payload["cost_summary"]["expected_total_cost_usd"]=.876543;payload["cost_summary"]["expected_total_cost_percent"]=.3506172
+    out=quote_tool(quote_session(payload)).forward("solana","SOL","base","ETH",250)
+    assert out["cost_summary"]["expected_receive_value_usd"]==249.123457
+
+
 def test_polygon_source_quote_happy():
-    # Polygon is directional source-only, but its audited 1bp route is execution-ready.
+    # Polygon is directional source-only and usable only while live availability permits.
     payload = source_only_quote_payload(
         ("polygon", "USDC"), ("arbitrum", "USDC"), "polygon:USDC->arbitrum:USDC", 1, 1, [1]
     )
@@ -546,7 +569,7 @@ def test_polygon_destination_and_wrong_corridor_rejected():
 
 
 def test_optimism_source_quote_happy():
-    # Optimism is directional source-only with an audited 1bp executor.
+    # Optimism is directional source-only and usable only while live availability permits.
     payload = source_only_quote_payload(
         ("optimism", "USDC"), ("base", "USDC"), "optimism:USDC->base:USDC", 1, 1, [1]
     )

@@ -58,7 +58,7 @@ Static Spaces (one per tool; nine total):
   quote result carries the caller-operated `caller_action_plan_handoff` as a
   **FAIL-CLOSED passthrough** of the upstream `/v2/quote` handoff — **no local
   fallback**: a missing/null/array/extra/wrong-field handoff is a real contract
-  regression and is rejected, never synthesized. For an execution-ready route it
+  regression and is rejected, never synthesized. For a route the fresh quote reports available it
   carries `available: true`, `url: …/v2/prepare`, and **two options** (one-shot
   `POST /v2/prepare` + full `POST /v2/session` lifecycle), the exact **8-field**
   `request_fields` (`caller_approved` first), and the invariants

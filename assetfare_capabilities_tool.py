@@ -286,7 +286,18 @@ class AssetFareCapabilitiesTool(Tool):
         current_ready=None;temporary=[];availability=None
         if present:
             current_ready=caps.get("currently_prepare_ready_routes");temporary=caps.get("temporarily_unavailable_routes");availability=caps.get("execution_availability")
-            if (caps.get("execution_implemented_routes")!=self.EXPECTED_ROUTES or isinstance(current_ready,bool) or not isinstance(current_ready,int) or not 0<=current_ready<=self.EXPECTED_ROUTES or not isinstance(temporary,list) or len(set(temporary))!=len(temporary) or caps.get("temporarily_unavailable_route_count")!=len(temporary) or current_ready!=self.EXPECTED_ROUTES-len(temporary) or not isinstance(availability,dict) or availability.get("provider")!="circle_iris" or availability.get("status") not in {"available","degraded","unknown"} or availability.get("guarantees_future_availability") is not False):
+            routes=set()
+            for source in self.ENDPOINTS:
+                fc,ft=source.split(":")
+                for destination in self.ENDPOINTS:
+                    tc,tt=destination.split(":")
+                    if source==destination or tc in {"polygon","optimism"}:continue
+                    if fc in {"polygon","optimism"} and not (ft=="USDC" and tc in {"base","arbitrum"} and tt=="USDC"):continue
+                    routes.add(source+"->"+destination)
+            unknown_route=False
+            for item in temporary:
+                if item not in routes:unknown_route=True
+            if (caps.get("execution_implemented_routes")!=self.EXPECTED_ROUTES or isinstance(current_ready,bool) or not isinstance(current_ready,int) or not 0<=current_ready<=self.EXPECTED_ROUTES or not isinstance(temporary,list) or len(set(temporary))!=len(temporary) or unknown_route or caps.get("temporarily_unavailable_route_count")!=len(temporary) or current_ready!=self.EXPECTED_ROUTES-len(temporary) or not isinstance(availability,dict) or availability.get("provider")!="circle_iris" or availability.get("status") not in {"available","degraded","unknown"} or (len(temporary)==0)!=(availability.get("status")=="available") or availability.get("guarantees_future_availability") is not False):
                 raise ValueError("assetfare_current_availability_invalid")
         destinations = caps.get("destination_chains")
         if not isinstance(destinations, list) or len(destinations) != 4 or set(destinations) != {"arbitrum", "base", "robinhood", "solana"}:

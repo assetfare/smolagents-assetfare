@@ -19,7 +19,7 @@ tags:
 
 An **explicit caller-approved**, non-custodial [smolagents](https://github.com/huggingface/smolagents)
 `Tool` that opens one idempotent, receipt-driven `POST /v2/session` for an
-**execution-ready** route and returns its first workflow state / unsigned action.
+route whose fresh quote reports current availability and returns its first workflow state / unsigned action.
 
 - **caller_approved gate** (literal `true`), **public wallets only**, and the
   directional Polygon/Optimism native-USDC source constraint are all enforced

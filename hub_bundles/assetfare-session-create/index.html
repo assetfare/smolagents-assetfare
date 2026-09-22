@@ -24,7 +24,7 @@
   <p><span class="tag">smolagents</span><span class="tag">tool</span><span class="tag">non-custodial</span><span class="tag">cross-chain</span></p>
 
   <p>This Space hosts an <strong>agent tool</strong> (<code>tool.py</code>), meant to be loaded
-  by an agent &mdash; not run as a web app. Explicit caller-approved, non-custodial POST /v2/session create for an execution-ready AssetFare route (fixed origin https://api.assetfare.dev). It opens one idempotent receipt-driven session and returns its first workflow state / unsigned action for the caller to verify, sign and submit with their OWN wallet. It never signs, never submits, never receives a private key or seed, and never auto-chai
+  by an agent &mdash; not run as a web app. Explicit caller-approved, non-custodial POST /v2/session create for an AssetFare route whose fresh quote reports current availability (fixed origin https://api.assetfare.dev). It opens one idempotent receipt-driven session and returns its first workflow state / unsigned action for the caller to verify, sign and submit with their OWN wallet. It never signs, never submits, never receives a private k
   AssetFare never signs or submits; this tool never receives a private key and fails
   closed on any response that claims the server will sign or submit.</p>
 

@@ -21,7 +21,9 @@ A **read-only** [smolagents](https://github.com/huggingface/smolagents) `Tool`
 that reports and strictly validates the AssetFare v2 public capabilities: the
 six source chains, the 11 `(chain, token)` source endpoints, the 76 directed
 conversion routes, and the USD amount bounds. Polygon and Optimism are native-USDC
-**source-only** (to Base or Arbitrum USDC; both use audited **1bp** execution).
+**source-only** (to Base or Arbitrum USDC). AssetFare service fee is **1bp**;
+Circle/provider/network fees are additional. Current prepare availability is
+reported live rather than assumed.
 Use it to check which cross-chain corridors AssetFare can
 quote before requesting a quote with
 [`odaiin/assetfare-quote`](https://huggingface.co/spaces/odaiin/assetfare-quote),

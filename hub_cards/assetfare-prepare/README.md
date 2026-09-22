@@ -19,7 +19,7 @@ tags:
 # AssetFare Prepare Tool (smolagents)
 
 An **explicit caller-approved**, non-custodial [smolagents](https://github.com/huggingface/smolagents)
-`Tool` that performs the one-shot `POST /v2/prepare` for an **execution-ready**
+`Tool` that performs the one-shot `POST /v2/prepare` for a route whose fresh quote reports current availability
 AssetFare route and returns a bounded **FIRST unsigned action bundle** for the
 caller to verify, sign, and submit with their **own** wallet.
 
