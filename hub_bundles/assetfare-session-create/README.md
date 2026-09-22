@@ -53,7 +53,7 @@ session = create(
 
 `caller_approved`, `from_chain`, `from_token`, `to_chain`, `to_token`, `amount_usd`,
 `wallets` (public addresses), `session_token` (caller-owned), `idempotency_key`,
-`event_signer_public` (optional; Solana-CCTP; PUBLIC key).
+`event_signer_public` (Solana-CCTP only: public key of a fresh locally generated ephemeral keypair; keep its private key client-side for co-signing).
 
 ## Output (object)
 

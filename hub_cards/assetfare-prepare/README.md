@@ -33,7 +33,7 @@ caller to verify, sign, and submit with their **own** wallet.
 - **Public wallets only.** The `wallets` map must contain PUBLIC addresses for the
   route's chains; any private key / seed / signed transaction anywhere in the input
   is rejected before any network call.
-- **event_signer_public** is optional and only for Solana-CCTP routes (a PUBLIC key).
+- **event_signer_public** is required only for Solana-CCTP: generate a fresh ephemeral Solana keypair locally, send only its public key, keep the private key client-side, and use it to co-sign the returned unsigned event-account transaction.
 - AssetFare **never signs or submits**; `server_signs_or_submits` is always `false`.
 
 ## Use it in an agent
@@ -62,7 +62,7 @@ bundle = prepare(
 | `from_chain`/`from_token`/`to_chain`/`to_token` | string | executable route (no polygon/optimism source) |
 | `amount_usd` | number | 1–1000 |
 | `wallets` | object | route chains -> PUBLIC addresses only |
-| `event_signer_public` | string (optional) | Solana-CCTP only; PUBLIC key |
+| `event_signer_public` | string (optional) | Solana-CCTP only; ephemeral PUBLIC key; matching private key stays client-side for co-signing |
 
 ## Output (object)
 

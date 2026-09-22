@@ -41,8 +41,8 @@ class AssetFarePrepareTool(Tool):
         "seed / signed transaction appears "
         "anywhere in the input. Inputs: caller_approved (must be true), from_chain, "
         "from_token, to_chain, to_token, amount_usd (1-1000), wallets (a map of the "
-        "route's chains to PUBLIC addresses only), and event_signer_public (optional, "
-        "only for Solana-CCTP routes; a PUBLIC key, never a private key). The returned "
+        "route's chains to PUBLIC addresses only), and event_signer_public (Solana-CCTP only: "
+        "generate a fresh ephemeral keypair locally, send only its public key, retain its private key client-side to co-sign the returned event-account transaction). The returned "
         "'server_signs_or_submits' is always false. This tool prepares only an UNSIGNED "
         "action; it does NOT execute, bridge, swap, sign or move funds."
     )
@@ -77,7 +77,7 @@ class AssetFarePrepareTool(Tool):
         },
         "event_signer_public": {
             "type": "string",
-            "description": "Optional PUBLIC key used only for Solana-CCTP routes. Never a private key. Omit when not applicable.",
+            "description": "Solana-CCTP only: generate a fresh ephemeral Solana keypair locally, send only this public key, and retain its private key client-side to co-sign the returned unsigned event-account transaction. Omit when not applicable.",
             "nullable": True,
         },
     }

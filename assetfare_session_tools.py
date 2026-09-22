@@ -45,7 +45,7 @@ class AssetFareSessionCreateTool(Tool):
         "any network call if caller_approved is not literally true or if any private key / "
         "seed / signed transaction appears anywhere in the input. Inputs: caller_approved, "
         "from_chain, from_token, to_chain, to_token, amount_usd (1-1000), wallets (public "
-        "addresses only), event_signer_public (optional; Solana-CCTP only; public key), "
+        "addresses only), event_signer_public (Solana-CCTP only: public key of a fresh locally generated ephemeral keypair; private key stays client-side to co-sign), "
         "session_token (the caller-owned capability), idempotency_key. The returned "
         "'server_signs_or_submits' is always false. This tool does NOT execute, bridge, "
         "swap, sign or move funds."
@@ -89,7 +89,7 @@ class AssetFareSessionCreateTool(Tool):
         },
         "event_signer_public": {
             "type": "string",
-            "description": "Optional PUBLIC key used only for Solana-CCTP routes. Never a private key. Omit when not applicable.",
+            "description": "Solana-CCTP only: public key of a fresh ephemeral Solana keypair generated locally. Keep its private key client-side to co-sign the returned unsigned event-account transaction. Omit when not applicable.",
             "nullable": True,
         },
     }
