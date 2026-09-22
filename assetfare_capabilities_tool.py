@@ -25,8 +25,9 @@ class AssetFareCapabilitiesTool(Tool):
         "the supported source chains (solana, base, arbitrum, robinhood, polygon, "
         "optimism), the 11 (chain, token) source endpoints, the directed routes (76), "
         "the Polygon and Optimism native-USDC source-only constraint (to Base or "
-        "Arbitrum USDC; each 1bp on its audited executor step), and "
-        "unsigned route plans ready, and the USD amount bounds (1 to 1000). It "
+        "Arbitrum USDC), implemented unsigned paths, current provider-dependent "
+        "prepare availability, and the USD amount bounds (1 to 1000). The AssetFare "
+        "service fee is 1bp; Circle/provider/network fees are additional. It "
         "validates that the surface it reads is a quote-only, non-custodial public "
         "agent release whose server never signs or submits for these endpoints, "
         "failing closed otherwise; this is a property of what this tool exercises, "
@@ -278,6 +279,15 @@ class AssetFareCapabilitiesTool(Tool):
         blocked_source_only_routes = caps.get("blocked_source_only_routes")
         if not isinstance(blocked_source_only_routes, list) or blocked_source_only_routes:
             raise ValueError("assetfare_safety_boundary_failed")
+        availability_keys={"execution_implemented_routes","currently_prepare_ready_routes","temporarily_unavailable_routes","temporarily_unavailable_route_count","execution_availability"}
+        present=availability_keys & set(caps)
+        if present and present!=availability_keys:
+            raise ValueError("assetfare_current_availability_invalid")
+        current_ready=None;temporary=[];availability=None
+        if present:
+            current_ready=caps.get("currently_prepare_ready_routes");temporary=caps.get("temporarily_unavailable_routes");availability=caps.get("execution_availability")
+            if (caps.get("execution_implemented_routes")!=self.EXPECTED_ROUTES or isinstance(current_ready,bool) or not isinstance(current_ready,int) or not 0<=current_ready<=self.EXPECTED_ROUTES or not isinstance(temporary,list) or len(set(temporary))!=len(temporary) or caps.get("temporarily_unavailable_route_count")!=len(temporary) or current_ready!=self.EXPECTED_ROUTES-len(temporary) or not isinstance(availability,dict) or availability.get("provider")!="circle_iris" or availability.get("status") not in {"available","degraded","unknown"} or availability.get("guarantees_future_availability") is not False):
+                raise ValueError("assetfare_current_availability_invalid")
         destinations = caps.get("destination_chains")
         if not isinstance(destinations, list) or len(destinations) != 4 or set(destinations) != {"arbitrum", "base", "robinhood", "solana"}:
             raise ValueError("assetfare_safety_boundary_failed")
@@ -288,6 +298,10 @@ class AssetFareCapabilitiesTool(Tool):
             "directed_conversion_routes": self.EXPECTED_ROUTES,
             "unsigned_route_plans_ready": self.EXPECTED_ROUTES,
             "execution_ready_routes": self.EXECUTION_READY_ROUTES,
+            "execution_implemented_routes": self.EXECUTION_READY_ROUTES,
+            "currently_prepare_ready_routes": current_ready,
+            "temporarily_unavailable_routes": temporary,
+            "execution_availability": availability,
             "phase_b_blocked_routes": self.PHASE_B_BLOCKED_ROUTES,
             "source_only_asset_endpoints": sorted(expected_source_only_eps),
             "source_only_routes": sorted(expected_source_only_routes),

@@ -11,7 +11,7 @@ import uuid
 
 class AssetFareQuoteTool(Tool):
     name = "assetfare_quote"
-    description = "Read-only quote client for one cross-chain corridor via the AssetFare v2 API (fixed origin https://api.assetfare.dev). This tool's entire scope is to fetch and validate a single conversion quote and return it; it is not the AssetFare service and does not itself prepare, sign or submit. It covers 6 source chains (solana, base, arbitrum, robinhood, polygon, optimism), 11 (chain, token) source endpoints and 76 directed quote routes, for a USD amount of 1 to 1000. All 76 routes are execution-ready; Polygon and Optimism are directional native-USDC source-only origins to Base or Arbitrum USDC and each uses an audited 1bp executor. It never authenticates a wallet, opens a session, prepares an unsigned action, signs or submits. For an execution-ready route its result passes through (validated) the caller_action_plan_handoff, which names the separate caller-operated POST /v2/prepare (one-shot) and POST /v2/session (full lifecycle) steps; the returned 'server_signs_or_submits' is always false. It returns expected/minimum receive amounts (native and USD), the exact assetfare_fee_bps (always 1) with modeled/collectible flags and the eligible fee_collection_steps, ETA, the non-atomic risk flag, a quote id, an as_of timestamp and a ttl. Every response is validated and the call fails closed if anything claims the server will sign or submit, if the quote is stale or future-dated, if the fee is not exactly 1bp, if the handoff is missing or deviates from the caller-approved 8-field contract, or if the route does not match the requested corridor. Inputs: from_chain, from_token, to_chain, to_token (a supported chain/token pair, source != destination) and amount_usd (1-1000). This tool does NOT execute, bridge, swap, sign or move funds; acting on a quote is a separate caller wallet action taken outside this tool after explicit approval."
+    description = "Read-only quote client for one cross-chain corridor via the AssetFare v2 API (fixed origin https://api.assetfare.dev). This tool's entire scope is to fetch and validate a single conversion quote and return it; it is not the AssetFare service and does not itself prepare, sign or submit. It covers 6 source chains (solana, base, arbitrum, robinhood, polygon, optimism), 11 (chain, token) source endpoints and 76 directed quote routes, for a USD amount of 1 to 1000. Polygon and Optimism are directional native-USDC source-only origins to Base or Arbitrum USDC. Implemented paths are usable only while the live quote reports them available. It never authenticates a wallet, opens a session, prepares an unsigned action, signs or submits. For an execution-ready route its result passes through (validated) the caller_action_plan_handoff, which names the separate caller-operated POST /v2/prepare (one-shot) and POST /v2/session (full lifecycle) steps; the returned 'server_signs_or_submits' is always false. It returns expected/minimum receive amounts (native and USD), the exact AssetFare service fee (1bp, not total cost), top-level expected and maximum token-path cost including provider components, live availability, eligible fee_collection_steps, ETA, the non-atomic risk flag, a quote id, an as_of timestamp and a ttl. Every response is validated and the call fails closed if anything claims the server will sign or submit, if the quote is stale or future-dated, if total cost is inconsistent, if the service fee is not exactly 1bp, if the handoff is missing or deviates from the caller-approved 8-field contract, or if the route does not match the requested corridor. Inputs: from_chain, from_token, to_chain, to_token (a supported chain/token pair, source != destination) and amount_usd (1-1000). This tool does NOT execute, bridge, swap, sign or move funds; acting on a quote is a separate caller wallet action taken outside this tool after explicit approval."
     inputs = {'from_chain': {'type': 'string', 'description': 'Source chain: one of solana, base, arbitrum, robinhood, polygon, optimism.'}, 'from_token': {'type': 'string', 'description': 'Source token symbol on the source chain, e.g. SOL, ETH, USDC, USDG.'}, 'to_chain': {'type': 'string', 'description': 'Destination chain: one of solana, base, arbitrum, robinhood.'}, 'to_token': {'type': 'string', 'description': 'Destination token symbol on the destination chain, e.g. ETH, USDC, USDG.'}, 'amount_usd': {'type': 'number', 'description': 'Notional amount in USD to convert, from 1 to 1000 inclusive.'}}
     output_type = "object"
     ALLOWED_ORIGIN = "https://api.assetfare.dev"
@@ -522,6 +522,25 @@ class AssetFareQuoteTool(Tool):
         if eta is not None and (not self._is_int(eta) or eta < 0):
             raise ValueError("assetfare_response_invalid")
 
+        cost=data.get("cost_summary")
+        expected_cost=max(0.0,amount-float(exp_usd));maximum_cost=max(0.0,amount-float(mn_usd))
+        if cost is None:
+            cost={"scope":"token_path_only_network_gas_excluded","input_value_usd":amount,"expected_receive_value_usd":float(exp_usd),"minimum_receive_value_usd":float(mn_usd),"expected_total_cost_usd":expected_cost,"maximum_total_cost_usd":maximum_cost,"expected_total_cost_percent":expected_cost/amount*100,"maximum_total_cost_percent":maximum_cost/amount*100,"assetfare_service_fee":{"bps":1,"estimated_usd":min(amount/10_000,5.0),"included_in_receive_amount":True,"note":"AssetFare service fee only; not the total route cost"},"provider_fee_components":[],"unpriced_costs":["provider_fee_breakdown_unavailable_legacy_core","source_chain_network_fee"],"rankable_all_in":False,"small_amount_warning":maximum_cost/amount>=.01,"warning":"Legacy-core fallback: total derived from receive value; provider detail unavailable."}
+        if not isinstance(cost,dict) or cost.get("scope")!="token_path_only_network_gas_excluded" or cost.get("rankable_all_in") is not False or cost.get("input_value_usd")!=amount or cost.get("expected_receive_value_usd")!=float(exp_usd) or cost.get("minimum_receive_value_usd")!=float(mn_usd):
+            raise ValueError("assetfare_cost_summary_invalid")
+        for key in ("expected_total_cost_usd","maximum_total_cost_usd","expected_total_cost_percent","maximum_total_cost_percent"):
+            if not self._finite(cost.get(key)) or float(cost[key])<0:raise ValueError("assetfare_cost_summary_invalid")
+        if abs(float(cost["expected_total_cost_usd"])-expected_cost)>0.000001 or abs(float(cost["maximum_total_cost_usd"])-maximum_cost)>0.000001 or float(cost["maximum_total_cost_usd"])<float(cost["expected_total_cost_usd"]):
+            raise ValueError("assetfare_cost_summary_invalid")
+        service=cost.get("assetfare_service_fee")
+        if not isinstance(service,dict) or service.get("bps")!=1 or service.get("included_in_receive_amount") is not True or not self._finite(service.get("estimated_usd")) or abs(float(service["estimated_usd"])-min(amount/10_000,5.0))>0.000001:
+            raise ValueError("assetfare_cost_summary_invalid")
+        if not isinstance(cost.get("provider_fee_components"),list) or not isinstance(cost.get("unpriced_costs"),list) or not isinstance(cost.get("small_amount_warning"),bool):
+            raise ValueError("assetfare_cost_summary_invalid")
+        eta_summary=data.get("eta")
+        if eta_summary is not None and (not isinstance(eta_summary,dict) or eta_summary.get("estimated_time_seconds")!=eta or not isinstance(eta_summary.get("complete_route_estimate"),bool)):
+            raise ValueError("assetfare_eta_invalid")
+
         if not isinstance(risk.get("non_atomic"), bool):
             raise ValueError("assetfare_response_invalid")
         if risk.get("fresh_quote_required_each_step") is not True:
@@ -574,6 +593,8 @@ class AssetFareQuoteTool(Tool):
             "fee_collection": self.FEE_COLLECTION_CONST,
             "fee_note": fee_note,
             "estimated_time_seconds": eta if self._is_int(eta) else None,
+            "cost_summary": cost,
+            "eta": eta_summary or {"estimated_time_seconds":eta if self._is_int(eta) else None,"estimated_time_range_seconds":None,"complete_route_estimate":False,"sources":[],"note":"Legacy-core fallback; full ETA provenance unavailable"},
             "non_atomic": risk["non_atomic"],
             "quote_id": data["quote_id"],
             "as_of": as_of,

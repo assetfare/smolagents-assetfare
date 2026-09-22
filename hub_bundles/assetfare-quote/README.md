@@ -27,7 +27,9 @@ as a human demo.
 - **Surface:** 6 source chains (solana, base, arbitrum, robinhood, polygon,
   optimism), 11 `(chain, token)` source endpoints, 76 directed routes, amount
   **$1–$1000**. Polygon and Optimism are native-USDC **source-only** to Base or
-  Arbitrum USDC; both collect exactly **1bp** on their audited executor step.
+  Arbitrum USDC. All paths are usable only while the live quote reports them
+  available. AssetFare service fee is 1bp; Circle/provider/network fees are
+  additional and the quote exposes total token-path cost.
 - **Never** authenticates a wallet, opens a session, prepares an unsigned action,
   signs, or submits. The server itself never signs or submits; the tool
   **fails closed** on any response that claims otherwise.
@@ -101,15 +103,16 @@ Validated fields only: `from`, `to`, `amount_usd`, `output_symbol`,
 `execution_supported`, `execution_blocker`, `server_signs_or_submits` (always
 `false`), and `caller_action_plan_handoff`.
 
-**Fee — EXACTLY `1bp` on every route.** A 0bp, 8bp, 2bp, or negative fee fails
+**AssetFare service fee — EXACTLY `1bp` on every route; not total cost.** A 0bp, 8bp, 2bp, or negative service fee fails
 closed. It is **conditional**, never an unconditional flat charge: the 1bp fee is
 collected only on **one** eligible **successful atomic action** named in
 `fee_collection_steps`; any mismatch fails closed. The
 constant `fee_collection` is always
 `"only_on_eligible_successful_executor_step"`. `fee_modeled_bps` is what AssetFare
-models; `fee_collectible_now` is `true` exactly for a `1`bp route. Polygon and
-Optimism use audited 1bp executors, so their directional source-only routes are
-collectible now. `assetfare_fee_conditional` is `true` iff the fee is positive.
+models; `fee_collectible_now` is `true` exactly for a `1`bp route. Circle,
+provider, and network fees are additional. `cost_summary` contains expected and
+maximum token-path cost; unpriced gas stays explicit. `assetfare_fee_conditional`
+is `true` iff the service fee is positive.
 
 **`caller_action_plan_handoff` — FAIL-CLOSED passthrough (no local fallback).** The
 upstream `/v2/quote` handoff is passed through **verbatim after strict validation**;

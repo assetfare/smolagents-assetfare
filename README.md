@@ -41,9 +41,11 @@ Static Spaces (one per tool; nine total):
   `requests.Session` included — `trust_env` is forced off). The
   `new_session_capability` token tool makes **no network call** at all.
 - Exact surface: 6 source chains, 11 `(chain, token)` source endpoints, **76**
-  execution-ready directed routes, $1–$1000. Polygon and Optimism are directional
-  native-USDC source-only origins to Base or Arbitrum USDC and each uses an
-  audited 1bp executor.
+  implemented directed routes, $1–$1000. Polygon and Optimism are directional
+  native-USDC source-only origins to Base or Arbitrum USDC. Current prepare
+  availability is read from the API, not assumed. AssetFare service fee is 1bp;
+  Circle/provider/network fees are additional and the quote exposes total
+  token-path cost.
 - Strict response validation, RFC3339 tz-aware freshness (stale + future-skew;
   a trailing `Z` is normalized so it validates on Python 3.10 as well as 3.11+),
   1 MiB cap, single fixed sanitized error (no upstream text leaks). Every failure
