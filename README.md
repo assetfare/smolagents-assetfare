@@ -144,13 +144,13 @@ from smolagents import load_tool
 quote = load_tool(
     "odaiin/assetfare-quote",
     trust_remote_code=True,          # required for any Hub tool: runs Space code in-process
-    revision="e4bae16b38cf94e4b2feaa95fa6d28cb6d5ac680",
+    revision="4bc66a0da57bf106df783dfee8095335bcc3e3e6",
 )
 
 capabilities = load_tool(
     "odaiin/assetfare-capabilities",
     trust_remote_code=True,
-    revision="eb5856605dffd2c5b2a39168c2e093b49df21341",
+    revision="c88f0e104b6c0ae208bc27fa48d0fe025032cab4",
 )
 ```
 
