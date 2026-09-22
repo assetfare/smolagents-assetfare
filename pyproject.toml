@@ -1,6 +1,6 @@
 [project]
 name = "smolagents-assetfare-tools"
-version = "0.0.4"
+version = "0.0.5"
 description = "Non-custodial AssetFare v2 tools for smolagents agents: read-only quote/capabilities plus caller-approved prepare and full session lifecycle (Hub-loadable)."
 requires-python = ">=3.10"
 license = { text = "MIT" }
