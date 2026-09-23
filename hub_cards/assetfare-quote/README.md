@@ -25,8 +25,8 @@ as a human demo.
 
 - **Fixed origin:** `https://api.assetfare.dev` (any other base URL is rejected).
 - **Surface:** 6 source chains (solana, base, arbitrum, robinhood, polygon,
-  optimism), 11 `(chain, token)` source endpoints, 76 directed routes, amount
-  **$1–$1000**. Polygon and Optimism are native-USDC **source-only** to Base or
+  optimism), 11 `(chain, token)` source endpoints, 76 directed routes, and finite
+  numeric USD amounts of at least **$1**, with no business maximum. Polygon and Optimism are native-USDC **source-only** to Base or
   Arbitrum USDC. All paths are usable only while the live quote reports them
   available. AssetFare service fee is 1bp; Circle/provider/network fees are
   additional and the quote exposes total token-path cost.
@@ -90,7 +90,7 @@ result = quote(
 | `from_token` | string | token symbol on the source chain (e.g. `SOL`, `ETH`, `USDC`, `USDG`) |
 | `to_chain`   | string | destination chain |
 | `to_token`   | string | destination token symbol |
-| `amount_usd` | number | 1–1000 inclusive; source and destination must differ |
+| `amount_usd` | number | finite numeric value, minimum 1; no business maximum; source and destination must differ |
 
 ## Output (object)
 

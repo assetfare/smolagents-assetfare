@@ -126,6 +126,7 @@ def caps_payload():
             "optimism:USDC->arbitrum:USDC",
         ],
         "destination_chains": ["arbitrum", "base", "robinhood", "solana"],
+        "amount_usd": {"minimum": 1, "maximum": None, "policy": "no_business_maximum"},
     }
 
 
@@ -375,8 +376,29 @@ def test_capabilities_happy():
     assert out["destination_chains"] == ["arbitrum", "base", "robinhood", "solana"]
     assert out["tool_scope_quote_only"] is True
     assert out["server_signs_or_submits"] is False
+    assert out["amount_usd"] == {
+        "minimum": 1.0,
+        "maximum": None,
+        "policy": "no_business_maximum",
+    }
     assert s.calls[0][1] == "https://api.assetfare.dev/v2/capabilities"
     assert s.calls[1][1] == "https://api.assetfare.dev/v2/status"
+
+
+@pytest.mark.parametrize(
+    "amount_policy",
+    [
+        None,
+        {"minimum": 0, "maximum": None, "policy": "no_business_maximum"},
+        {"minimum": 1, "maximum": 1000, "policy": "no_business_maximum"},
+        {"minimum": 1, "maximum": None, "policy": "capped"},
+    ],
+)
+def test_capabilities_rejects_invalid_amount_policy(amount_policy):
+    payload = caps_payload()
+    payload["amount_usd"] = amount_policy
+    with pytest.raises(ValueError, match="assetfare_amount_policy_invalid"):
+        caps_tool(_Session([_Resp(payload), _Resp(status_payload())])).forward()
 
 
 def test_capabilities_rejects_public_api_disabled():
@@ -848,10 +870,20 @@ def test_quote_posts_normalised_payload():
 
 # ---- quote input validation ---------------------------------------------
 
-@pytest.mark.parametrize("amt", [0.0, 0.99, 1000.01, 5000])
+@pytest.mark.parametrize("amt", [0.0, 0.99])
 def test_quote_amount_out_of_range(amt):
     with pytest.raises(ValueError, match="assetfare_amount_out_of_range"):
         quote_tool(quote_session()).forward("solana", "SOL", "base", "ETH", amt)
+
+
+@pytest.mark.parametrize("amt", [1000.01, 5000])
+def test_quote_amount_above_former_business_maximum_accepted(amt):
+    payload = quote_payload()
+    payload["intent"]["amount_usd"] = amt
+    payload["offer"]["expected_receive_usd"] = amt - 0.9
+    payload["offer"]["estimated_min_receive_usd"] = amt - 3.0
+    result = quote_tool(quote_session(with_cost_summary(payload))).forward("solana", "SOL", "base", "ETH", amt)
+    assert result["amount_usd"] == amt
 
 
 @pytest.mark.parametrize("amt", [True, "250", None, float("nan"), float("inf")])

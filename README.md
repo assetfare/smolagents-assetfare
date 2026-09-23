@@ -41,7 +41,8 @@ Static Spaces (one per tool; nine total):
   `requests.Session` included — `trust_env` is forced off). The
   `new_session_capability` token tool makes **no network call** at all.
 - Exact surface: 6 source chains, 11 `(chain, token)` source endpoints, **76**
-  implemented directed routes, $1–$1000. Polygon and Optimism are directional
+  implemented directed routes, and finite numeric USD amounts of at least $1
+  with no business maximum. Polygon and Optimism are directional
   native-USDC source-only origins to Base or Arbitrum USDC. Current prepare
   availability is read from the API, not assumed. AssetFare service fee is 1bp;
   Circle/provider/network fees are additional and the quote exposes total

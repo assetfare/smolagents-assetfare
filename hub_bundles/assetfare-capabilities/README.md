@@ -66,7 +66,8 @@ print(caps())  # -> dict of chains, endpoints, route counts, amount bounds
 (`optimism:USDC`, `polygon:USDC`), exact `source_only_routes`
 (`polygon:USDC->base:USDC`, `polygon:USDC->arbitrum:USDC`,
 `optimism:USDC->base:USDC`, `optimism:USDC->arbitrum:USDC`),
-`destination_chains`, `amount_usd_min` (1.0), `amount_usd_max` (1000.0),
+`destination_chains`, `amount_usd` (`minimum: 1.0`, `maximum: null`,
+`policy: no_business_maximum`),
 `tool_scope_quote_only` (`true`, scoped to this tool's surface), and
 `server_signs_or_submits` (`false`).
 

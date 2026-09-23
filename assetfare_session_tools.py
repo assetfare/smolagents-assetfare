@@ -44,7 +44,7 @@ class AssetFareSessionCreateTool(Tool):
         "recovers the SAME session (lost-response crash recovery). It fails closed before "
         "any network call if caller_approved is not literally true or if any private key / "
         "seed / signed transaction appears anywhere in the input. Inputs: caller_approved, "
-        "from_chain, from_token, to_chain, to_token, amount_usd (1-1000), wallets (public "
+        "from_chain, from_token, to_chain, to_token, amount_usd (finite number, minimum 1; no business maximum), wallets (public "
         "addresses only), event_signer_public (Solana-CCTP only: public key of a fresh locally generated ephemeral keypair; private key stays client-side to co-sign), "
         "session_token (the caller-owned capability), idempotency_key. The returned "
         "'server_signs_or_submits' is always false. This tool does NOT execute, bridge, "
@@ -73,7 +73,7 @@ class AssetFareSessionCreateTool(Tool):
         },
         "amount_usd": {
             "type": "number",
-            "description": "Notional amount in USD to convert, from 1 to 1000 inclusive.",
+            "description": "Finite numeric notional amount in USD to convert, minimum 1; no business maximum.",
         },
         "wallets": {
             "type": "object",
@@ -101,7 +101,6 @@ class AssetFareSessionCreateTool(Tool):
     STALE_BUDGET_S = 45.0
     MAX_BYTES = 1048576
     MIN_USD = 1.0
-    MAX_USD = 1000.0
     CHAINS = {"arbitrum", "base", "optimism", "polygon", "robinhood", "solana"}
     SOURCE_ONLY_CHAINS = {"optimism", "polygon"}
     ENDPOINTS = {
@@ -230,7 +229,7 @@ class AssetFareSessionCreateTool(Tool):
         ):
             raise ValueError("assetfare_amount_invalid")
         amount = float(amount_usd)
-        if not (self.MIN_USD <= amount <= self.MAX_USD):
+        if amount < self.MIN_USD:
             raise ValueError("assetfare_amount_out_of_range")
         return amount
 

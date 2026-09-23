@@ -26,7 +26,7 @@ class AssetFareCapabilitiesTool(Tool):
         "optimism), the 11 (chain, token) source endpoints, the directed routes (76), "
         "the Polygon and Optimism native-USDC source-only constraint (to Base or "
         "Arbitrum USDC), implemented unsigned paths, current provider-dependent "
-        "prepare availability, and the USD amount bounds (1 to 1000). The AssetFare "
+        "prepare availability, and the USD amount policy (minimum 1, no business maximum). The AssetFare "
         "service fee is 1bp; Circle/provider/network fees are additional. It "
         "validates that the surface it reads is a quote-only, non-custodial public "
         "agent release whose server never signs or submits for these endpoints, "
@@ -46,7 +46,6 @@ class AssetFareCapabilitiesTool(Tool):
     EXECUTION_READY_ROUTES = 76
     PHASE_B_BLOCKED_ROUTES = 0
     MIN_USD = 1.0
-    MAX_USD = 1000.0
     CHAINS = {"arbitrum", "base", "optimism", "polygon", "robinhood", "solana"}
     ENDPOINTS = {
         "solana:SOL",
@@ -279,6 +278,17 @@ class AssetFareCapabilitiesTool(Tool):
         blocked_source_only_routes = caps.get("blocked_source_only_routes")
         if not isinstance(blocked_source_only_routes, list) or blocked_source_only_routes:
             raise ValueError("assetfare_safety_boundary_failed")
+        amount_policy = caps.get("amount_usd")
+        minimum = amount_policy.get("minimum") if isinstance(amount_policy, dict) else None
+        if (
+            not isinstance(amount_policy, dict)
+            or isinstance(minimum, bool)
+            or not isinstance(minimum, (int, float))
+            or float(minimum) != self.MIN_USD
+            or amount_policy.get("maximum") is not None
+            or amount_policy.get("policy") != "no_business_maximum"
+        ):
+            raise ValueError("assetfare_amount_policy_invalid")
         availability_keys={"execution_implemented_routes","currently_prepare_ready_routes","temporarily_unavailable_routes","temporarily_unavailable_route_count","execution_availability"}
         present=availability_keys & set(caps)
         if present and present!=availability_keys:
@@ -318,8 +328,11 @@ class AssetFareCapabilitiesTool(Tool):
             "source_only_routes": sorted(expected_source_only_routes),
             "blocked_source_only_routes": [],
             "destination_chains": sorted(destinations),
-            "amount_usd_min": self.MIN_USD,
-            "amount_usd_max": self.MAX_USD,
+            "amount_usd": {
+                "minimum": self.MIN_USD,
+                "maximum": None,
+                "policy": "no_business_maximum",
+            },
             # Scoped to what this tool exercises, not a claim about all of AssetFare.
             "tool_scope_quote_only": True,
             "server_signs_or_submits": False,

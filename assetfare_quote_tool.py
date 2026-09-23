@@ -33,7 +33,7 @@ class AssetFareQuoteTool(Tool):
         "the AssetFare service and does not itself prepare, sign or submit. It "
         "covers 6 source chains (solana, base, arbitrum, robinhood, polygon, "
         "optimism), 11 (chain, token) source endpoints and 76 directed quote routes, "
-        "for a USD amount of 1 to 1000. Polygon and Optimism are directional "
+        "for any finite USD amount of at least 1, with no business maximum. Polygon and Optimism are directional "
         "native-USDC source-only origins to Base or Arbitrum USDC. Implemented "
         "paths are usable only while the live quote reports them available. It never authenticates "
         "a wallet, opens a session, prepares an "
@@ -51,7 +51,7 @@ class AssetFareQuoteTool(Tool):
         "handoff is missing or deviates from the caller-approved 8-field contract, or "
         "if the route does not match the requested corridor. Inputs: from_chain, "
         "from_token, to_chain, to_token (a supported chain/token pair, source != "
-        "destination) and amount_usd (1-1000). This tool does NOT execute, bridge, "
+        "destination) and amount_usd (finite number, minimum 1; no business maximum). This tool does NOT execute, bridge, "
         "swap, sign or move funds; acting on a quote is a separate caller wallet "
         "action taken outside this tool after explicit approval."
     )
@@ -74,7 +74,7 @@ class AssetFareQuoteTool(Tool):
         },
         "amount_usd": {
             "type": "number",
-            "description": "Notional amount in USD to convert, from 1 to 1000 inclusive.",
+            "description": "Finite numeric notional amount in USD to convert, minimum 1; no business maximum.",
         },
     }
     output_type = "object"
@@ -86,7 +86,6 @@ class AssetFareQuoteTool(Tool):
     MAX_TTL_SECONDS = 60
     MAX_FUTURE_SKEW_S = 300
     MIN_USD = 1.0
-    MAX_USD = 1000.0
     PREPARE_URL = "https://api.assetfare.dev/v2/prepare"
     SESSION_URL = "https://api.assetfare.dev/v2/session"
     FEE_COLLECTION_CONST = "only_on_eligible_successful_executor_step"
@@ -218,7 +217,7 @@ class AssetFareQuoteTool(Tool):
         ):
             raise ValueError("assetfare_amount_invalid")
         amount = float(amount_usd)
-        if not (self.MIN_USD <= amount <= self.MAX_USD):
+        if amount < self.MIN_USD:
             raise ValueError("assetfare_amount_out_of_range")
         return amount
 

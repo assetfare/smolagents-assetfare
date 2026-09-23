@@ -239,6 +239,21 @@ def test_prepare_happy():
     assert s.calls[0][1] == "https://api.assetfare.dev/v2/prepare"
 
 
+@pytest.mark.parametrize("amt", [1000.01, 5000])
+def test_prepare_amount_above_former_business_maximum_accepted(amt):
+    s = _Session([prepare_bundle_resp()])
+    prepare_tool(s).forward(True, "solana", "SOL", "base", "ETH", amt, WALLETS)
+    assert s.calls[0][2]["json"]["amount_usd"] == amt
+
+
+@pytest.mark.parametrize("amt", [0.99, True, "5", float("nan"), float("inf")])
+def test_prepare_rejects_non_finite_non_numeric_or_below_minimum_amount(amt):
+    s = _Session([])
+    with pytest.raises(ValueError, match="assetfare_amount_(invalid|out_of_range)"):
+        prepare_tool(s).forward(True, "solana", "SOL", "base", "ETH", amt, WALLETS)
+    assert s.calls == []
+
+
 @pytest.mark.parametrize("approved", [False, None, "true", 1, 0])
 def test_prepare_caller_approved_gate(approved):
     s = _Session([])  # must fail BEFORE any network call
@@ -316,6 +331,13 @@ def test_session_create_happy_sends_token_header():
     assert hdr == TOKEN
     # token must NOT appear in the request body
     assert "session_token" not in s.calls[0][2]["json"]
+
+
+@pytest.mark.parametrize("amt", [1000.01, 5000])
+def test_session_create_amount_above_former_business_maximum_accepted(amt):
+    s = _Session([session_resp()])
+    create_tool(s).forward(True, "solana", "SOL", "base", "ETH", amt, WALLETS, TOKEN, "key-00000001")
+    assert s.calls[0][2]["json"]["amount_usd"] == amt
 
 
 @pytest.mark.parametrize("approved", [False, None, "true", 1])

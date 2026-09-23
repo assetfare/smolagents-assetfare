@@ -40,7 +40,7 @@ class AssetFarePrepareTool(Tool):
         "network call if caller_approved is not literally true or if any private key / "
         "seed / signed transaction appears "
         "anywhere in the input. Inputs: caller_approved (must be true), from_chain, "
-        "from_token, to_chain, to_token, amount_usd (1-1000), wallets (a map of the "
+        "from_token, to_chain, to_token, amount_usd (finite number, minimum 1; no business maximum), wallets (a map of the "
         "route's chains to PUBLIC addresses only), and event_signer_public (Solana-CCTP only: "
         "generate a fresh ephemeral keypair locally, send only its public key, retain its private key client-side to co-sign the returned event-account transaction). The returned "
         "'server_signs_or_submits' is always false. This tool prepares only an UNSIGNED "
@@ -69,7 +69,7 @@ class AssetFarePrepareTool(Tool):
         },
         "amount_usd": {
             "type": "number",
-            "description": "Notional amount in USD to convert, from 1 to 1000 inclusive.",
+            "description": "Finite numeric notional amount in USD to convert, minimum 1; no business maximum.",
         },
         "wallets": {
             "type": "object",
@@ -88,7 +88,6 @@ class AssetFarePrepareTool(Tool):
     STALE_BUDGET_S = 45.0
     MAX_BYTES = 1048576
     MIN_USD = 1.0
-    MAX_USD = 1000.0
     CHAINS = {"arbitrum", "base", "optimism", "polygon", "robinhood", "solana"}
     SOURCE_ONLY_CHAINS = {"optimism", "polygon"}
     ENDPOINTS = {
@@ -219,7 +218,7 @@ class AssetFarePrepareTool(Tool):
         ):
             raise ValueError("assetfare_amount_invalid")
         amount = float(amount_usd)
-        if not (self.MIN_USD <= amount <= self.MAX_USD):
+        if amount < self.MIN_USD:
             raise ValueError("assetfare_amount_out_of_range")
         return amount
 

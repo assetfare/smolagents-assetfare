@@ -60,7 +60,7 @@ bundle = prepare(
 |------|------|-------|
 | `caller_approved` | boolean | must be literal `true` |
 | `from_chain`/`from_token`/`to_chain`/`to_token` | string | executable route (no polygon/optimism source) |
-| `amount_usd` | number | 1–1000 |
+| `amount_usd` | number | finite numeric value, minimum 1; no business maximum |
 | `wallets` | object | route chains -> PUBLIC addresses only |
 | `event_signer_public` | string (optional) | Solana-CCTP only; ephemeral PUBLIC key; matching private key stays client-side for co-signing |
 
