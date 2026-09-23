@@ -62,4 +62,4 @@ not a private key. This tool does not execute, bridge, swap, sign, or move funds
 
 ## Source
 
-https://github.com/odaiin/smolagents-assetfare · [MIT](LICENSE) · [PRIVACY.md](PRIVACY.md)
+https://github.com/assetfare/smolagents-assetfare · [MIT](LICENSE) · [PRIVACY.md](PRIVACY.md)

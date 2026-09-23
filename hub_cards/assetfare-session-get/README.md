@@ -44,4 +44,4 @@ state = get(session_token="<caller-owned-token>", session_id="<uuid>")
 
 ## Source
 
-https://github.com/odaiin/smolagents-assetfare · [MIT](LICENSE) · [PRIVACY.md](PRIVACY.md)
+https://github.com/assetfare/smolagents-assetfare · [MIT](LICENSE) · [PRIVACY.md](PRIVACY.md)

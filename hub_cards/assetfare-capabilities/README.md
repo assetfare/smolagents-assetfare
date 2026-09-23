@@ -92,7 +92,7 @@ credential, and sets none.
 ## Source
 
 Reviewed source, tests, and deterministic bundle builder:
-https://github.com/odaiin/smolagents-assetfare
+https://github.com/assetfare/smolagents-assetfare
 
 ## License
 
