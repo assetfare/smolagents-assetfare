@@ -8,7 +8,7 @@ import urllib
 
 class AssetFareCapabilitiesTool(Tool):
     name = "assetfare_capabilities"
-    description = "Read-only capabilities probe for the AssetFare v2 API (fixed origin https://api.assetfare.dev). This tool's entire scope is to fetch and validate the public capability/status surface and return it; it is not the AssetFare service and exposes none of its other endpoints. It reports the supported source chains (solana, base, arbitrum, robinhood, polygon, optimism), the 11 (chain, token) source endpoints, the directed routes (76), the Polygon and Optimism native-USDC source-only constraint (to Base or Arbitrum USDC), implemented unsigned paths, current provider-dependent prepare availability, and the USD amount policy (minimum 1, no business maximum). The AssetFare service fee is 1bp; Circle/provider/network fees are additional. It validates that the surface it reads is a quote-only, non-custodial public agent release whose server never signs or submits for these endpoints, failing closed otherwise; this is a property of what this tool exercises, not a blanket claim about all of AssetFare. Takes no inputs. Use it to check which cross-chain corridors can be quoted before requesting a quote. This tool does NOT execute, bridge, swap, sign or move funds."
+    description = "Read-only capabilities probe for the AssetFare v2 API (fixed origin https://api.assetfare.dev). This tool's entire scope is to fetch and validate the public capability/status surface and return it; it is not the AssetFare service and exposes none of its other endpoints. It reports the supported source chains (solana, base, arbitrum, robinhood, polygon, optimism), the 11 (chain, token) source endpoints, the directed routes (76), the Polygon and Optimism native-USDC source-only constraint (to Base or Arbitrum USDC), implemented unsigned paths, current provider-dependent prepare availability, and the USD amount policy (minimum 1, no business maximum). USD 1 is only a reachability/response-shape smoke test. USD 50 is the lowest observed native-USDC winning bucket, not a guarantee; USD 1,000 is the representative economic example. Economic decisions require fresh AssetFare and competitor quotes at the actual intended amount; AssetFare is not always cheapest. The AssetFare service fee is 1bp; Circle/provider/network fees are additional. It validates that the surface it reads is a quote-only, non-custodial public agent release whose server never signs or submits for these endpoints, failing closed otherwise; this is a property of what this tool exercises, not a blanket claim about all of AssetFare. Takes no inputs. Use it to check which cross-chain corridors can be quoted before requesting a quote. This tool does NOT execute, bridge, swap, sign or move funds."
     inputs = {}
     output_type = "object"
     ALLOWED_ORIGIN = "https://api.assetfare.dev"
@@ -19,6 +19,7 @@ class AssetFareCapabilitiesTool(Tool):
     EXECUTION_READY_ROUTES = 76
     PHASE_B_BLOCKED_ROUTES = 0
     MIN_USD = 1.0
+    EVALUATION_GUIDANCE = {'schema_version': 1, 'route_minimum_usd': 1, 'reachability_smoke_usd': 1, 'reachability_smoke_scope': 'connectivity_only_not_economic_evaluation', 'native_usdc_economic_evaluation_start_usd': 50, 'representative_economic_evaluation_usd': 1000, 'sol_input_representative_evaluation_usd': 1000, 'sol_input_caveat': 'SOL-input routes add a source swap, so compare their full fee-inclusive route economics separately.', 'evidence_as_of': '2026-09-23', 'evidence_scope': 'Dated Solana native USDC to Base native USDC measurements at USD 50, 250, and 1000.', 'not_a_minimum': True, 'not_guaranteed_best': True, 'always_compare_fresh_at_intended_amount': True}
     CHAINS = {'arbitrum', 'base', 'optimism', 'polygon', 'robinhood', 'solana'}
     ENDPOINTS = {'arbitrum:ETH', 'arbitrum:USDC', 'base:ETH', 'base:USDC', 'optimism:USDC', 'polygon:USDC', 'robinhood:ETH', 'robinhood:USDG', 'solana:SOL', 'solana:USDC', 'solana:USDG'}
 
@@ -77,6 +78,15 @@ class AssetFareCapabilitiesTool(Tool):
             elif isinstance(node, list):
                 for child in node:
                     stack.append((child, depth + 1))
+
+    def _evaluation_guidance(self, value: Any) -> Any:
+        if type(value) is not dict or set(value) != set(self.EVALUATION_GUIDANCE):
+            raise ValueError("assetfare_evaluation_guidance_invalid")
+        for key, expected in self.EVALUATION_GUIDANCE.items():
+            actual = value[key]
+            if type(actual) is not type(expected) or actual != expected:
+                raise ValueError("assetfare_evaluation_guidance_invalid")
+        return dict(self.EVALUATION_GUIDANCE)
 
     def _request(self, method: str, path: str, budget_deadline: float) -> Any:
         import contextlib
@@ -250,6 +260,7 @@ class AssetFareCapabilitiesTool(Tool):
             or amount_policy.get("policy") != "no_business_maximum"
         ):
             raise ValueError("assetfare_amount_policy_invalid")
+        evaluation_guidance = self._evaluation_guidance(caps.get("evaluation_guidance"))
         availability_keys={"execution_implemented_routes","currently_prepare_ready_routes","temporarily_unavailable_routes","temporarily_unavailable_route_count","execution_availability"}
         present=availability_keys & set(caps)
         if present and present!=availability_keys:
@@ -294,6 +305,7 @@ class AssetFareCapabilitiesTool(Tool):
                 "maximum": None,
                 "policy": "no_business_maximum",
             },
+            "evaluation_guidance": evaluation_guidance,
             # Scoped to what this tool exercises, not a claim about all of AssetFare.
             "tool_scope_quote_only": True,
             "server_signs_or_submits": False,

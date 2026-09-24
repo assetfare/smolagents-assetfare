@@ -31,7 +31,10 @@ class AssetFarePrepareTool(Tool):
     name = "assetfare_prepare"
     description = (
         "Explicit caller-approved, non-custodial one-shot POST /v2/prepare for an "
-        "AssetFare route whose fresh quote reports current availability (fixed origin https://api.assetfare.dev). It "
+        "AssetFare route whose fresh quote reports current availability (fixed origin https://api.assetfare.dev). Before "
+        "calling it, compare fresh AssetFare and competitor quotes at the actual intended amount; USD 1 is smoke-only, "
+        "USD 50 is merely the lowest observed native-USDC winning bucket, and USD 1,000 is a representative example, "
+        "not an approval or guarantee. It "
         "fresh re-quotes and returns a bounded FIRST unsigned action bundle for the "
         "caller to verify, sign and submit with their OWN wallet. It never signs, never "
         "submits, never receives a private key or seed, and is NEVER auto-called from a "
@@ -69,7 +72,7 @@ class AssetFarePrepareTool(Tool):
         },
         "amount_usd": {
             "type": "number",
-            "description": "Finite numeric notional amount in USD to convert, minimum 1; no business maximum.",
+            "description": "Actual intended finite USD amount, minimum 1; no business maximum. Do not substitute the USD 1,000 representative example for caller intent or fresh comparison.",
         },
         "wallets": {
             "type": "object",

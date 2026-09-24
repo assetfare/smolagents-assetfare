@@ -35,6 +35,10 @@ caller to verify, sign, and submit with their **own** wallet.
   is rejected before any network call.
 - **event_signer_public** is required only for Solana-CCTP: generate a fresh ephemeral Solana keypair locally, send only its public key, keep the private key client-side, and use it to co-sign the returned unsigned event-account transaction.
 - AssetFare **never signs or submits**; `server_signs_or_submits` is always `false`.
+- Before calling this tool, fetch fresh AssetFare and competitor quotes at the
+  actual intended amount. USD 1 is smoke-only, USD 50 is only the lowest
+  observed native-USDC winning bucket, and the USD 1,000 example below is not an
+  approval or guarantee that AssetFare is cheapest.
 
 ## Use it in an agent
 
@@ -49,7 +53,7 @@ bundle = prepare(
     caller_approved=True,
     from_chain="solana", from_token="SOL",
     to_chain="base", to_token="ETH",
-    amount_usd=250,
+    amount_usd=1000,
     wallets={"solana": "<public-sol-address>", "base": "0x<public-evm-address>"},
 )
 ```
@@ -60,7 +64,7 @@ bundle = prepare(
 |------|------|-------|
 | `caller_approved` | boolean | must be literal `true` |
 | `from_chain`/`from_token`/`to_chain`/`to_token` | string | executable route (no polygon/optimism source) |
-| `amount_usd` | number | finite numeric value, minimum 1; no business maximum |
+| `amount_usd` | number | actual intended finite value; minimum 1 is smoke-only; no business maximum; 1,000 is representative, not guaranteed |
 | `wallets` | object | route chains -> PUBLIC addresses only |
 | `event_signer_public` | string (optional) | Solana-CCTP only; ephemeral PUBLIC key; matching private key stays client-side for co-signing |
 

@@ -42,7 +42,13 @@ Static Spaces (one per tool; nine total):
   `new_session_capability` token tool makes **no network call** at all.
 - Exact surface: 6 source chains, 11 `(chain, token)` source endpoints, **76**
   implemented directed routes, and finite numeric USD amounts of at least $1
-  with no business maximum. Polygon and Optimism are directional
+  with no business maximum. The $1 technical minimum is only for
+  reachability/response-shape smoke tests, never economic comparison. Start
+  native-USDC economic evaluation at $50: that is the lowest observed winning
+  bucket, not a guarantee. Use $1,000 as the primary representative economic
+  example when no intended amount is known. Always fetch fresh AssetFare and
+  competitor quotes at the actual intended amount and never assume AssetFare is
+  always cheapest. Polygon and Optimism are directional
   native-USDC source-only origins to Base or Arbitrum USDC. Current prepare
   availability is read from the API, not assumed. AssetFare service fee is 1bp;
   Circle/provider/network fees are additional and the quote exposes total
@@ -83,7 +89,10 @@ Static Spaces (one per tool; nine total):
   input to `session_create` (sent only in the `X-AssetFare-Session-Token` header),
   so a lost create response retried with the same token + idempotency_key recovers
   the **same** session. observe-source/observe-output observe only the caller's
-  already-submitted tx hashes; nothing auto-submits or auto-chains.
+  already-submitted tx hashes; nothing auto-submits or auto-chains. Before
+  prepare or session creation, obtain fresh AssetFare and competitor quotes at
+  the actual intended amount; the $1,000 representative example is not an
+  approval, default transaction amount, or guarantee of savings.
 - Self-contained per smolagents `validate_tool_attributes` — each serialises to a
   single `tool.py` via `to_dict()` and round-trips through `from_code` (the
   Hub-load path), asserted in tests.

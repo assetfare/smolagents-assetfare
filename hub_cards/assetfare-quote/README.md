@@ -34,6 +34,18 @@ as a human demo.
   signs, or submits. The server itself never signs or submits; the tool
   **fails closed** on any response that claims otherwise.
 
+## Economic evaluation
+
+- **$1 is only the technical minimum** for reachability/response-shape smoke
+  tests; do not use it to judge economics.
+- Start native-USDC evaluation at **$50**. This is the lowest observed winning
+  bucket, not a guarantee for any route or time.
+- **$1,000** is the primary representative example, not a default transaction or
+  promise of savings.
+- Always fetch fresh AssetFare and competitor quotes at the actual intended
+  amount. Compare total cost, expected/minimum receive, ETA, and risk; never
+  assume AssetFare is always cheapest.
+
 ## Loading & trust (read this first)
 
 - **`trust_remote_code=True` runs code from this Space in your process.** That is
@@ -69,7 +81,7 @@ quote = load_tool(
     revision="<pin-reviewed-6chain-SHA-after-publish>",
 )
 agent = CodeAgent(tools=[quote], model=InferenceClientModel())
-agent.run("Get an AssetFare quote to convert $250 from Solana SOL to Base ETH.")
+agent.run("Get an AssetFare quote to convert $1,000 from Solana SOL to Base ETH.")
 ```
 
 Direct call:
@@ -78,7 +90,7 @@ Direct call:
 result = quote(
     from_chain="solana", from_token="SOL",
     to_chain="base",    to_token="ETH",
-    amount_usd=250,
+    amount_usd=1000,
 )
 ```
 
@@ -90,7 +102,7 @@ result = quote(
 | `from_token` | string | token symbol on the source chain (e.g. `SOL`, `ETH`, `USDC`, `USDG`) |
 | `to_chain`   | string | destination chain |
 | `to_token`   | string | destination token symbol |
-| `amount_usd` | number | finite numeric value, minimum 1; no business maximum; source and destination must differ |
+| `amount_usd` | number | actual intended finite value; minimum 1 is smoke-only; no business maximum; 1,000 is representative, not guaranteed; source and destination must differ |
 
 ## Output (object)
 

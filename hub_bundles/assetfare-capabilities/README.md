@@ -29,6 +29,12 @@ quote before requesting a quote with
 [`odaiin/assetfare-quote`](https://huggingface.co/spaces/odaiin/assetfare-quote),
 whose result then names the separate caller-operated REST `/v2/prepare` handoff.
 
+For economic evaluation, treat the USD 1 technical minimum as a
+reachability/response-shape smoke test only. USD 50 is the lowest observed
+native-USDC winning bucket, not a guarantee, and USD 1,000 is the primary
+representative example. Always compare fresh AssetFare and competitor quotes at
+the actual intended amount; AssetFare is not always cheapest.
+
 - **Fixed origin:** `https://api.assetfare.dev` (any other base URL is rejected).
 - Confirms that the surface this tool reads is a quote-only, non-custodial public
   agent release whose server never signs or submits **for these endpoints**,

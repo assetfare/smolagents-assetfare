@@ -25,6 +25,24 @@ UTC = timezone.utc
 FIXED_NOW = datetime(2026, 9, 17, 0, 0, 10, tzinfo=UTC)
 AS_OF = "2026-09-17T00:00:05Z"  # 5s before FIXED_NOW
 
+EVALUATION_GUIDANCE = {
+    "schema_version": 1,
+    "route_minimum_usd": 1,
+    "reachability_smoke_usd": 1,
+    "reachability_smoke_scope": "connectivity_only_not_economic_evaluation",
+    "native_usdc_economic_evaluation_start_usd": 50,
+    "representative_economic_evaluation_usd": 1000,
+    "sol_input_representative_evaluation_usd": 1000,
+    "sol_input_caveat": (
+        "SOL-input routes add a source swap, so compare their full fee-inclusive route economics separately."
+    ),
+    "evidence_as_of": "2026-09-23",
+    "evidence_scope": "Dated Solana native USDC to Base native USDC measurements at USD 50, 250, and 1000.",
+    "not_a_minimum": True,
+    "not_guaranteed_best": True,
+    "always_compare_fresh_at_intended_amount": True,
+}
+
 
 def fixed_now() -> datetime:
     return FIXED_NOW
@@ -127,6 +145,7 @@ def caps_payload():
         ],
         "destination_chains": ["arbitrum", "base", "robinhood", "solana"],
         "amount_usd": {"minimum": 1, "maximum": None, "policy": "no_business_maximum"},
+        "evaluation_guidance": dict(EVALUATION_GUIDANCE),
     }
 
 
@@ -381,6 +400,7 @@ def test_capabilities_happy():
         "maximum": None,
         "policy": "no_business_maximum",
     }
+    assert out["evaluation_guidance"] == EVALUATION_GUIDANCE
     assert s.calls[0][1] == "https://api.assetfare.dev/v2/capabilities"
     assert s.calls[1][1] == "https://api.assetfare.dev/v2/status"
 
@@ -398,6 +418,22 @@ def test_capabilities_rejects_invalid_amount_policy(amount_policy):
     payload = caps_payload()
     payload["amount_usd"] = amount_policy
     with pytest.raises(ValueError, match="assetfare_amount_policy_invalid"):
+        caps_tool(_Session([_Resp(payload), _Resp(status_payload())])).forward()
+
+
+@pytest.mark.parametrize(
+    "mut",
+    [
+        lambda c: c.pop("evaluation_guidance"),
+        lambda c: c["evaluation_guidance"].update(route_minimum_usd=True),
+        lambda c: c["evaluation_guidance"].update(evidence_as_of="2026-09-24"),
+        lambda c: c["evaluation_guidance"].update(extra=True),
+    ],
+)
+def test_capabilities_evaluation_guidance_must_match_core_exactly(mut):
+    payload = caps_payload()
+    mut(payload)
+    with pytest.raises(ValueError, match="assetfare_evaluation_guidance_invalid"):
         caps_tool(_Session([_Resp(payload), _Resp(status_payload())])).forward()
 
 
@@ -520,6 +556,7 @@ def test_quote_happy():
     assert out["non_atomic"] is True
     assert out["execution_supported"] is True
     assert out["source_only"] is False
+    assert out["evaluation_guidance"] == EVALUATION_GUIDANCE
     assert out["server_signs_or_submits"] is False
     assert out["cost_summary"]["maximum_total_cost_usd"] == pytest.approx(3.0)
     assert out["eta"]["estimated_time_seconds"] == 45

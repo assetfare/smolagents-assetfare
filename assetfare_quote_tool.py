@@ -33,7 +33,11 @@ class AssetFareQuoteTool(Tool):
         "the AssetFare service and does not itself prepare, sign or submit. It "
         "covers 6 source chains (solana, base, arbitrum, robinhood, polygon, "
         "optimism), 11 (chain, token) source endpoints and 76 directed quote routes, "
-        "for any finite USD amount of at least 1, with no business maximum. Polygon and Optimism are directional "
+        "for any finite USD amount of at least 1, with no business maximum. USD 1 is only a "
+        "reachability/response-shape smoke test, never an economic comparison. USD 50 is the lowest "
+        "observed native-USDC winning bucket/evaluation start, not a guarantee, and USD 1,000 is the "
+        "primary representative economic example. Always fetch fresh AssetFare and competitor quotes "
+        "at the actual intended amount; never assume AssetFare is always cheapest. Polygon and Optimism are directional "
         "native-USDC source-only origins to Base or Arbitrum USDC. Implemented "
         "paths are usable only while the live quote reports them available. It never authenticates "
         "a wallet, opens a session, prepares an "
@@ -74,7 +78,7 @@ class AssetFareQuoteTool(Tool):
         },
         "amount_usd": {
             "type": "number",
-            "description": "Finite numeric notional amount in USD to convert, minimum 1; no business maximum.",
+            "description": "Actual intended finite USD amount; technical minimum 1 is smoke-only, no business maximum. USD 1,000 is a representative example, not an advantage guarantee.",
         },
     }
     output_type = "object"
@@ -86,6 +90,21 @@ class AssetFareQuoteTool(Tool):
     MAX_TTL_SECONDS = 60
     MAX_FUTURE_SKEW_S = 300
     MIN_USD = 1.0
+    EVALUATION_GUIDANCE = {
+        "schema_version": 1,
+        "route_minimum_usd": 1,
+        "reachability_smoke_usd": 1,
+        "reachability_smoke_scope": "connectivity_only_not_economic_evaluation",
+        "native_usdc_economic_evaluation_start_usd": 50,
+        "representative_economic_evaluation_usd": 1000,
+        "sol_input_representative_evaluation_usd": 1000,
+        "sol_input_caveat": "SOL-input routes add a source swap, so compare their full fee-inclusive route economics separately.",
+        "evidence_as_of": "2026-09-23",
+        "evidence_scope": "Dated Solana native USDC to Base native USDC measurements at USD 50, 250, and 1000.",
+        "not_a_minimum": True,
+        "not_guaranteed_best": True,
+        "always_compare_fresh_at_intended_amount": True,
+    }
     PREPARE_URL = "https://api.assetfare.dev/v2/prepare"
     SESSION_URL = "https://api.assetfare.dev/v2/session"
     FEE_COLLECTION_CONST = "only_on_eligible_successful_executor_step"
@@ -706,6 +725,7 @@ class AssetFareQuoteTool(Tool):
             "source_only": source_only,
             "execution_supported": True,
             "execution_blocker": None,
+            "evaluation_guidance": dict(self.EVALUATION_GUIDANCE),
             "server_signs_or_submits": False,
             "caller_action_plan_handoff": caller_action_plan_handoff,
             "caller_action_plan_handoff_v2": caller_action_plan_handoff_v2,
