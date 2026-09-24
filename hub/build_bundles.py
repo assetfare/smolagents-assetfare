@@ -35,10 +35,9 @@ ast.Load ctx, so smolagents cannot host them as class attributes anyway; the exa
 result is identical ``tool.py`` bytes (and whole-bundle SHA) on any interpreter and
 any hash seed, with the tool's semantics preserved.
 
-SHA-pin principle: the generated card/landing page do NOT advertise a
-pre-publish / pre-Optimism commit as the 6-chain canonical revision. The reviewed
-revision SHA is pinned only AFTER the 6-chain build is published; until then the
-snippet carries a clearly annotated placeholder.
+SHA-pin principle: generated cards/landing pages advertise only an immutable
+Space revision whose exact bundle was already published and reviewed. A new
+bundle must be uploaded first; only then may its revision replace the prior pin.
 
 Run: python hub/build_bundles.py   (no network, no login, no push)
 """
@@ -70,9 +69,19 @@ from assetfare_session_tools import (
 # Space itself runs nothing, so no gradio (and no gradio vuln surface) is shipped.
 BUNDLE_REQUIREMENTS = "smolagents==1.26.0\nrequests>=2.32.3,<3\n"
 
-# The reviewed revision SHA is pinned only AFTER the 6-chain build is published; do
-# NOT advertise a pre-publish/pre-Optimism SHA as the 6-chain canonical revision.
-REVISION_PLACEHOLDER = "<pin-reviewed-6chain-SHA-after-publish>"
+# Reviewed public Space revisions. Update a pin only after the exact generated
+# bundle has been uploaded and verified at that immutable revision.
+REVIEWED_REVISIONS = {
+    "assetfare-quote": "1f9dd16326a70aba241aa30b77b75a8310b1bc45",
+    "assetfare-capabilities": "2cde821ca957e9ebc4434a4c7d065546fdb05686",
+    "assetfare-new-session-capability": "561c6b23da41936757087054ca32e472f4e9a399",
+    "assetfare-prepare": "9c71dd6b1aa51484237d17d69090b599baf8fe3c",
+    "assetfare-session-create": "213573ca301b764e298faddb5420dbe7b590bc9c",
+    "assetfare-session-get": "cf03a26155aba8804aa38c1a4ed7c2c410fe9d1a",
+    "assetfare-observe-source": "ee76aa24e745114b5e4cff226b6ef88b7cd69266",
+    "assetfare-observe-output": "aeaadbd52a56595e8949f2f9a9eb0ff66dd54c0a",
+    "assetfare-refresh-action": "e7ad8ddc91217cf676466212a04bc9c944036ba3",
+}
 
 # (space, Class, human title, one-line tagline). space == card dir == repo name.
 SPECS = [
@@ -129,7 +138,7 @@ def canonicalize(code: str) -> str:
 
 def _index_html(space: str, title: str, tagline: str, tool_name: str, description: str) -> str:
     """Deterministic static landing page. Contains load_tool + trust_remote_code=True,
-    no gradio, and an SHA-pin placeholder (no pre-publish SHA advertised)."""
+    no gradio, and the already-reviewed immutable Space revision."""
     summary = description[:400]
     return f"""<!doctype html>
 <html lang="en">
@@ -168,7 +177,7 @@ def _index_html(space: str, title: str, tagline: str, tool_name: str, descriptio
 tool = load_tool(
     "odaiin/{space}",
     trust_remote_code=True,           # runs the reviewed tool code in your process
-    revision="{REVISION_PLACEHOLDER}",  # pin the reviewed 6-chain SHA only AFTER publish
+    revision="{REVIEWED_REVISIONS[space]}",  # reviewed immutable Space revision
 )</pre>
   </div>
 

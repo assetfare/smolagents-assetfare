@@ -58,7 +58,7 @@ from smolagents import load_tool
 caps = load_tool(
     "odaiin/assetfare-capabilities",
     trust_remote_code=True,
-    revision="<pin-reviewed-6chain-SHA-after-publish>", # pin the reviewed 6-chain SHA only AFTER publish
+    revision="2cde821ca957e9ebc4434a4c7d065546fdb05686", # reviewed immutable Space revision
 )
 print(caps())  # -> dict of chains, endpoints, route counts, amount bounds
 ```

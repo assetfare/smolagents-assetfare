@@ -44,7 +44,7 @@ from smolagents import load_tool
 new_token = load_tool(
     "odaiin/assetfare-new-session-capability",
     trust_remote_code=True,
-    revision="<pin-reviewed-6chain-SHA-after-publish>",
+    revision="561c6b23da41936757087054ca32e472f4e9a399",
 )
 cap = new_token()          # {"session_token": "...", "token_bits": 256, ...}
 ```

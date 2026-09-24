@@ -116,8 +116,9 @@ def test_index_html_is_static(bundles, space):
     assert html.lstrip().lower().startswith("<!doctype html>")
     assert "load_tool" in html and "trust_remote_code=True" in html
     assert "gradio" not in html.lower()
-    # SHA-pin principle: no pre-publish/pre-Optimism SHA advertised as canonical.
-    assert build_bundles.REVISION_PLACEHOLDER in html
+    # SHA-pin principle: advertise only the reviewed immutable Space revision.
+    assert build_bundles.REVIEWED_REVISIONS[space] in html
+    assert "<pin-reviewed-6chain-SHA-after-publish>" not in html
 
 
 @pytest.mark.parametrize("space", SPACES)

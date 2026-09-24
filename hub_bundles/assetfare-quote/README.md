@@ -60,7 +60,7 @@ as a human demo.
   quote = load_tool(
       "odaiin/assetfare-quote",
       trust_remote_code=True,
-      revision="<pin-reviewed-6chain-SHA-after-publish>", # pin the reviewed 6-chain SHA only AFTER publish (do not advertise a pre-Optimism SHA as canonical)
+      revision="1f9dd16326a70aba241aa30b77b75a8310b1bc45", # reviewed immutable Space revision
   )
   ```
 
@@ -78,7 +78,7 @@ from smolagents import load_tool, CodeAgent, InferenceClientModel
 quote = load_tool(
     "odaiin/assetfare-quote",
     trust_remote_code=True,
-    revision="<pin-reviewed-6chain-SHA-after-publish>",
+    revision="1f9dd16326a70aba241aa30b77b75a8310b1bc45",
 )
 agent = CodeAgent(tools=[quote], model=InferenceClientModel())
 agent.run("Get an AssetFare quote to convert $1,000 from Solana SOL to Base ETH.")

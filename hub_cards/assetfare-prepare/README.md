@@ -47,7 +47,7 @@ from smolagents import load_tool
 prepare = load_tool(
     "odaiin/assetfare-prepare",
     trust_remote_code=True,
-    revision="<pin-reviewed-6chain-SHA-after-publish>",
+    revision="9c71dd6b1aa51484237d17d69090b599baf8fe3c",
 )
 bundle = prepare(
     caller_approved=True,
