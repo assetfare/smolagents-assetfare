@@ -72,7 +72,7 @@ BUNDLE_REQUIREMENTS = "smolagents==1.26.0\nrequests>=2.32.3,<3\n"
 # Reviewed public Space revisions. Update a pin only after the exact generated
 # bundle has been uploaded and verified at that immutable revision.
 REVIEWED_REVISIONS = {
-    "assetfare-quote": "1f9dd16326a70aba241aa30b77b75a8310b1bc45",
+    "assetfare-quote": "03a062115d9dafad706b7674b3e16c3ed2bfbac6",
     "assetfare-capabilities": "2cde821ca957e9ebc4434a4c7d065546fdb05686",
     "assetfare-new-session-capability": "561c6b23da41936757087054ca32e472f4e9a399",
     "assetfare-prepare": "9c71dd6b1aa51484237d17d69090b599baf8fe3c",
