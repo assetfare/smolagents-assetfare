@@ -38,7 +38,11 @@ claim.
 
 ```python
 from smolagents import load_tool
-get = load_tool("odaiin/assetfare-session-get", trust_remote_code=True, revision="<pin-after-publish>")
+get = load_tool(
+    "odaiin/assetfare-session-get",
+    trust_remote_code=True,
+    revision="cf03a26155aba8804aa38c1a4ed7c2c410fe9d1a",
+)
 state = get(session_token="<caller-owned-token>", session_id="<uuid>")
 ```
 

@@ -40,16 +40,27 @@ route whose fresh quote reports current availability and returns its first workf
 
 ```python
 from smolagents import load_tool
-new_token = load_tool("odaiin/assetfare-new-session-capability", trust_remote_code=True, revision="<pin-after-publish>")
-create   = load_tool("odaiin/assetfare-session-create", trust_remote_code=True, revision="<pin-after-publish>")
+new_token = load_tool(
+    "odaiin/assetfare-new-session-capability",
+    trust_remote_code=True,
+    revision="561c6b23da41936757087054ca32e472f4e9a399",
+)
+create = load_tool(
+    "odaiin/assetfare-session-create",
+    trust_remote_code=True,
+    revision="213573ca301b764e298faddb5420dbe7b590bc9c",
+)
 cap = new_token()
 session = create(
+    # Set this only after the caller explicitly approves this exact session.
     caller_approved=True,
     from_chain="solana", from_token="SOL", to_chain="base", to_token="ETH",
     amount_usd=1000,
     wallets={"solana": "<public>", "base": "0x<public>"},
     session_token=cap["session_token"],
     idempotency_key="my-unique-key-001",
+    # Generate locally; pass only the public key. Never pass its private key.
+    event_signer_public="<fresh-ephemeral-public-solana-key>",
 )
 ```
 

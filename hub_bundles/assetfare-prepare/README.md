@@ -50,11 +50,14 @@ prepare = load_tool(
     revision="9c71dd6b1aa51484237d17d69090b599baf8fe3c",
 )
 bundle = prepare(
+    # Set this only after the caller explicitly approves this exact action.
     caller_approved=True,
     from_chain="solana", from_token="SOL",
     to_chain="base", to_token="ETH",
     amount_usd=1000,
     wallets={"solana": "<public-sol-address>", "base": "0x<public-evm-address>"},
+    # Generate locally; pass only the public key. Never pass its private key.
+    event_signer_public="<fresh-ephemeral-public-solana-key>",
 )
 ```
 

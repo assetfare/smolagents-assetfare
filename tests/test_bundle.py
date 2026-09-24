@@ -106,8 +106,32 @@ def test_bundle_card_is_static(bundles, space):
     assert "sdk: static" in card
     assert "app_file: index.html" in card
     assert "sdk: gradio" not in card
+    assert "<pin-after-publish>" not in card
     # tags present for discovery
     assert "- smolagents" in card and "- tool" in card
+
+
+def test_action_card_examples_include_required_solana_event_signer(bundles):
+    for space in ("assetfare-prepare", "assetfare-session-create"):
+        card = (bundles[space] / "README.md").read_text()
+        assert 'from_chain="solana"' in card
+        assert 'event_signer_public="<fresh-ephemeral-public-solana-key>"' in card
+        assert "caller explicitly approves" in card
+        assert "pass only the public key" in card
+        assert "Never pass its private key" in card
+
+
+@pytest.mark.parametrize(
+    ("space", "referenced_space"),
+    [
+        ("assetfare-session-create", "assetfare-new-session-capability"),
+        ("assetfare-session-create", "assetfare-session-create"),
+        ("assetfare-session-get", "assetfare-session-get"),
+    ],
+)
+def test_session_card_examples_pin_reviewed_public_revisions(bundles, space, referenced_space):
+    card = (bundles[space] / "README.md").read_text()
+    assert build_bundles.REVIEWED_REVISIONS[referenced_space] in card
 
 
 @pytest.mark.parametrize("space", SPACES)
