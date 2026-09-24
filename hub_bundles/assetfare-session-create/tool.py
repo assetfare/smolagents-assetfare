@@ -7,11 +7,12 @@ import re
 import requests
 import time
 import urllib
+import uuid
 
 class AssetFareSessionCreateTool(Tool):
     name = "assetfare_session_create"
-    description = "Explicit caller-approved, non-custodial POST /v2/session create for an AssetFare route whose fresh quote reports current availability (fixed origin https://api.assetfare.dev). Before creating it, compare fresh AssetFare and competitor quotes at the actual intended amount; USD 1 is smoke-only, USD 50 is merely the lowest observed native-USDC winning bucket, and USD 1,000 is a representative example, not an approval or guarantee. It opens one idempotent receipt-driven session and returns its first workflow state / unsigned action for the caller to verify, sign and submit with their OWN wallet. It never signs, never submits, never receives a private key or seed, and never auto-chains. It requires the literal caller_approved true, the route's own PUBLIC wallet addresses, a caller-generated session capability token (from assetfare_new_session_capability) sent only in the X-AssetFare-Session-Token header, and an idempotency_key; retrying with the SAME token + idempotency_key recovers the SAME session (lost-response crash recovery). It fails closed before any network call if caller_approved is not literally true or if any private key / seed / signed transaction appears anywhere in the input. Inputs: caller_approved, from_chain, from_token, to_chain, to_token, amount_usd (finite number, minimum 1; no business maximum), wallets (public addresses only), event_signer_public (Solana-CCTP only: public key of a fresh locally generated ephemeral keypair; private key stays client-side to co-sign), session_token (the caller-owned capability), idempotency_key. The returned 'server_signs_or_submits' is always false. This tool does NOT execute, bridge, swap, sign or move funds."
-    inputs = {'caller_approved': {'type': 'boolean', 'description': 'Must be the literal boolean true. Explicit caller approval gate; anything else is rejected before any network call.'}, 'from_chain': {'type': 'string', 'description': 'Source chain: one of solana, base, arbitrum, robinhood, polygon, optimism.'}, 'from_token': {'type': 'string', 'description': 'Source token symbol on the source chain, e.g. SOL, ETH, USDC, USDG.'}, 'to_chain': {'type': 'string', 'description': 'Destination chain: one of solana, base, arbitrum, robinhood.'}, 'to_token': {'type': 'string', 'description': 'Destination token symbol on the destination chain, e.g. ETH, USDC, USDG.'}, 'amount_usd': {'type': 'number', 'description': 'Actual intended finite USD amount, minimum 1; no business maximum. Do not substitute the USD 1,000 representative example for caller intent or fresh comparison.'}, 'wallets': {'type': 'object', 'description': "Map of the route's chains (at least source and destination) to the caller's PUBLIC wallet addresses only. Never a private key or seed."}, 'session_token': {'type': 'string', 'description': 'Caller-generated session capability token from assetfare_new_session_capability (>=256-bit, url-safe, 43-128 chars). Sent only in the X-AssetFare-Session-Token header. Not a private key.'}, 'idempotency_key': {'type': 'string', 'description': 'Caller idempotency key (8-128 chars). Retrying with the same token + key recovers the same session.'}, 'event_signer_public': {'type': 'string', 'description': 'Solana-CCTP only: public key of a fresh ephemeral Solana keypair generated locally. Keep its private key client-side to co-sign the returned unsigned event-account transaction. Omit when not applicable.', 'nullable': True}}
+    description = "Explicit caller-approved, non-custodial POST /v2/session create for an AssetFare route whose fresh quote reports current availability (fixed origin https://api.assetfare.dev). Before creating it, compare fresh AssetFare and competitor quotes at the actual intended amount; USD 1 is smoke-only, USD 50 is merely the lowest observed native-USDC winning bucket, and USD 1,000 is a representative example, not an approval or guarantee. It opens one idempotent receipt-driven session and returns its first workflow state / unsigned action for the caller to verify, sign and submit with their OWN wallet. It never signs, never submits, never receives a private key or seed, and never auto-chains. It requires the literal caller_approved true, the route's own PUBLIC wallet addresses, a caller-generated session capability token (from assetfare_new_session_capability) sent only in the X-AssetFare-Session-Token header, and an idempotency_key plus explicit approval_v3 whose selected_mode is session; retrying with the SAME token + idempotency_key recovers the SAME session (lost-response crash recovery). It fails closed before any network call if caller_approved is not literally true or if any private key / seed / signed transaction appears anywhere in the input. caller_approved alone is not proof of human approval. Multi-step routes are session-only and this tool never auto-selects a quote. Inputs: caller_approved, from_chain, from_token, to_chain, to_token, amount_usd (finite number, minimum 1; no business maximum), wallets (public addresses only), event_signer_public (Solana-CCTP only: public key of a fresh locally generated ephemeral keypair; private key stays client-side to co-sign), session_token (the caller-owned capability), idempotency_key. The returned 'server_signs_or_submits' is always false. This tool does NOT execute, bridge, swap, sign or move funds."
+    inputs = {'caller_approved': {'type': 'boolean', 'description': 'Must be the literal boolean true. Explicit caller approval gate; anything else is rejected before any network call.'}, 'from_chain': {'type': 'string', 'description': 'Source chain: one of solana, base, arbitrum, robinhood, polygon, optimism.'}, 'from_token': {'type': 'string', 'description': 'Source token symbol on the source chain, e.g. SOL, ETH, USDC, USDG.'}, 'to_chain': {'type': 'string', 'description': 'Destination chain: one of solana, base, arbitrum, robinhood.'}, 'to_token': {'type': 'string', 'description': 'Destination token symbol on the destination chain, e.g. ETH, USDC, USDG.'}, 'amount_usd': {'type': 'number', 'description': 'Actual intended finite USD amount, minimum 1; no business maximum. Do not substitute the USD 1,000 representative example for caller intent or fresh comparison.'}, 'wallets': {'type': 'object', 'description': "Map of the route's chains (at least source and destination) to the caller's PUBLIC wallet addresses only. Never a private key or seed."}, 'session_token': {'type': 'string', 'description': 'Caller-generated session capability token from assetfare_new_session_capability (>=256-bit, url-safe, 43-128 chars). Sent only in the X-AssetFare-Session-Token header. Not a private key.'}, 'idempotency_key': {'type': 'string', 'description': 'Caller idempotency key (8-128 chars). Retrying with the same token + key recovers the same session.'}, 'approval_v3': {'type': 'object', 'description': 'Exact nine-field assetfare-quote-bound-approval-v3 built locally after explicit unranked selection. selected_mode must be session and its idempotency_key must exactly match this call.'}, 'event_signer_public': {'type': 'string', 'description': 'Solana-CCTP only: public key of a fresh ephemeral Solana keypair generated locally. Keep its private key client-side to co-sign the returned unsigned event-account transaction. Omit when not applicable.', 'nullable': True}}
     output_type = "object"
     ALLOWED_ORIGIN = "https://api.assetfare.dev"
     SESSION_TOKEN_HEADER = "X-AssetFare-Session-Token"
@@ -23,6 +24,7 @@ class AssetFareSessionCreateTool(Tool):
     SOURCE_ONLY_CHAINS = {'optimism', 'polygon'}
     ENDPOINTS = {'arbitrum:ETH', 'arbitrum:USDC', 'base:ETH', 'base:USDC', 'optimism:USDC', 'polygon:USDC', 'robinhood:ETH', 'robinhood:USDG', 'solana:SOL', 'solana:USDC', 'solana:USDG'}
     FORBIDDEN_SECRET_KEYS = {'keypair', 'mnemonic', 'passphrase', 'password', 'private_key', 'privatekey', 'privkey', 'raw_transaction', 'secret', 'secret_key', 'secretkey', 'seed', 'seed_phrase', 'signature', 'signed', 'signed_transaction', 'signed_tx'}
+    APPROVAL_V3_KEYS = {'direct_route_summary_sha256', 'idempotency_key', 'maximum_input_base', 'minimum_output_base', 'quote_fingerprint', 'quote_id', 'selected_mode', 'selection_status', 'version'}
 
     def __init__(
         self,
@@ -290,6 +292,34 @@ class AssetFareSessionCreateTool(Tool):
             raise ValueError("assetfare_session_unsafe")
         return payload
 
+    def _approval_v3(self, value: Any, idempotency_key: str) -> Any:
+        import re
+        import uuid
+
+        self._reject_secret_material(value)
+        if not isinstance(value, dict) or set(value) != self.APPROVAL_V3_KEYS:
+            raise ValueError("assetfare_approval_v3_shape_invalid")
+        try:
+            uuid.UUID(str(value.get("quote_id")))
+        except (ValueError, TypeError, AttributeError):
+            raise ValueError("assetfare_approval_v3_quote_id_invalid") from None
+        if (
+            value.get("version") != "assetfare-quote-bound-approval-v3"
+            or value.get("selection_status") != "selected"
+            or value.get("selected_mode") != "session"
+            or value.get("idempotency_key") != idempotency_key
+            or not isinstance(value.get("quote_fingerprint"), str)
+            or re.fullmatch(r"[0-9a-f]{64}", value["quote_fingerprint"]) is None
+            or not isinstance(value.get("direct_route_summary_sha256"), str)
+            or re.fullmatch(r"[0-9a-f]{64}", value["direct_route_summary_sha256"]) is None
+            or not isinstance(value.get("maximum_input_base"), str)
+            or re.fullmatch(r"[1-9][0-9]*", value["maximum_input_base"]) is None
+            or not isinstance(value.get("minimum_output_base"), str)
+            or re.fullmatch(r"[1-9][0-9]*", value["minimum_output_base"]) is None
+        ):
+            raise ValueError("assetfare_approval_v3_invalid")
+        return dict(value)
+
     def forward(
         self,
         caller_approved: bool,
@@ -301,6 +331,7 @@ class AssetFareSessionCreateTool(Tool):
         wallets: dict,
         session_token: str,
         idempotency_key: str,
+        approval_v3: dict,
         event_signer_public: Optional[str] = None,
     ) -> Any:
         body = self._action_intent(
@@ -308,6 +339,7 @@ class AssetFareSessionCreateTool(Tool):
         )
         token = self._session_token(session_token)
         body["idempotency_key"] = self._idempotency_key(idempotency_key)
+        body["approval_v3"] = self._approval_v3(approval_v3, body["idempotency_key"])
         budget_deadline = self._monotonic() + self.STALE_BUDGET_S
         data = self._request(
             "POST", "/v2/session", body, budget_deadline, extra_headers={self.SESSION_TOKEN_HEADER: token}

@@ -37,6 +37,18 @@ as a human demo.
   `direct_route_summary` with each named protocol, normalized endpoint,
   expected/minimum base-unit amount, and the one exact step collecting the 1bp
   AssetFare fee.
+- **Quote-bound continuation:** every result includes a sanitized
+  `continuation_descriptor` only after strict validation of the complete
+  `continuation_v3` fingerprint/hashes, expiry, exact bounds, required wallet
+  chains/event signer, unranked status, and allowed mode. Raw claims, bounds,
+  approval/session/idempotency metadata, and legacy handoffs are suppressed.
+  This quote tool never creates `approval_v3`, selects a route, collects wallets,
+  or calls prepare/session. Multi-step routes are session-only. Payload hashes
+  use exact summary base-unit strings plus typed-canonical-v1, which preserves
+  JSON types and negative zero, encodes finite numbers as IEEE-754 binary64, and
+  rejects unsafe non-substituted integral numbers and lone Unicode surrogates
+  while supporting raw amounts above `2^53` through the exact substituted
+  strings.
 
 ## Economic evaluation
 
@@ -115,9 +127,9 @@ Validated fields only: `from`, `to`, `amount_usd`, `output_symbol`,
 `expected_receive_usd`, `estimated_min_receive_usd`, `assetfare_fee_bps`,
 `fee_modeled_bps`, `fee_collectible_now`, `assetfare_fee_conditional`,
 `fee_collection_steps`, `fee_collection`, `fee_note`, `estimated_time_seconds`,
-`direct_route_summary`, `non_atomic`, `quote_id`, `as_of`, `ttl_seconds`, `source_only`,
+`direct_route_summary`, `continuation_descriptor`, `non_atomic`, `quote_id`, `as_of`, `ttl_seconds`, `source_only`,
 `execution_supported`, `execution_blocker`, `server_signs_or_submits` (always
-`false`), and `caller_action_plan_handoff`.
+`false`).
 
 **AssetFare service fee — EXACTLY `1bp` on every route; not total cost.** A 0bp, 8bp, 2bp, or negative service fee fails
 closed. It is **conditional**, never an unconditional flat charge: the 1bp fee is
@@ -148,35 +160,24 @@ destination liquidity, so those paths explicitly return
 `provider_internal_dex_aggregation_possible=true`. Agents should preserve this
 distinction when explaining a quote.
 
-**`caller_action_plan_handoff` — FAIL-CLOSED passthrough (no local fallback).** The
-upstream `/v2/quote` handoff is passed through **verbatim after strict validation**;
-there is **no** synthesized local descriptor. A missing / null / array / extra-field
-/ wrong-field handoff is a real contract regression and is **rejected**. For an
-a route the fresh quote reports available it carries `available: true`, `url:
-https://api.assetfare.dev/v2/prepare`, and **two options** — a one-shot
-`POST /v2/prepare` first unsigned bundle and a full caller-approved
-`POST /v2/session` lifecycle (create / `GET {id}` / observe-source / observe-output
-/ refresh-action). Its invariants: `requires_explicit_caller_approval: true`,
-`requires_public_wallet_addresses: true`, `requires_fresh_requote: true`,
-`automatic_prepare_call_forbidden: true`, `assetfare_server_signing: false`,
-`assetfare_server_submission: false`, `caller_must_verify_sign_and_submit: true`,
-and the exact **8-field** `request_fields`
-`["caller_approved", "from_chain", "from_token", "to_chain", "to_token",
-"amount_usd", "wallets", "event_signer_public"]`. The four directional
-Polygon/Optimism source-only routes carry the same available two-option handoff.
-This tool never calls `/v2/prepare` or `/v2/session`, never receives a private key,
-and never signs or submits.
+**Legacy handoffs are validation-only.** The upstream `/v2/quote` handoffs remain
+strict fail-closed safety assertions with no local fallback, but neither handoff
+nor `handoff_schema_version` is projected into the result. The quote tool never
+calls `/v2/prepare` or `/v2/session`, collects a wallet, creates an approval,
+receives a private key, signs, or submits.
 
 ## Companion action tools
 
 Execution is a **separate, explicit, caller-approved** step, exposed as separate
-Hub tools that this quote tool only names (it never auto-calls them):
+Hub tools documented here but not returned or auto-called by this quote tool:
 `assetfare_new_session_capability` (local-only token; no network),
 `assetfare_prepare` (one-shot `/v2/prepare`), and the full session lifecycle
 `assetfare_session_create` / `assetfare_session_get` / `assetfare_observe_source` /
 `assetfare_observe_output` / `assetfare_refresh_action`. All require an explicit
-`caller_approved: true` and the caller's own PUBLIC wallet addresses; none sign or
-submit. Source-only (Polygon/Optimism) routes are fail-closed rejected there.
+an exact explicit `approval_v3`, `caller_approved: true`, and the caller's own
+PUBLIC wallet addresses; none sign or submit. The caller flow is quote → local
+unranked selection → copy exact v3 bounds and one allowed mode → invoke exactly
+one path. Multi-step routes use session only.
 
 ## Validation & safety
 

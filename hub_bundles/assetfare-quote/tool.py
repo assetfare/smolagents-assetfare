@@ -1,17 +1,22 @@
 from smolagents.tools import Tool
 from typing import Any, Optional
 import contextlib
+import copy
 import datetime
+import decimal
+import hashlib
 import json
 import math
+import re
 import requests
+import struct
 import time
 import urllib
 import uuid
 
 class AssetFareQuoteTool(Tool):
     name = "assetfare_quote"
-    description = "Read-only quote client for one cross-chain corridor via the AssetFare v2 API (fixed origin https://api.assetfare.dev). This tool's entire scope is to fetch and validate a single conversion quote and return it; it is not the AssetFare service and does not itself prepare, sign or submit. It covers 6 source chains (solana, base, arbitrum, robinhood, polygon, optimism), 11 (chain, token) source endpoints and 76 directed quote routes, for any finite USD amount of at least 1, with no business maximum. USD 1 is only a reachability/response-shape smoke test, never an economic comparison. USD 50 is the lowest observed native-USDC winning bucket/evaluation start, not a guarantee, and USD 1,000 is the primary representative economic example. Always fetch fresh AssetFare and competitor quotes at the actual intended amount; never assume AssetFare is always cheapest. Polygon and Optimism are directional native-USDC source-only origins to Base or Arbitrum USDC. Implemented paths are usable only while the live quote reports them available. It never authenticates a wallet, opens a session, prepares an unsigned action, signs or submits. For a route the live quote reports available, its result passes through (validated) the caller_action_plan_handoff, which names the separate caller-operated POST /v2/prepare (one-shot) and POST /v2/session (full lifecycle) steps; the returned 'server_signs_or_submits' is always false. It returns expected/minimum receive amounts (native and USD), the exact AssetFare service fee (1bp, not total cost), top-level expected and maximum token-path cost including provider components, live availability, eligible fee_collection_steps, and a validated ordered direct_route_summary showing every named protocol, normalized endpoint, base-unit amount, and exact 1bp fee step. route_aggregator_used=false means AssetFare did not call a market-wide aggregator API. An external_intent route uses Across, which may internally source or aggregate destination liquidity; this is provider-internal behavior, not an AssetFare aggregator call. It also returns ETA, the non-atomic risk flag, a quote id, an as_of timestamp and a ttl. Every response is validated and the call fails closed if anything claims the server will sign or submit, if the quote is stale or future-dated, if total cost is inconsistent, if the service fee is not exactly 1bp, if the handoff is missing or deviates from the caller-approved 8-field contract, or if the route does not match the requested corridor. Inputs: from_chain, from_token, to_chain, to_token (a supported chain/token pair, source != destination) and amount_usd (finite number, minimum 1; no business maximum). This tool does NOT execute, bridge, swap, sign or move funds; acting on a quote is a separate caller wallet action taken outside this tool after explicit approval."
+    description = "Read-only quote client for one cross-chain corridor via the AssetFare v2 API (fixed origin https://api.assetfare.dev). This tool's entire scope is to fetch and validate a single conversion quote and return it; it is not the AssetFare service and does not itself prepare, sign or submit. It covers 6 source chains (solana, base, arbitrum, robinhood, polygon, optimism), 11 (chain, token) source endpoints and 76 directed quote routes, for any finite USD amount of at least 1, with no business maximum. USD 1 is only a reachability/response-shape smoke test, never an economic comparison. USD 50 is the lowest observed native-USDC winning bucket/evaluation start, not a guarantee, and USD 1,000 is the primary representative economic example. Always fetch fresh AssetFare and competitor quotes at the actual intended amount; never assume AssetFare is always cheapest. Polygon and Optimism are directional native-USDC source-only origins to Base or Arbitrum USDC. Implemented paths are usable only while the live quote reports them available. It never authenticates a wallet, opens a session, prepares an unsigned action, signs or submits. Legacy action handoffs are validated but suppressed from the quote-only result; the returned 'server_signs_or_submits' is always false. It returns expected/minimum receive amounts (native and USD), the exact AssetFare service fee (1bp, not total cost), top-level expected and maximum token-path cost including provider components, live availability, eligible fee_collection_steps, and a validated ordered direct_route_summary showing every named protocol, normalized endpoint, base-unit amount, and exact 1bp fee step. route_aggregator_used=false means AssetFare did not call a market-wide aggregator API. An external_intent route uses Across, which may internally source or aggregate destination liquidity; this is provider-internal behavior, not an AssetFare aggregator call. It also returns ETA, the non-atomic risk flag, a quote id, an as_of timestamp and a ttl. Every response is validated and the call fails closed if anything claims the server will sign or submit, if the quote is stale or future-dated, if total cost is inconsistent, if the service fee is not exactly 1bp, if the upstream handoff safety assertion is missing or malformed, or if the route does not match the requested corridor. Inputs: from_chain, from_token, to_chain, to_token (a supported chain/token pair, source != destination) and amount_usd (finite number, minimum 1; no business maximum). This tool does NOT execute, bridge, swap, sign or move funds. It strictly validates the full continuation_v3 and returns only a sanitized continuation_descriptor with non-executable discovery metadata. The tool never creates approval_v3 or selects a mode; the caller must explicitly choose exactly one allowed mode. Multi-step routes are session-only. caller_approved alone is not proof of human approval and legacy handoff is advisory."
     inputs = {'from_chain': {'type': 'string', 'description': 'Source chain: one of solana, base, arbitrum, robinhood, polygon, optimism.'}, 'from_token': {'type': 'string', 'description': 'Source token symbol on the source chain, e.g. SOL, ETH, USDC, USDG.'}, 'to_chain': {'type': 'string', 'description': 'Destination chain: one of solana, base, arbitrum, robinhood.'}, 'to_token': {'type': 'string', 'description': 'Destination token symbol on the destination chain, e.g. ETH, USDC, USDG.'}, 'amount_usd': {'type': 'number', 'description': 'Actual intended finite USD amount; technical minimum 1 is smoke-only, no business maximum. USD 1,000 is a representative example, not an advantage guarantee.'}}
     output_type = "object"
     ALLOWED_ORIGIN = "https://api.assetfare.dev"
@@ -35,6 +40,10 @@ class AssetFareQuoteTool(Tool):
     BRIDGE_PROVIDERS = {'across_intent_bridge', 'circle_cctp', 'paxos_usdg_layerzero_oft'}
     DIRECT_SUMMARY_KEYS = {'assetfare_fee_bps', 'classification', 'external_intent_protocol_used', 'fee_collection_step_index', 'from', 'mode', 'provider_internal_dex_aggregation_possible', 'route', 'route_aggregator_used', 'server_signing', 'server_submission', 'step_count', 'steps', 'to', 'version'}
     DIRECT_SUMMARY_STEP_KEYS = {'action', 'aggregator_api_used', 'assetfare_fee_bps', 'direct_protocol', 'expected_input_base', 'expected_output_base', 'external_intent_protocol', 'from', 'index', 'minimum_input_base', 'minimum_output_base', 'provider', 'to'}
+    CONTINUATION_VERSION = "assetfare-quote-bound-continuation-v3"
+    QUOTE_PAYLOAD_SHA256_SPEC = "sha256(AssetFare typed-canonical-v1 bytes of the quote without continuation_v3 after exact base-unit substitution: n=null; t/f=boolean; d=<IEEE-754 binary64 big-endian 16 lowercase hex> for each finite JSON number; s=<UTF-8 byte length>:<Unicode scalar text with lone surrogates forbidden>; a=<count>:[items]; o=<count>:{UTF-8-byte-sorted string-key/value pairs}; every non-substituted integral JSON number must be within +/-9007199254740991; substituted paths are intent.estimated_input_base, route.input_base, route.expected_output_base, route.minimum_output_base, and every route.steps[i].expected_input_base/floor_input_base/expected_output_base/minimum_output_base from direct_route_summary exact decimal strings)"
+    CONTINUATION_KEYS = {'allowed_modes', 'approval_v3_required_fields', 'automatic_selection_forbidden', 'caller_approved_boolean_is_not_human_proof', 'direct_route_summary_sha256', 'enforcement', 'event_signer_public_required', 'expires_at', 'idempotency', 'input_base_bounds', 'intent', 'issued_at', 'legacy_handoff_enforcement', 'minimum_output_base', 'quote_fingerprint', 'quote_fingerprint_claim', 'quote_fingerprint_spec', 'quote_id', 'quote_payload_sha256', 'quote_payload_sha256_spec', 'recommended_mode', 'required_wallet_chains', 'selection_status', 'server_signing', 'server_submission', 'session_header', 'step_count', 'ttl_seconds', 'version'}
+    FINGERPRINT_CLAIM_KEYS = {'allowed_modes', 'direct_route_summary_sha256', 'event_signer_public_required', 'expires_at', 'input_base_bounds', 'intent', 'issued_at', 'minimum_output_base', 'quote_id', 'quote_payload_sha256', 'quote_payload_sha256_spec', 'required_wallet_chains', 'server_signing', 'server_submission', 'step_count', 'ttl_seconds', 'version'}
 
     def __init__(
         self,
@@ -509,7 +518,7 @@ class AssetFareQuoteTool(Tool):
         return dict(value)
 
     def _validate_caller_handoff(self, node: Any) -> Any:
-        # FAIL-CLOSED passthrough of the upstream caller_action_plan_handoff. There is
+        # FAIL-CLOSED validation of the upstream caller_action_plan_handoff. There is
         # NO local fallback: a missing / null / array / extra-field / wrong-field /
         # private-key handoff is a real contract regression and is REJECTED. Executable
         # routes must carry the dual-option handoff (POST /v2/prepare one-shot + full
@@ -640,6 +649,243 @@ class AssetFareQuoteTool(Tool):
             if not isinstance(entry, dict) or set(entry) != {"method", "url"} or entry.get("method") != exp["method"] or entry.get("url") != exp["url"]:
                 raise ValueError("assetfare_handoff_v2_session_lifecycle_invalid")
         return dict(node)
+
+    def _validate_continuation_v3(
+        self, value: Any, quote: Any, intent: Any, route: Any, direct_route_summary: Any
+    ) -> Any:
+        import re
+        from datetime import datetime, timedelta
+        from decimal import Decimal, InvalidOperation
+
+        if not isinstance(value, dict) or set(value) != self.CONTINUATION_KEYS:
+            raise ValueError("assetfare_continuation_v3_invalid")
+        claim = value.get("quote_fingerprint_claim")
+        bounds = value.get("input_base_bounds")
+        wallets = value.get("required_wallet_chains")
+        modes = value.get("allowed_modes")
+        step_count = direct_route_summary["step_count"]
+        expected_modes = ["session"] if step_count > 1 else ["one_shot", "session"]
+        expected_recommended = "session" if step_count > 1 else "one_shot_or_session"
+        expected_wallets = sorted(
+            {
+                endpoint.split(":", 1)[0]
+                for step in direct_route_summary["steps"]
+                for endpoint in (step["from"], step["to"])
+            }
+        )
+        expected_signer = any(
+            step["provider"] == "circle_cctp" and step["from"].startswith("solana:")
+            for step in direct_route_summary["steps"]
+        )
+        hash_pattern = re.compile(r"^[0-9a-f]{64}$")
+        approval_fields = [
+            "direct_route_summary_sha256", "idempotency_key", "maximum_input_base",
+            "minimum_output_base", "quote_fingerprint", "quote_id", "selected_mode",
+            "selection_status", "version",
+        ]
+        if (
+            value.get("version") != self.CONTINUATION_VERSION
+            or value.get("enforcement") != "server_enforced_quote_binding"
+            or value.get("selection_status") != "unranked_candidate"
+            or value.get("automatic_selection_forbidden") is not True
+            or value.get("caller_approved_boolean_is_not_human_proof") is not True
+            or value.get("quote_id") != quote.get("quote_id")
+            or not isinstance(value.get("quote_fingerprint"), str)
+            or hash_pattern.fullmatch(value["quote_fingerprint"]) is None
+            or value.get("quote_fingerprint_spec")
+            != "sha256(UTF-8 sorted-key compact JSON of quote_fingerprint_claim; every numeric claim is a non-exponent decimal string)"
+            or value.get("quote_payload_sha256_spec") != self.QUOTE_PAYLOAD_SHA256_SPEC
+            or value.get("ttl_seconds") != quote.get("ttl_seconds")
+            or value.get("intent") != intent
+            or not isinstance(bounds, dict)
+            or set(bounds) != {"minimum", "maximum"}
+            or bounds.get("minimum") != str(intent.get("estimated_input_base"))
+            or bounds.get("maximum") != str(intent.get("estimated_input_base"))
+            or value.get("minimum_output_base") != str(route.get("minimum_output_base"))
+            or wallets != expected_wallets
+            or value.get("event_signer_public_required") is not expected_signer
+            or value.get("step_count") != step_count
+            or modes != expected_modes
+            or value.get("recommended_mode") != expected_recommended
+            or value.get("approval_v3_required_fields") != approval_fields
+            or value.get("legacy_handoff_enforcement") != "legacy_advisory"
+            or value.get("server_signing") is not False
+            or value.get("server_submission") is not False
+        ):
+            raise ValueError("assetfare_continuation_v3_invalid")
+        session_header = value.get("session_header")
+        if session_header != {
+            "name": "X-AssetFare-Session-Token", "required_for": "session",
+            "caller_generated": True, "minimum_entropy_bits": 256,
+            "server_returns_raw_value": False,
+        }:
+            raise ValueError("assetfare_continuation_v3_invalid")
+        if value.get("idempotency") != {
+            "required": True, "field": "idempotency_key",
+            "pattern": "^[A-Za-z0-9._:-]{8,128}$", "scope": "quote_and_selected_mode",
+        }:
+            raise ValueError("assetfare_continuation_v3_invalid")
+        if not isinstance(claim, dict) or set(claim) != self.FINGERPRINT_CLAIM_KEYS:
+            raise ValueError("assetfare_continuation_v3_invalid")
+        try:
+            amount_decimal = format(Decimal(str(intent["amount_usd"])), "f")
+            if "." in amount_decimal:
+                amount_decimal = amount_decimal.rstrip("0").rstrip(".")
+            if amount_decimal in ("", "-0"):
+                amount_decimal = "0"
+        except (InvalidOperation, ValueError):
+            raise ValueError("assetfare_continuation_v3_invalid") from None
+        expected_claim = {
+            "version": self.CONTINUATION_VERSION,
+            "quote_id": value["quote_id"],
+            "issued_at": value.get("issued_at"),
+            "expires_at": value.get("expires_at"),
+            "ttl_seconds": str(value["ttl_seconds"]),
+            "intent": {
+                "from": intent["from"], "to": intent["to"],
+                "amount_usd_decimal": amount_decimal,
+                "estimated_input_base": str(intent["estimated_input_base"]),
+            },
+            "direct_route_summary_sha256": value.get("direct_route_summary_sha256"),
+            "quote_payload_sha256": value.get("quote_payload_sha256"),
+            "quote_payload_sha256_spec": self.QUOTE_PAYLOAD_SHA256_SPEC,
+            "input_base_bounds": dict(bounds),
+            "minimum_output_base": value["minimum_output_base"],
+            "required_wallet_chains": list(wallets),
+            "event_signer_public_required": expected_signer,
+            "step_count": str(step_count),
+            "allowed_modes": list(expected_modes),
+            "server_signing": False,
+            "server_submission": False,
+        }
+        if (
+            claim != expected_claim
+            or self._canonical_sha256(claim) != value["quote_fingerprint"]
+            or self._canonical_sha256(direct_route_summary) != value.get("direct_route_summary_sha256")
+            or self._quote_payload_sha256(quote, direct_route_summary) != value.get("quote_payload_sha256")
+        ):
+            raise ValueError("assetfare_continuation_v3_invalid")
+        try:
+            issued = datetime.fromisoformat(str(value.get("issued_at")).replace("Z", "+00:00"))
+            expires = datetime.fromisoformat(str(value.get("expires_at")).replace("Z", "+00:00"))
+        except ValueError:
+            raise ValueError("assetfare_continuation_v3_invalid") from None
+        if (
+            issued.tzinfo is None
+            or expires.tzinfo is None
+            or expires <= issued
+            or abs((expires - issued).total_seconds() - value["ttl_seconds"]) > 0.001
+            or expires <= self._utcnow()
+            or issued > self._utcnow() + timedelta(seconds=self.MAX_FUTURE_SKEW_S)
+        ):
+            raise ValueError("assetfare_continuation_v3_invalid")
+        return {
+            "version": self.CONTINUATION_VERSION,
+            "quote_id": value["quote_id"],
+            "quote_fingerprint": value["quote_fingerprint"],
+            "expires_at": value["expires_at"],
+            "ttl_seconds": value["ttl_seconds"],
+            "selection_status": "unranked_candidate",
+            "required_wallet_chains": list(wallets),
+            "event_signer_public_required": expected_signer,
+            "allowed_modes": list(expected_modes),
+            "recommended_mode": expected_recommended,
+            "openapi_url": "https://api.assetfare.dev/v2/openapi",
+            "legacy_handoff_enforcement": "legacy_advisory",
+            "automatic_selection_forbidden": True,
+            "caller_approved_boolean_is_not_human_proof": True,
+            "wallet_collection_performed": False,
+            "approval_v3_generated": False,
+            "prepare_calls": 0,
+            "session_calls": 0,
+            "server_signing": False,
+            "server_submission": False,
+        }
+
+    def _canonical_sha256(self, value: Any) -> str:
+        import hashlib
+        import json
+
+        return hashlib.sha256(
+            json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
+        ).hexdigest()
+
+    def _typed_canonical(self, value: Any) -> bytes:
+        import math
+        import struct
+
+        if value is None:
+            return b"n"
+        if value is True:
+            return b"t"
+        if value is False:
+            return b"f"
+        if isinstance(value, int):
+            if abs(value) > 9007199254740991:
+                raise ValueError("assetfare_continuation_v3_invalid")
+            return b"d" + struct.pack(">d", float(value)).hex().encode("ascii")
+        if isinstance(value, float):
+            if not math.isfinite(value) or (value.is_integer() and abs(value) > 9007199254740991):
+                raise ValueError("assetfare_continuation_v3_invalid")
+            return b"d" + struct.pack(">d", value).hex().encode("ascii")
+        if isinstance(value, str):
+            for character in value:
+                if 0xD800 <= ord(character) <= 0xDFFF:
+                    raise ValueError("assetfare_continuation_v3_invalid")
+            encoded = value.encode("utf-8")
+            return b"s" + str(len(encoded)).encode("ascii") + b":" + encoded
+        if isinstance(value, list):
+            encoded_items = []
+            for element in value:
+                encoded_items.append(self._typed_canonical(element))
+            return b"a" + str(len(value)).encode("ascii") + b":[" + b"".join(encoded_items) + b"]"
+        if isinstance(value, dict):
+            keys = []
+            for candidate in value:
+                if not isinstance(candidate, str):
+                    raise ValueError("assetfare_continuation_v3_invalid")
+                for character in candidate:
+                    if 0xD800 <= ord(character) <= 0xDFFF:
+                        raise ValueError("assetfare_continuation_v3_invalid")
+                keys.append(candidate)
+            keys.sort()
+            encoded_items = []
+            for key_name in keys:
+                encoded_items.append(self._typed_canonical(key_name))
+                encoded_items.append(self._typed_canonical(value[key_name]))
+            return b"o" + str(len(keys)).encode("ascii") + b":{" + b"".join(encoded_items) + b"}"
+        raise ValueError("assetfare_continuation_v3_invalid")
+
+    def _quote_payload_projection(self, quote: Any, direct_route_summary: Any) -> Any:
+        import copy
+
+        payload = copy.deepcopy({key: item for key, item in quote.items() if key != "continuation_v3"})
+        try:
+            summary_steps = direct_route_summary["steps"]
+            route = payload["route"]
+            raw_steps = route["steps"]
+            intent = payload["intent"]
+            if not isinstance(summary_steps, list) or not summary_steps or len(raw_steps) != len(summary_steps):
+                raise ValueError
+            intent["estimated_input_base"] = summary_steps[0]["expected_input_base"]
+            route["input_base"] = summary_steps[0]["expected_input_base"]
+            route["expected_output_base"] = summary_steps[-1]["expected_output_base"]
+            route["minimum_output_base"] = summary_steps[-1]["minimum_output_base"]
+            for raw, exact in zip(raw_steps, summary_steps):
+                raw["expected_input_base"] = exact["expected_input_base"]
+                raw["floor_input_base"] = exact["minimum_input_base"]
+                raw["expected_output_base"] = exact["expected_output_base"]
+                raw["minimum_output_base"] = exact["minimum_output_base"]
+        except (KeyError, TypeError, ValueError):
+            raise ValueError("assetfare_continuation_v3_invalid") from None
+        return payload
+
+    def _quote_payload_sha256(self, quote: Any, direct_route_summary: Any) -> str:
+        import hashlib
+
+        return hashlib.sha256(
+            self._typed_canonical(self._quote_payload_projection(quote, direct_route_summary))
+        ).hexdigest()
 
     def forward(
         self,
@@ -815,19 +1061,22 @@ class AssetFareQuoteTool(Tool):
         ):
             raise ValueError("assetfare_execution_boundary_failed")
 
-        # FAIL-CLOSED passthrough of the upstream caller_action_plan_handoff. No local
-        # fallback: a missing/malformed handoff is a real contract regression.
-        caller_action_plan_handoff = self._validate_caller_handoff(data.get("caller_action_plan_handoff"))
+        # FAIL-CLOSED validation of the upstream caller_action_plan_handoff. It is
+        # deliberately suppressed from output; a missing/malformed handoff remains a contract regression.
+        self._validate_caller_handoff(data.get("caller_action_plan_handoff"))
         # Transition-safe v2 sibling: v1 always validated; version and sibling strictly coupled (both or neither).
         has_version = "handoff_schema_version" in data
         has_sibling = "caller_action_plan_handoff_v2" in data
         if has_version != has_sibling:
             raise ValueError("assetfare_handoff_schema_version_invalid")
-        caller_action_plan_handoff_v2 = None
         if has_sibling:
             if data.get("handoff_schema_version") != 2:
                 raise ValueError("assetfare_handoff_schema_version_invalid")
-            caller_action_plan_handoff_v2 = self._validate_caller_handoff_v2(data.get("caller_action_plan_handoff_v2"))
+            self._validate_caller_handoff_v2(data.get("caller_action_plan_handoff_v2"))
+
+        continuation_descriptor = self._validate_continuation_v3(
+            data.get("continuation_v3"), data, intent, route, direct_route_summary
+        )
 
         fee_steps_out = [int(s) for s in fee_steps]
         fee_note = "AssetFare 1bp is collected only on the eligible successful atomic action."
@@ -852,6 +1101,7 @@ class AssetFareQuoteTool(Tool):
             "cost_summary": cost,
             "eta": eta_summary or {"estimated_time_seconds":eta if self._is_int(eta) else None,"estimated_time_range_seconds":None,"complete_route_estimate":False,"sources":[],"note":"Legacy-core fallback; full ETA provenance unavailable"},
             "direct_route_summary": direct_route_summary,
+            "continuation_descriptor": continuation_descriptor,
             "non_atomic": risk["non_atomic"],
             "quote_id": data["quote_id"],
             "as_of": as_of,
@@ -861,7 +1111,4 @@ class AssetFareQuoteTool(Tool):
             "execution_blocker": None,
             "evaluation_guidance": dict(self.EVALUATION_GUIDANCE),
             "server_signs_or_submits": False,
-            "caller_action_plan_handoff": caller_action_plan_handoff,
-            "caller_action_plan_handoff_v2": caller_action_plan_handoff_v2,
-            "handoff_schema_version": 2 if caller_action_plan_handoff_v2 is not None else None,
         }

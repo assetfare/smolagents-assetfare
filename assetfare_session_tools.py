@@ -43,10 +43,11 @@ class AssetFareSessionCreateTool(Tool):
         "and never auto-chains. It requires the literal caller_approved true, the route's "
         "own PUBLIC wallet addresses, a caller-generated session capability token (from "
         "assetfare_new_session_capability) sent only in the X-AssetFare-Session-Token "
-        "header, and an idempotency_key; retrying with the SAME token + idempotency_key "
+        "header, and an idempotency_key plus explicit approval_v3 whose selected_mode is session; retrying with the SAME token + idempotency_key "
         "recovers the SAME session (lost-response crash recovery). It fails closed before "
         "any network call if caller_approved is not literally true or if any private key / "
-        "seed / signed transaction appears anywhere in the input. Inputs: caller_approved, "
+        "seed / signed transaction appears anywhere in the input. caller_approved alone is not proof of human approval. "
+        "Multi-step routes are session-only and this tool never auto-selects a quote. Inputs: caller_approved, "
         "from_chain, from_token, to_chain, to_token, amount_usd (finite number, minimum 1; no business maximum), wallets (public "
         "addresses only), event_signer_public (Solana-CCTP only: public key of a fresh locally generated ephemeral keypair; private key stays client-side to co-sign), "
         "session_token (the caller-owned capability), idempotency_key. The returned "
@@ -89,6 +90,10 @@ class AssetFareSessionCreateTool(Tool):
         "idempotency_key": {
             "type": "string",
             "description": "Caller idempotency key (8-128 chars). Retrying with the same token + key recovers the same session.",
+        },
+        "approval_v3": {
+            "type": "object",
+            "description": "Exact nine-field assetfare-quote-bound-approval-v3 built locally after explicit unranked selection. selected_mode must be session and its idempotency_key must exactly match this call.",
         },
         "event_signer_public": {
             "type": "string",
@@ -137,6 +142,10 @@ class AssetFareSessionCreateTool(Tool):
         "signed",
         "password",
         "passphrase",
+    }
+    APPROVAL_V3_KEYS = {
+        "version", "quote_id", "quote_fingerprint", "selection_status", "selected_mode",
+        "maximum_input_base", "minimum_output_base", "direct_route_summary_sha256", "idempotency_key",
     }
 
     def __init__(
@@ -405,6 +414,34 @@ class AssetFareSessionCreateTool(Tool):
             raise ValueError("assetfare_session_unsafe")
         return payload
 
+    def _approval_v3(self, value: Any, idempotency_key: str) -> Any:
+        import re
+        import uuid
+
+        self._reject_secret_material(value)
+        if not isinstance(value, dict) or set(value) != self.APPROVAL_V3_KEYS:
+            raise ValueError("assetfare_approval_v3_shape_invalid")
+        try:
+            uuid.UUID(str(value.get("quote_id")))
+        except (ValueError, TypeError, AttributeError):
+            raise ValueError("assetfare_approval_v3_quote_id_invalid") from None
+        if (
+            value.get("version") != "assetfare-quote-bound-approval-v3"
+            or value.get("selection_status") != "selected"
+            or value.get("selected_mode") != "session"
+            or value.get("idempotency_key") != idempotency_key
+            or not isinstance(value.get("quote_fingerprint"), str)
+            or re.fullmatch(r"[0-9a-f]{64}", value["quote_fingerprint"]) is None
+            or not isinstance(value.get("direct_route_summary_sha256"), str)
+            or re.fullmatch(r"[0-9a-f]{64}", value["direct_route_summary_sha256"]) is None
+            or not isinstance(value.get("maximum_input_base"), str)
+            or re.fullmatch(r"[1-9][0-9]*", value["maximum_input_base"]) is None
+            or not isinstance(value.get("minimum_output_base"), str)
+            or re.fullmatch(r"[1-9][0-9]*", value["minimum_output_base"]) is None
+        ):
+            raise ValueError("assetfare_approval_v3_invalid")
+        return dict(value)
+
     def forward(
         self,
         caller_approved: bool,
@@ -416,6 +453,7 @@ class AssetFareSessionCreateTool(Tool):
         wallets: dict,
         session_token: str,
         idempotency_key: str,
+        approval_v3: dict,
         event_signer_public: Optional[str] = None,
     ) -> Any:
         body = self._action_intent(
@@ -423,6 +461,7 @@ class AssetFareSessionCreateTool(Tool):
         )
         token = self._session_token(session_token)
         body["idempotency_key"] = self._idempotency_key(idempotency_key)
+        body["approval_v3"] = self._approval_v3(approval_v3, body["idempotency_key"])
         budget_deadline = self._monotonic() + self.STALE_BUDGET_S
         data = self._request(
             "POST", "/v2/session", body, budget_deadline, extra_headers={self.SESSION_TOKEN_HEADER: token}

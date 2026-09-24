@@ -42,13 +42,13 @@ EXPECTED = {
     "assetfare-new-session-capability": ("assetfare_new_session_capability", []),
     "assetfare-prepare": (
         "assetfare_prepare",
-        ["caller_approved", "from_chain", "from_token", "to_chain", "to_token", "amount_usd", "wallets", "event_signer_public"],
+        ["caller_approved", "from_chain", "from_token", "to_chain", "to_token", "amount_usd", "wallets", "approval_v3", "event_signer_public"],
     ),
     "assetfare-session-create": (
         "assetfare_session_create",
         [
             "caller_approved", "from_chain", "from_token", "to_chain", "to_token", "amount_usd",
-            "wallets", "session_token", "idempotency_key", "event_signer_public",
+            "wallets", "session_token", "idempotency_key", "approval_v3", "event_signer_public",
         ],
     ),
     "assetfare-session-get": ("assetfare_session_get", ["session_token", "session_id"]),
@@ -120,6 +120,9 @@ def test_quote_card_and_landing_surface_direct_route_transparency(bundles):
         assert "route_aggregator_used=false" in surface
         assert "across" in surface
         assert "internally source or aggregate destination liquidity" in surface
+        assert "continuation_descriptor" in surface
+        assert "sanitized" in surface
+        assert "suppressed" in surface
 
 
 def test_action_card_examples_include_required_solana_event_signer(bundles):

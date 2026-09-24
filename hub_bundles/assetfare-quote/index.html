@@ -34,6 +34,11 @@
     means AssetFare did not call a market-wide aggregator API. Across
     <code>external_intent</code> routes may internally source or aggregate destination
     liquidity; that provider behavior is disclosed separately.
+    Every response also validates the complete <code>continuation_v3</code> and
+    returns only a sanitized, unranked, expiring
+    <code>continuation_descriptor</code>. Raw claims, bounds, and action handoffs
+    are suppressed; this tool never creates approval, selects a mode, collects
+    wallets, or calls prepare/session.
   </div>
 
   <div class="box">

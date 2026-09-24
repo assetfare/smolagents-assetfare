@@ -7,11 +7,12 @@ import re
 import requests
 import time
 import urllib
+import uuid
 
 class AssetFarePrepareTool(Tool):
     name = "assetfare_prepare"
-    description = "Explicit caller-approved, non-custodial one-shot POST /v2/prepare for an AssetFare route whose fresh quote reports current availability (fixed origin https://api.assetfare.dev). Before calling it, compare fresh AssetFare and competitor quotes at the actual intended amount; USD 1 is smoke-only, USD 50 is merely the lowest observed native-USDC winning bucket, and USD 1,000 is a representative example, not an approval or guarantee. It fresh re-quotes and returns a bounded FIRST unsigned action bundle for the caller to verify, sign and submit with their OWN wallet. It never signs, never submits, never receives a private key or seed, and is NEVER auto-called from a quote: you must call it deliberately with caller_approved set to the literal true and the route's own PUBLIC wallet addresses. It fails closed before any network call if caller_approved is not literally true or if any private key / seed / signed transaction appears anywhere in the input. Inputs: caller_approved (must be true), from_chain, from_token, to_chain, to_token, amount_usd (finite number, minimum 1; no business maximum), wallets (a map of the route's chains to PUBLIC addresses only), and event_signer_public (Solana-CCTP only: generate a fresh ephemeral keypair locally, send only its public key, retain its private key client-side to co-sign the returned event-account transaction). The returned 'server_signs_or_submits' is always false. This tool prepares only an UNSIGNED action; it does NOT execute, bridge, swap, sign or move funds."
-    inputs = {'caller_approved': {'type': 'boolean', 'description': 'Must be the literal boolean true. It is the explicit caller approval gate; anything else is rejected before any network call.'}, 'from_chain': {'type': 'string', 'description': 'Source chain: one of solana, base, arbitrum, robinhood, polygon, optimism.'}, 'from_token': {'type': 'string', 'description': 'Source token symbol on the source chain, e.g. SOL, ETH, USDC, USDG.'}, 'to_chain': {'type': 'string', 'description': 'Destination chain: one of solana, base, arbitrum, robinhood.'}, 'to_token': {'type': 'string', 'description': 'Destination token symbol on the destination chain, e.g. ETH, USDC, USDG.'}, 'amount_usd': {'type': 'number', 'description': 'Actual intended finite USD amount, minimum 1; no business maximum. Do not substitute the USD 1,000 representative example for caller intent or fresh comparison.'}, 'wallets': {'type': 'object', 'description': "Map of the route's chains (at least the source and destination) to the caller's PUBLIC wallet addresses only. Never a private key or seed."}, 'event_signer_public': {'type': 'string', 'description': 'Solana-CCTP only: generate a fresh ephemeral Solana keypair locally, send only this public key, and retain its private key client-side to co-sign the returned unsigned event-account transaction. Omit when not applicable.', 'nullable': True}}
+    description = "Explicit caller-approved, non-custodial one-shot POST /v2/prepare for an AssetFare route whose fresh quote reports current availability (fixed origin https://api.assetfare.dev). Before calling it, compare fresh AssetFare and competitor quotes at the actual intended amount; USD 1 is smoke-only, USD 50 is merely the lowest observed native-USDC winning bucket, and USD 1,000 is a representative example, not an approval or guarantee. It fresh re-quotes and returns a bounded FIRST unsigned action bundle for the caller to verify, sign and submit with their OWN wallet. It never signs, never submits, never receives a private key or seed, and is NEVER auto-called from a quote: you must call it deliberately with caller_approved set to the literal true, an explicit approval_v3 copied from the selected fresh quote bounds, and the route's own PUBLIC wallet addresses. caller_approved alone is not proof of human approval. Select one_shot only when continuation_v3 explicitly allows it; multi-step routes are session-only. It fails closed before any network call if caller_approved is not literally true or if any private key / seed / signed transaction appears anywhere in the input. Inputs: caller_approved (must be true), from_chain, from_token, to_chain, to_token, amount_usd (finite number, minimum 1; no business maximum), wallets (a map of the route's chains to PUBLIC addresses only), and event_signer_public (Solana-CCTP only: generate a fresh ephemeral keypair locally, send only its public key, retain its private key client-side to co-sign the returned event-account transaction). The returned 'server_signs_or_submits' is always false. This tool prepares only an UNSIGNED action; it does NOT execute, bridge, swap, sign or move funds."
+    inputs = {'caller_approved': {'type': 'boolean', 'description': 'Must be the literal boolean true. It is the explicit caller approval gate; anything else is rejected before any network call.'}, 'from_chain': {'type': 'string', 'description': 'Source chain: one of solana, base, arbitrum, robinhood, polygon, optimism.'}, 'from_token': {'type': 'string', 'description': 'Source token symbol on the source chain, e.g. SOL, ETH, USDC, USDG.'}, 'to_chain': {'type': 'string', 'description': 'Destination chain: one of solana, base, arbitrum, robinhood.'}, 'to_token': {'type': 'string', 'description': 'Destination token symbol on the destination chain, e.g. ETH, USDC, USDG.'}, 'amount_usd': {'type': 'number', 'description': 'Actual intended finite USD amount, minimum 1; no business maximum. Do not substitute the USD 1,000 representative example for caller intent or fresh comparison.'}, 'wallets': {'type': 'object', 'description': "Map of the route's chains (at least the source and destination) to the caller's PUBLIC wallet addresses only. Never a private key or seed."}, 'approval_v3': {'type': 'object', 'description': 'Exact nine-field assetfare-quote-bound-approval-v3 built locally after explicit unranked selection. selected_mode must be one_shot. Never auto-generate this object.'}, 'event_signer_public': {'type': 'string', 'description': 'Solana-CCTP only: generate a fresh ephemeral Solana keypair locally, send only this public key, and retain its private key client-side to co-sign the returned unsigned event-account transaction. Omit when not applicable.', 'nullable': True}}
     output_type = "object"
     ALLOWED_ORIGIN = "https://api.assetfare.dev"
     SOCKET_TIMEOUT_S = 45.0
@@ -22,6 +23,7 @@ class AssetFarePrepareTool(Tool):
     SOURCE_ONLY_CHAINS = {'optimism', 'polygon'}
     ENDPOINTS = {'arbitrum:ETH', 'arbitrum:USDC', 'base:ETH', 'base:USDC', 'optimism:USDC', 'polygon:USDC', 'robinhood:ETH', 'robinhood:USDG', 'solana:SOL', 'solana:USDC', 'solana:USDG'}
     FORBIDDEN_SECRET_KEYS = {'keypair', 'mnemonic', 'passphrase', 'password', 'private_key', 'privatekey', 'privkey', 'raw_transaction', 'secret', 'secret_key', 'secretkey', 'seed', 'seed_phrase', 'signature', 'signed', 'signed_transaction', 'signed_tx'}
+    APPROVAL_V3_KEYS = {'direct_route_summary_sha256', 'idempotency_key', 'maximum_input_base', 'minimum_output_base', 'quote_fingerprint', 'quote_id', 'selected_mode', 'selection_status', 'version'}
 
     def __init__(
         self,
@@ -287,6 +289,35 @@ class AssetFarePrepareTool(Tool):
             raise ValueError("assetfare_bundle_missing_action")
         return payload
 
+    def _approval_v3(self, value: Any) -> Any:
+        import re
+        import uuid
+
+        self._reject_secret_material(value)
+        if not isinstance(value, dict) or set(value) != self.APPROVAL_V3_KEYS:
+            raise ValueError("assetfare_approval_v3_shape_invalid")
+        try:
+            uuid.UUID(str(value.get("quote_id")))
+        except (ValueError, TypeError, AttributeError):
+            raise ValueError("assetfare_approval_v3_quote_id_invalid") from None
+        if (
+            value.get("version") != "assetfare-quote-bound-approval-v3"
+            or value.get("selection_status") != "selected"
+            or value.get("selected_mode") != "one_shot"
+            or not isinstance(value.get("quote_fingerprint"), str)
+            or re.fullmatch(r"[0-9a-f]{64}", value["quote_fingerprint"]) is None
+            or not isinstance(value.get("direct_route_summary_sha256"), str)
+            or re.fullmatch(r"[0-9a-f]{64}", value["direct_route_summary_sha256"]) is None
+            or not isinstance(value.get("maximum_input_base"), str)
+            or re.fullmatch(r"[1-9][0-9]*", value["maximum_input_base"]) is None
+            or not isinstance(value.get("minimum_output_base"), str)
+            or re.fullmatch(r"[1-9][0-9]*", value["minimum_output_base"]) is None
+            or not isinstance(value.get("idempotency_key"), str)
+            or re.fullmatch(r"[A-Za-z0-9._:-]{8,128}", value["idempotency_key"]) is None
+        ):
+            raise ValueError("assetfare_approval_v3_invalid")
+        return dict(value)
+
     def forward(
         self,
         caller_approved: bool,
@@ -296,11 +327,13 @@ class AssetFarePrepareTool(Tool):
         to_token: str,
         amount_usd: float,
         wallets: dict,
+        approval_v3: dict,
         event_signer_public: Optional[str] = None,
     ) -> Any:
         body = self._action_intent(
             caller_approved, from_chain, from_token, to_chain, to_token, amount_usd, wallets, event_signer_public
         )
+        body["approval_v3"] = self._approval_v3(approval_v3)
         budget_deadline = self._monotonic() + self.STALE_BUDGET_S
         data = self._request("POST", "/v2/prepare", body, budget_deadline)
         bundle = self._validate_bundle(data)

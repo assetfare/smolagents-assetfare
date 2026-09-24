@@ -24,6 +24,10 @@ route whose fresh quote reports current availability and returns its first workf
 - **caller_approved gate** (literal `true`), **public wallets only**, and the
   directional Polygon/Optimism native-USDC source constraint are all enforced
   before any network call, exactly as in the prepare tool.
+- **Strict quote binding.** Requires the exact nine-field `approval_v3` built
+  locally after explicit unranked selection, with `selected_mode=session` and an
+  idempotency key exactly matching this create call. Multi-step routes are
+  session-only; never also invoke the one-shot path.
 - **Caller-owned session token is REQUIRED input.** Generate it first with
   `assetfare_new_session_capability` and pass it as `session_token`; this tool does
   **not** generate it. It is sent only in the `X-AssetFare-Session-Token` header.
@@ -59,6 +63,14 @@ session = create(
     wallets={"solana": "<public>", "base": "0x<public>"},
     session_token=cap["session_token"],
     idempotency_key="my-unique-key-001",
+    approval_v3={
+        "version": "assetfare-quote-bound-approval-v3",
+        "quote_id": "<fresh-quote-id>", "quote_fingerprint": "<64-hex>",
+        "selection_status": "selected", "selected_mode": "session",
+        "maximum_input_base": "<caller-bound>", "minimum_output_base": "<caller-bound>",
+        "direct_route_summary_sha256": "<64-hex>",
+        "idempotency_key": "my-unique-key-001",
+    },
     # Generate locally; pass only the public key. Never pass its private key.
     event_signer_public="<fresh-ephemeral-public-solana-key>",
 )
@@ -68,6 +80,7 @@ session = create(
 
 `caller_approved`, `from_chain`, `from_token`, `to_chain`, `to_token`, `amount_usd`,
 `wallets` (public addresses), `session_token` (caller-owned), `idempotency_key`,
+`approval_v3` (exact nine-field session selection, matching idempotency key),
 `event_signer_public` (Solana-CCTP only: public key of a fresh locally generated ephemeral keypair; keep its private key client-side for co-signing).
 
 ## Output (object)
@@ -75,6 +88,7 @@ session = create(
 The validated session workflow-state (`session_id`, current unsigned action, ...);
 it must assert `server_signing`/`server_submission`/`signed`/`submitted` are all
 `false`, else the call fails closed.
+The raw `session_token` is sent only as a header and is never logged or returned.
 
 ## Source
 

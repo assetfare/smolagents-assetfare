@@ -8,7 +8,8 @@ receipt-driven lifecycle). This is the supported Hub tool path (a Space tagged
 `smolagents`+`tool`, whose `tool.py` an agent loads via
 `load_tool(repo_id, trust_remote_code=True)`), **not** a human-facing Space promo.
 No tool signs, submits, or receives a private key; the action tools are never
-auto-called from a quote and require an explicit `caller_approved: true`.
+auto-called from a quote and require an explicit `approval_v3` as well as
+`caller_approved: true` (the boolean alone is not proof of human approval).
 
 Static Spaces (one per tool; nine total):
 
@@ -20,7 +21,7 @@ Static Spaces (one per tool; nine total):
 
 | file | what |
 |------|------|
-| `assetfare_quote_tool.py` | `AssetFareQuoteTool` — validated `POST /v2/quote`, ordered direct-route proof, fail-closed handoff passthrough |
+| `assetfare_quote_tool.py` | `AssetFareQuoteTool` — validated `POST /v2/quote`, ordered direct-route proof, sanitized continuation descriptor |
 | `assetfare_capabilities_tool.py` | `AssetFareCapabilitiesTool` — validated `GET /v2/capabilities` + `/v2/status` |
 | `assetfare_session_capability_tool.py` | `AssetFareNewSessionCapabilityTool` — local-only 256-bit token, **zero network** |
 | `assetfare_prepare_tool.py` | `AssetFarePrepareTool` — caller-approved one-shot `POST /v2/prepare` |
@@ -58,6 +59,19 @@ Static Spaces (one per tool; nine total):
   amounts for every step, and the one exact step index that collects the 1bp
   AssetFare fee. Missing, extra, reordered, discontinuous, or contradictory
   summary data fails closed against the raw route and risk fields.
+- Every quote strictly validates the complete `continuation_v3`, then exposes
+  only a sanitized `continuation_descriptor`: quote ID/fingerprint, expiry,
+  unranked status, route-derived wallet chains/event-signer requirement,
+  allowed/recommended mode, and the full OpenAPI URL. Raw claims, bounds,
+  approval fields, session metadata, idempotency metadata, and legacy handoffs
+  are suppressed. The quote tool never creates an approval, selects a candidate,
+  collects wallets, or calls prepare/session. Multi-step routes allow `session`
+  only; one-shot and session are mutually exclusive. Payload hashes use the
+  portable REST 2.4 projection: exact base-unit strings from the validated
+  summary replace duplicated raw numbers before typed-canonical-v1 preserves
+  JSON types and negative zero, encodes finite numbers as IEEE-754 binary64,
+  and rejects unsafe non-substituted integral numbers and lone Unicode
+  surrogates.
 - Strict response validation, RFC3339 tz-aware freshness (stale + future-skew;
   a trailing `Z` is normalized so it validates on Python 3.10 as well as 3.11+),
   1 MiB cap, single fixed sanitized error (no upstream text leaks). Every failure
@@ -66,19 +80,12 @@ Static Spaces (one per tool; nine total):
   `__cause__ is None` — a bare `raise ... from None` would still leave the upstream
   exception object on `__context__`. Internal budget/size stops use a sentinel, so
   a hostile `iter_content` raising its own `ValueError` is sanitized, not surfaced.
-- **AssetFare never signs or submits, and never receives a private key/seed.** The
-  quote result carries the caller-operated `caller_action_plan_handoff` as a
-  **FAIL-CLOSED passthrough** of the upstream `/v2/quote` handoff — **no local
-  fallback**: a missing/null/array/extra/wrong-field handoff is a real contract
-  regression and is rejected, never synthesized. For a route the fresh quote reports available it
-  carries `available: true`, `url: …/v2/prepare`, and **two options** (one-shot
-  `POST /v2/prepare` + full `POST /v2/session` lifecycle), the exact **8-field**
-  `request_fields` (`caller_approved` first), and the invariants
-  `requires_explicit_caller_approval` / `requires_public_wallet_addresses` /
-  `requires_fresh_requote` / `automatic_prepare_call_forbidden` /
-  `assetfare_server_signing=false` / `assetfare_server_submission=false` /
-  `caller_must_verify_sign_and_submit=true`. Directional source-only routes carry
-  the same available caller-approved prepare/session handoff.
+- **AssetFare never signs or submits, and never receives a private key/seed.**
+  Legacy caller-action handoffs in the upstream response remain strict,
+  fail-closed safety assertions—missing/null/array/extra/wrong-field data is
+  rejected and never synthesized—but they are not returned by the quote-only
+  projection. The result contains no wallet input, approval object, prepare or
+  session request material.
 - **Fee is EXACTLY `1bp` on every route.** `assetfare_fee_bps` and
   `fee_modeled_bps` must both be 1 (0bp/8bp/2bp/negative rejected), with exactly
   one eligible `fee_collection_steps` index. Plus
@@ -93,7 +100,8 @@ Static Spaces (one per tool; nine total):
   liquidity, so those paths explicitly set
   `provider_internal_dex_aggregation_possible=true`.
 - **Action tools are explicit and caller-owned.** `assetfare_prepare` and
-  `assetfare_session_create` require the literal `caller_approved: true` and the
+  `assetfare_session_create` require a strict explicit `approval_v3`, the literal
+  `caller_approved: true`, and the
   route's own PUBLIC wallet addresses (private key/seed/signed material rejected
   before any network call); Polygon/Optimism routes are constrained to native
   USDC sources for Base/Arbitrum USDC destinations. The
@@ -106,6 +114,9 @@ Static Spaces (one per tool; nine total):
   prepare or session creation, obtain fresh AssetFare and competitor quotes at
   the actual intended amount; the $1,000 representative example is not an
   approval, default transaction amount, or guarantee of savings.
+  `approval_v3.selected_mode` must be `one_shot` for prepare and `session` for
+  session create; for session create its idempotency key must exactly match the
+  call. The raw session token is never logged or returned by the action tools.
 - Self-contained per smolagents `validate_tool_attributes` — each serialises to a
   single `tool.py` via `to_dict()` and round-trips through `from_code` (the
   Hub-load path), asserted in tests.

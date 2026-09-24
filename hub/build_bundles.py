@@ -150,6 +150,11 @@ def _index_html(space: str, title: str, tagline: str, tool_name: str, descriptio
     means AssetFare did not call a market-wide aggregator API. Across
     <code>external_intent</code> routes may internally source or aggregate destination
     liquidity; that provider behavior is disclosed separately.
+    Every response also validates the complete <code>continuation_v3</code> and
+    returns only a sanitized, unranked, expiring
+    <code>continuation_descriptor</code>. Raw claims, bounds, and action handoffs
+    are suppressed; this tool never creates approval, selects a mode, collects
+    wallets, or calls prepare/session.
   </div>"""
     return f"""<!doctype html>
 <html lang="en">

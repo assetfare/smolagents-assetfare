@@ -27,7 +27,11 @@ caller to verify, sign, and submit with their **own** wallet.
   `caller_action_plan_handoff`; a developer/operator invokes it deliberately. A
   quote never triggers it.
 - **caller_approved gate.** Rejects anything but the literal boolean `true` before
-  any network call.
+  any network call. The boolean alone is not human-proof approval.
+- **Strict quote binding.** Requires the exact nine-field `approval_v3` built
+  locally after explicit unranked selection. `selected_mode` must be `one_shot`;
+  use this path only when the fresh continuation allows it. Multi-step routes are
+  session-only. Never invoke both prepare and session for one selection.
 - **Fail-closed source-only boundary.** Polygon/Optimism are accepted only as
   native-USDC origins to Base/Arbitrum USDC; other directions fail before network.
 - **Public wallets only.** The `wallets` map must contain PUBLIC addresses for the
@@ -56,6 +60,13 @@ bundle = prepare(
     to_chain="base", to_token="ETH",
     amount_usd=1000,
     wallets={"solana": "<public-sol-address>", "base": "0x<public-evm-address>"},
+    approval_v3={
+        "version": "assetfare-quote-bound-approval-v3",
+        "quote_id": "<fresh-quote-id>", "quote_fingerprint": "<64-hex>",
+        "selection_status": "selected", "selected_mode": "one_shot",
+        "maximum_input_base": "<caller-bound>", "minimum_output_base": "<caller-bound>",
+        "direct_route_summary_sha256": "<64-hex>", "idempotency_key": "local-choice-001",
+    },
     # Generate locally; pass only the public key. Never pass its private key.
     event_signer_public="<fresh-ephemeral-public-solana-key>",
 )
@@ -69,6 +80,7 @@ bundle = prepare(
 | `from_chain`/`from_token`/`to_chain`/`to_token` | string | executable route (no polygon/optimism source) |
 | `amount_usd` | number | actual intended finite value; minimum 1 is smoke-only; no business maximum; 1,000 is representative, not guaranteed |
 | `wallets` | object | route chains -> PUBLIC addresses only |
+| `approval_v3` | object | exact nine fields from the explicitly selected fresh quote; mode `one_shot` |
 | `event_signer_public` | string (optional) | Solana-CCTP only; ephemeral PUBLIC key; matching private key stays client-side for co-signing |
 
 ## Output (object)
