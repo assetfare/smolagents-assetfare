@@ -76,7 +76,7 @@ as a human demo.
   quote = load_tool(
       "odaiin/assetfare-quote",
       trust_remote_code=True,
-      revision="03a062115d9dafad706b7674b3e16c3ed2bfbac6", # reviewed immutable Space revision
+      revision="c65ab5604c2f8e04e0d344b98d85d3ceaf9e78fb", # reviewed immutable Space revision
   )
   ```
 
@@ -94,7 +94,7 @@ from smolagents import load_tool, CodeAgent, InferenceClientModel
 quote = load_tool(
     "odaiin/assetfare-quote",
     trust_remote_code=True,
-    revision="03a062115d9dafad706b7674b3e16c3ed2bfbac6",
+    revision="c65ab5604c2f8e04e0d344b98d85d3ceaf9e78fb",
 )
 agent = CodeAgent(tools=[quote], model=InferenceClientModel())
 agent.run("Get an AssetFare quote to convert $1,000 from Solana SOL to Base ETH.")

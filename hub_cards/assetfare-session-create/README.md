@@ -52,7 +52,7 @@ new_token = load_tool(
 create = load_tool(
     "odaiin/assetfare-session-create",
     trust_remote_code=True,
-    revision="213573ca301b764e298faddb5420dbe7b590bc9c",
+    revision="99384c75080942562ee1badc4d22d316dc27553a",
 )
 cap = new_token()
 session = create(
