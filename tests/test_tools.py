@@ -158,6 +158,52 @@ def status_payload():
 
 
 def quote_payload():
+    raw_steps = [
+        {
+            "index": 0, "kind": "direct_swap", "provider": "raydium_clmm", "chain": "solana",
+            "from": "SOL", "to": "USDC", "route_fee_bps": 0,
+            "expected_input_base": 1500000000, "floor_input_base": 1500000000,
+            "expected_output_base": 250000000, "minimum_output_base": 249000000,
+        },
+        {
+            "index": 1, "kind": "direct_bridge", "provider": "circle_cctp", "from": "solana",
+            "to": "base", "asset": "USDC", "route_fee_bps": 1,
+            "expected_input_base": 250000000, "floor_input_base": 249000000,
+            "expected_output_base": 249900000, "minimum_output_base": 248000000,
+        },
+        {
+            "index": 2, "kind": "direct_swap", "provider": "uniswap_v3", "chain": "base",
+            "from": "USDC", "to": "ETH", "route_fee_bps": 0,
+            "expected_input_base": 249900000, "floor_input_base": 248000000,
+            "expected_output_base": 72100000000000000, "minimum_output_base": 71500000000000000,
+        },
+    ]
+    summary_steps = [
+        {
+            "index": 0, "action": "swap", "provider": "raydium_clmm",
+            "from": "solana:SOL", "to": "solana:USDC",
+            "expected_input_base": "1500000000", "minimum_input_base": "1500000000",
+            "expected_output_base": "250000000", "minimum_output_base": "249000000",
+            "assetfare_fee_bps": 0, "direct_protocol": True,
+            "external_intent_protocol": False, "aggregator_api_used": False,
+        },
+        {
+            "index": 1, "action": "bridge", "provider": "circle_cctp",
+            "from": "solana:USDC", "to": "base:USDC",
+            "expected_input_base": "250000000", "minimum_input_base": "249000000",
+            "expected_output_base": "249900000", "minimum_output_base": "248000000",
+            "assetfare_fee_bps": 1, "direct_protocol": True,
+            "external_intent_protocol": False, "aggregator_api_used": False,
+        },
+        {
+            "index": 2, "action": "swap", "provider": "uniswap_v3",
+            "from": "base:USDC", "to": "base:ETH",
+            "expected_input_base": "249900000", "minimum_input_base": "248000000",
+            "expected_output_base": "72100000000000000", "minimum_output_base": "71500000000000000",
+            "assetfare_fee_bps": 0, "direct_protocol": True,
+            "external_intent_protocol": False, "aggregator_api_used": False,
+        },
+    ]
     return {
         "status": "capped_public_agent_release",
         "quote_id": "3f2504e0-4f89-41d3-9a0c-0305e82c3301",
@@ -171,8 +217,14 @@ def quote_payload():
         },
         "route": {
             "route": "solana:SOL->base:ETH",
-            "steps": [{"kind": "swap"}, {"kind": "bridge"}],
+            "mode": "cctp_direct_composition",
+            "input_base": 1500000000,
+            "expected_output_base": 72100000000000000,
+            "minimum_output_base": 71500000000000000,
+            "steps": raw_steps,
             "quote_latency_ms": 42,
+            "aggregator_api_used": False,
+            "external_intent_protocol_used": False,
             "server_signing": False,
             "server_submission": False,
         },
@@ -192,8 +244,27 @@ def quote_payload():
         "risk": {
             "non_atomic": True,
             "fresh_quote_required_each_step": True,
+            "external_intent_protocol_used": False,
+            "provider_internal_dex_aggregation_possible": False,
             "server_signing": False,
             "server_submission": False,
+        },
+        "direct_route_summary": {
+            "version": "assetfare-direct-route-summary-v1",
+            "route": "solana:SOL->base:ETH",
+            "from": "solana:SOL",
+            "to": "base:ETH",
+            "classification": "direct_protocol_only",
+            "mode": "cctp_direct_composition",
+            "route_aggregator_used": False,
+            "external_intent_protocol_used": False,
+            "provider_internal_dex_aggregation_possible": False,
+            "assetfare_fee_bps": 1,
+            "fee_collection_step_index": 1,
+            "server_signing": False,
+            "server_submission": False,
+            "step_count": 3,
+            "steps": summary_steps,
         },
         "execution": {
             "supported": True,
@@ -213,6 +284,62 @@ def with_cost_summary(quote):
     quote["cost_summary"]={"scope":"token_path_only_network_gas_excluded","input_value_usd":amount,"expected_receive_value_usd":expected,"minimum_receive_value_usd":minimum,"expected_total_cost_usd":ec,"maximum_total_cost_usd":mc,"expected_total_cost_percent":ec/amount*100,"maximum_total_cost_percent":mc/amount*100,"assetfare_service_fee":{"bps":1,"estimated_usd":min(amount/10_000,5.0),"included_in_receive_amount":True,"note":"service fee only"},"provider_fee_components":[],"unpriced_costs":["source_chain_network_fee"],"rankable_all_in":False,"small_amount_warning":small,"warning":"fixed cost" if small else None}
     quote["eta"]={"estimated_time_seconds":quote["offer"]["estimated_time_seconds"],"estimated_time_range_seconds":[8,45],"complete_route_estimate":True,"sources":[],"note":"estimate"}
     return quote
+
+
+def across_quote_payload():
+    p = quote_payload()
+    p["intent"].update(**{
+        "from": "base:USDC", "to": "robinhood:USDG", "estimated_input_base": 250000000,
+    })
+    p["route"].update(
+        route="base:USDC->robinhood:USDG",
+        mode="robinhood_across_ingress_composition",
+        input_base=250000000,
+        expected_output_base=249000000,
+        minimum_output_base=248000000,
+        external_intent_protocol_used=True,
+        steps=[{
+            "index": 0, "kind": "direct_bridge", "provider": "across_intent_bridge",
+            "from": "base", "to": "robinhood", "from_asset": "USDC", "to_asset": "USDG",
+            "route_fee_bps": 1, "expected_input_base": 250000000, "floor_input_base": 250000000,
+            "expected_output_base": 249000000, "minimum_output_base": 248000000,
+        }],
+    )
+    p["offer"].update(
+        expected_receive_amount=249.0,
+        estimated_min_receive_amount=248.0,
+        output_symbol="USDG",
+        fee_collection_steps=[0],
+    )
+    p["risk"].update(
+        external_intent_protocol_used=True,
+        provider_internal_dex_aggregation_possible=True,
+    )
+    p["direct_route_summary"] = {
+        "version": "assetfare-direct-route-summary-v1",
+        "route": "base:USDC->robinhood:USDG",
+        "from": "base:USDC",
+        "to": "robinhood:USDG",
+        "classification": "external_intent",
+        "mode": "robinhood_across_ingress_composition",
+        "route_aggregator_used": False,
+        "external_intent_protocol_used": True,
+        "provider_internal_dex_aggregation_possible": True,
+        "assetfare_fee_bps": 1,
+        "fee_collection_step_index": 0,
+        "server_signing": False,
+        "server_submission": False,
+        "step_count": 1,
+        "steps": [{
+            "index": 0, "action": "bridge", "provider": "across_intent_bridge",
+            "from": "base:USDC", "to": "robinhood:USDG",
+            "expected_input_base": "250000000", "minimum_input_base": "250000000",
+            "expected_output_base": "249000000", "minimum_output_base": "248000000",
+            "assetfare_fee_bps": 1, "direct_protocol": False,
+            "external_intent_protocol": True, "aggregator_api_used": False,
+        }],
+    }
+    return p
 
 
 def executable_handoff():
@@ -291,7 +418,45 @@ def executable_handoff_v2():
 def source_only_quote_payload(from_ep, to_ep, route, fee_bps, fee_modeled, steps):
     p = quote_payload()
     p["intent"].update(**{"from": from_ep_str(from_ep), "to": from_ep_str(to_ep), "amount_usd": 10.0})
-    p["route"]["route"] = route
+    raw_step = {
+        "index": 0, "kind": "direct_bridge", "provider": "circle_cctp",
+        "from": from_ep[0], "to": to_ep[0], "asset": "USDC", "route_fee_bps": 1,
+        "expected_input_base": 1500000000, "floor_input_base": 1500000000,
+        "expected_output_base": 1499850000, "minimum_output_base": 1499800000,
+    }
+    mode = from_ep[0] + "_source_cctp"
+    p["route"].update(
+        route=route,
+        mode=mode,
+        input_base=1500000000,
+        expected_output_base=1499850000,
+        minimum_output_base=1499800000,
+        steps=[raw_step],
+    )
+    p["direct_route_summary"] = {
+        "version": "assetfare-direct-route-summary-v1",
+        "route": route,
+        "from": from_ep_str(from_ep),
+        "to": from_ep_str(to_ep),
+        "classification": "direct_protocol_only",
+        "mode": mode,
+        "route_aggregator_used": False,
+        "external_intent_protocol_used": False,
+        "provider_internal_dex_aggregation_possible": False,
+        "assetfare_fee_bps": 1,
+        "fee_collection_step_index": 0,
+        "server_signing": False,
+        "server_submission": False,
+        "step_count": 1,
+        "steps": [{
+            "index": 0, "action": "bridge", "provider": "circle_cctp",
+            "from": from_ep_str(from_ep), "to": from_ep_str(to_ep),
+            "expected_input_base": "1500000000", "minimum_input_base": "1500000000",
+            "expected_output_base": "1499850000", "minimum_output_base": "1499800000",
+            "assetfare_fee_bps": 1, "direct_protocol": True,
+            "external_intent_protocol": False, "aggregator_api_used": False,
+        }],
+    }
     p["offer"]["output_symbol"] = to_ep[1]
     p["offer"]["assetfare_fee_bps"] = fee_bps
     p["offer"]["fee_modeled_bps"] = fee_modeled
@@ -337,6 +502,20 @@ def test_tool_validates_and_serialises(Cls):
 @pytest.mark.parametrize("Cls", [AssetFareCapabilitiesTool, AssetFareQuoteTool])
 def test_output_type_object(Cls):
     assert Cls.output_type == "object"
+
+
+def test_quote_tool_description_surfaces_route_transparency_and_across_caveat():
+    description = AssetFareQuoteTool.description.lower()
+    for marker in (
+        "direct_route_summary",
+        "route_aggregator_used=false",
+        "market-wide aggregator api",
+        "external_intent",
+        "across",
+        "internally source or aggregate destination liquidity",
+        "1bp fee step",
+    ):
+        assert marker in description
 
 
 def test_session_trust_env_disabled_on_lazy_create():
@@ -560,6 +739,13 @@ def test_quote_happy():
     assert out["server_signs_or_submits"] is False
     assert out["cost_summary"]["maximum_total_cost_usd"] == pytest.approx(3.0)
     assert out["eta"]["estimated_time_seconds"] == 45
+    summary = out["direct_route_summary"]
+    assert summary["classification"] == "direct_protocol_only"
+    assert summary["route_aggregator_used"] is False
+    assert summary["fee_collection_step_index"] == 1
+    assert [step["provider"] for step in summary["steps"]] == [
+        "raydium_clmm", "circle_cctp", "uniswap_v3"
+    ]
     handoff = out["caller_action_plan_handoff"]
     assert handoff["url"] == "https://api.assetfare.dev/v2/prepare"
     assert handoff["available"] is True
@@ -569,6 +755,94 @@ def test_quote_happy():
     assert len(handoff["options"]) == 2
     assert handoff["assetfare_server_signing"] is False
     assert handoff["assetfare_server_submission"] is False
+
+
+def test_across_quote_exposes_honest_external_intent_caveat():
+    out = quote_tool(quote_session(across_quote_payload())).forward(
+        "base", "USDC", "robinhood", "USDG", 250
+    )
+    summary = out["direct_route_summary"]
+    assert summary["classification"] == "external_intent"
+    assert summary["route_aggregator_used"] is False
+    assert summary["external_intent_protocol_used"] is True
+    assert summary["provider_internal_dex_aggregation_possible"] is True
+    assert summary["steps"][0]["provider"] == "across_intent_bridge"
+    assert summary["steps"][0]["direct_protocol"] is False
+
+
+@pytest.mark.parametrize(
+    "mut",
+    [
+        lambda q: q.pop("direct_route_summary"),
+        lambda q: q["direct_route_summary"].update(extra="forbidden"),
+        lambda q: q["direct_route_summary"]["steps"][0].update(expected_input_base=1500000000),
+        lambda q: q["direct_route_summary"]["steps"][0].update(expected_input_base="01500000000"),
+        lambda q: q["direct_route_summary"]["steps"][1].update(expected_input_base="249000000"),
+        lambda q: q["direct_route_summary"]["steps"][1].update(minimum_input_base="248000001"),
+        lambda q: q["direct_route_summary"]["steps"][0].update(private_key="forbidden"),
+        lambda q: q["direct_route_summary"].update(fee_collection_step_index=0),
+        lambda q: q["direct_route_summary"]["steps"][1].update(assetfare_fee_bps=0),
+        lambda q: q["direct_route_summary"].update(route_aggregator_used=True),
+        lambda q: q["direct_route_summary"].update(server_submission=True),
+        lambda q: q["route"].update(input_base=1500000001),
+        lambda q: q["route"].update(mode="same_chain_direct"),
+        lambda q: q["risk"].update(provider_internal_dex_aggregation_possible=True),
+    ],
+)
+def test_direct_route_summary_hostiles_fail_closed(mut):
+    payload = quote_payload()
+    mut(payload)
+    with pytest.raises(ValueError):
+        quote_tool(quote_session(payload)).forward("solana", "SOL", "base", "ETH", 250)
+
+
+def test_robinhood_ingress_cannot_be_collusively_relabelled_direct():
+    payload = across_quote_payload()
+    raw = payload["route"]["steps"][0]
+    raw.update(provider="circle_cctp", asset="USDC")
+    raw.pop("from_asset")
+    raw.pop("to_asset")
+    payload["route"]["external_intent_protocol_used"] = False
+    payload["risk"]["external_intent_protocol_used"] = False
+    payload["risk"]["provider_internal_dex_aggregation_possible"] = False
+    summary = payload["direct_route_summary"]
+    summary.update(
+        classification="direct_protocol_only",
+        external_intent_protocol_used=False,
+        provider_internal_dex_aggregation_possible=False,
+    )
+    summary["steps"][0].update(
+        provider="circle_cctp",
+        to="robinhood:USDC",
+        direct_protocol=True,
+        external_intent_protocol=False,
+    )
+    with pytest.raises(ValueError, match="assetfare_direct_route_summary_invalid"):
+        quote_tool(quote_session(payload)).forward("base", "USDC", "robinhood", "USDG", 250)
+
+
+@pytest.mark.parametrize(
+    "mut",
+    [
+        lambda q: q["route"]["steps"][0].update(private_key="forbidden"),
+        lambda q: q["route"]["steps"][0].update(signed=True),
+        lambda q: q["route"]["steps"][0].update(submitted=True),
+    ],
+)
+def test_raw_route_secret_or_signed_claim_fails_closed(mut):
+    payload = quote_payload()
+    mut(payload)
+    with pytest.raises(ValueError, match="assetfare_safety_boundary_failed"):
+        quote_tool(quote_session(payload)).forward("solana", "SOL", "base", "ETH", 250)
+
+
+def test_raw_provider_evidence_is_not_projected_into_normalized_summary():
+    payload = quote_payload()
+    payload["route"]["steps"][0]["expected_evidence"] = {"provider_raw": "opaque", "signed": False}
+    out = quote_tool(quote_session(payload)).forward("solana", "SOL", "base", "ETH", 250)
+    encoded = json.dumps(out["direct_route_summary"], sort_keys=True)
+    assert "expected_evidence" not in encoded
+    assert "provider_raw" not in encoded
 
 
 @pytest.mark.parametrize("mut",[
@@ -604,7 +878,7 @@ def test_quote_accepts_sub_micro_usd_rounding_alignment():
 def test_polygon_source_quote_happy():
     # Polygon is directional source-only and usable only while live availability permits.
     payload = source_only_quote_payload(
-        ("polygon", "USDC"), ("arbitrum", "USDC"), "polygon:USDC->arbitrum:USDC", 1, 1, [1]
+        ("polygon", "USDC"), ("arbitrum", "USDC"), "polygon:USDC->arbitrum:USDC", 1, 1, [0]
     )
     out = quote_tool(quote_session(payload)).forward("polygon", "USDC", "arbitrum", "USDC", 10)
     assert out["from"] == "polygon:USDC" and out["to"] == "arbitrum:USDC"
@@ -630,7 +904,7 @@ def test_polygon_destination_and_wrong_corridor_rejected():
 def test_optimism_source_quote_happy():
     # Optimism is directional source-only and usable only while live availability permits.
     payload = source_only_quote_payload(
-        ("optimism", "USDC"), ("base", "USDC"), "optimism:USDC->base:USDC", 1, 1, [1]
+        ("optimism", "USDC"), ("base", "USDC"), "optimism:USDC->base:USDC", 1, 1, [0]
     )
     out = quote_tool(quote_session(payload)).forward("optimism", "USDC", "base", "USDC", 10)
     assert out["from"] == "optimism:USDC" and out["to"] == "base:USDC"
@@ -736,10 +1010,9 @@ def test_quote_handoff_rejects_extra_field():
 
 
 def test_quote_handoff_rejects_private_key_field():
-    # a private_key key anywhere at the handoff top level is not an allowed key ->
-    # rejected as an extra field (the handoff never carries secret material).
+    # Secret-material keys are rejected recursively before handoff validation.
     p = _mutated(lambda q: q["caller_action_plan_handoff"].__setitem__("private_key", "abc"))
-    with pytest.raises(ValueError, match="assetfare_handoff_extra_field"):
+    with pytest.raises(ValueError, match="assetfare_safety_boundary_failed"):
         quote_tool(quote_session(p)).forward("solana", "SOL", "base", "ETH", 250)
 
 

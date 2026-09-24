@@ -33,6 +33,10 @@ as a human demo.
 - **Never** authenticates a wallet, opens a session, prepares an unsigned action,
   signs, or submits. The server itself never signs or submits; the tool
   **fails closed** on any response that claims otherwise.
+- **Route-transparent:** every result includes a strictly validated, ordered
+  `direct_route_summary` with each named protocol, normalized endpoint,
+  expected/minimum base-unit amount, and the one exact step collecting the 1bp
+  AssetFare fee.
 
 ## Economic evaluation
 
@@ -111,7 +115,7 @@ Validated fields only: `from`, `to`, `amount_usd`, `output_symbol`,
 `expected_receive_usd`, `estimated_min_receive_usd`, `assetfare_fee_bps`,
 `fee_modeled_bps`, `fee_collectible_now`, `assetfare_fee_conditional`,
 `fee_collection_steps`, `fee_collection`, `fee_note`, `estimated_time_seconds`,
-`non_atomic`, `quote_id`, `as_of`, `ttl_seconds`, `source_only`,
+`direct_route_summary`, `non_atomic`, `quote_id`, `as_of`, `ttl_seconds`, `source_only`,
 `execution_supported`, `execution_blocker`, `server_signs_or_submits` (always
 `false`), and `caller_action_plan_handoff`.
 
@@ -125,6 +129,24 @@ models; `fee_collectible_now` is `true` exactly for a `1`bp route. Circle,
 provider, and network fees are additional. `cost_summary` contains expected and
 maximum token-path cost; unpriced gas stays explicit. `assetfare_fee_conditional`
 is `true` iff the service fee is positive.
+
+### Direct-route transparency
+
+`direct_route_summary` is bound to the requested corridor and the raw quote. Its
+ordered steps expose provider, swap/bridge action, normalized `chain:asset`
+input and output, expected/minimum base-unit amounts, and whether that exact
+step collects the 1bp fee. Missing or extra fields, broken endpoint or amount
+continuity, provider/action mismatches, a wrong fee index, non-positive or
+non-string base amounts, and any signing/submission claim all fail closed.
+
+`classification="direct_protocol_only"` means every step is a named direct
+protocol. `classification="external_intent"` is used only when the path contains
+`across_intent_bridge`. In either case, `route_aggregator_used=false` means
+**AssetFare did not call a market-wide route-aggregator API**. It does not mean a
+provider cannot route internally: Across may internally source or aggregate
+destination liquidity, so those paths explicitly return
+`provider_internal_dex_aggregation_possible=true`. Agents should preserve this
+distinction when explaining a quote.
 
 **`caller_action_plan_handoff` — FAIL-CLOSED passthrough (no local fallback).** The
 upstream `/v2/quote` handoff is passed through **verbatim after strict validation**;
@@ -162,6 +184,9 @@ Every response is strictly validated before it is returned. The call raises a
 single, fixed, sanitized error (no upstream text) when anything is off:
 
 - route label must equal the requested `from->to` corridor;
+- the direct-route summary must exactly match the requested corridor, raw route
+  mode/steps/amounts/fee, and risk flags; Robinhood ingress cannot be relabeled
+  as a direct-protocol-only route;
 - `as_of` must be an RFC3339 **timezone-aware** timestamp — a naive or date-only
   value is rejected; a quote whose `as_of + ttl` has passed (stale) or whose
   `as_of` is more than 5 minutes in the future (skew/forgery) is rejected;

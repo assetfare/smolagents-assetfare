@@ -11,7 +11,7 @@ import uuid
 
 class AssetFareQuoteTool(Tool):
     name = "assetfare_quote"
-    description = "Read-only quote client for one cross-chain corridor via the AssetFare v2 API (fixed origin https://api.assetfare.dev). This tool's entire scope is to fetch and validate a single conversion quote and return it; it is not the AssetFare service and does not itself prepare, sign or submit. It covers 6 source chains (solana, base, arbitrum, robinhood, polygon, optimism), 11 (chain, token) source endpoints and 76 directed quote routes, for any finite USD amount of at least 1, with no business maximum. USD 1 is only a reachability/response-shape smoke test, never an economic comparison. USD 50 is the lowest observed native-USDC winning bucket/evaluation start, not a guarantee, and USD 1,000 is the primary representative economic example. Always fetch fresh AssetFare and competitor quotes at the actual intended amount; never assume AssetFare is always cheapest. Polygon and Optimism are directional native-USDC source-only origins to Base or Arbitrum USDC. Implemented paths are usable only while the live quote reports them available. It never authenticates a wallet, opens a session, prepares an unsigned action, signs or submits. For a route the live quote reports available, its result passes through (validated) the caller_action_plan_handoff, which names the separate caller-operated POST /v2/prepare (one-shot) and POST /v2/session (full lifecycle) steps; the returned 'server_signs_or_submits' is always false. It returns expected/minimum receive amounts (native and USD), the exact AssetFare service fee (1bp, not total cost), top-level expected and maximum token-path cost including provider components, live availability, eligible fee_collection_steps, ETA, the non-atomic risk flag, a quote id, an as_of timestamp and a ttl. Every response is validated and the call fails closed if anything claims the server will sign or submit, if the quote is stale or future-dated, if total cost is inconsistent, if the service fee is not exactly 1bp, if the handoff is missing or deviates from the caller-approved 8-field contract, or if the route does not match the requested corridor. Inputs: from_chain, from_token, to_chain, to_token (a supported chain/token pair, source != destination) and amount_usd (finite number, minimum 1; no business maximum). This tool does NOT execute, bridge, swap, sign or move funds; acting on a quote is a separate caller wallet action taken outside this tool after explicit approval."
+    description = "Read-only quote client for one cross-chain corridor via the AssetFare v2 API (fixed origin https://api.assetfare.dev). This tool's entire scope is to fetch and validate a single conversion quote and return it; it is not the AssetFare service and does not itself prepare, sign or submit. It covers 6 source chains (solana, base, arbitrum, robinhood, polygon, optimism), 11 (chain, token) source endpoints and 76 directed quote routes, for any finite USD amount of at least 1, with no business maximum. USD 1 is only a reachability/response-shape smoke test, never an economic comparison. USD 50 is the lowest observed native-USDC winning bucket/evaluation start, not a guarantee, and USD 1,000 is the primary representative economic example. Always fetch fresh AssetFare and competitor quotes at the actual intended amount; never assume AssetFare is always cheapest. Polygon and Optimism are directional native-USDC source-only origins to Base or Arbitrum USDC. Implemented paths are usable only while the live quote reports them available. It never authenticates a wallet, opens a session, prepares an unsigned action, signs or submits. For a route the live quote reports available, its result passes through (validated) the caller_action_plan_handoff, which names the separate caller-operated POST /v2/prepare (one-shot) and POST /v2/session (full lifecycle) steps; the returned 'server_signs_or_submits' is always false. It returns expected/minimum receive amounts (native and USD), the exact AssetFare service fee (1bp, not total cost), top-level expected and maximum token-path cost including provider components, live availability, eligible fee_collection_steps, and a validated ordered direct_route_summary showing every named protocol, normalized endpoint, base-unit amount, and exact 1bp fee step. route_aggregator_used=false means AssetFare did not call a market-wide aggregator API. An external_intent route uses Across, which may internally source or aggregate destination liquidity; this is provider-internal behavior, not an AssetFare aggregator call. It also returns ETA, the non-atomic risk flag, a quote id, an as_of timestamp and a ttl. Every response is validated and the call fails closed if anything claims the server will sign or submit, if the quote is stale or future-dated, if total cost is inconsistent, if the service fee is not exactly 1bp, if the handoff is missing or deviates from the caller-approved 8-field contract, or if the route does not match the requested corridor. Inputs: from_chain, from_token, to_chain, to_token (a supported chain/token pair, source != destination) and amount_usd (finite number, minimum 1; no business maximum). This tool does NOT execute, bridge, swap, sign or move funds; acting on a quote is a separate caller wallet action taken outside this tool after explicit approval."
     inputs = {'from_chain': {'type': 'string', 'description': 'Source chain: one of solana, base, arbitrum, robinhood, polygon, optimism.'}, 'from_token': {'type': 'string', 'description': 'Source token symbol on the source chain, e.g. SOL, ETH, USDC, USDG.'}, 'to_chain': {'type': 'string', 'description': 'Destination chain: one of solana, base, arbitrum, robinhood.'}, 'to_token': {'type': 'string', 'description': 'Destination token symbol on the destination chain, e.g. ETH, USDC, USDG.'}, 'amount_usd': {'type': 'number', 'description': 'Actual intended finite USD amount; technical minimum 1 is smoke-only, no business maximum. USD 1,000 is a representative example, not an advantage guarantee.'}}
     output_type = "object"
     ALLOWED_ORIGIN = "https://api.assetfare.dev"
@@ -29,6 +29,12 @@ class AssetFareQuoteTool(Tool):
     SOURCE_ONLY_CHAINS = {'optimism', 'polygon'}
     ENDPOINTS = {'arbitrum:ETH', 'arbitrum:USDC', 'base:ETH', 'base:USDC', 'optimism:USDC', 'polygon:USDC', 'robinhood:ETH', 'robinhood:USDG', 'solana:SOL', 'solana:USDC', 'solana:USDG'}
     HANDOFF_ALLOWED_KEYS = {'assetfare_server_signing', 'assetfare_server_submission', 'automatic_prepare_call_forbidden', 'available', 'blocker', 'caller_must_verify_sign_and_submit', 'kind', 'method', 'note', 'options', 'request_fields', 'requires_explicit_caller_approval', 'requires_fresh_requote', 'requires_public_wallet_addresses', 'url'}
+    DIRECT_SUMMARY_MODES = {'cctp_direct_composition', 'optimism_source_cctp', 'polygon_source_cctp', 'robinhood_across_ingress_composition', 'robinhood_paxos_egress_composition', 'same_chain_direct', 'same_chain_direct_composition'}
+    DIRECT_SUMMARY_PROVIDERS = {'across_intent_bridge', 'circle_cctp', 'orca_whirlpool', 'paxos_usdg_layerzero_oft', 'raydium_clmm', 'uniswap_v3'}
+    SWAP_PROVIDERS = {'orca_whirlpool', 'raydium_clmm', 'uniswap_v3'}
+    BRIDGE_PROVIDERS = {'across_intent_bridge', 'circle_cctp', 'paxos_usdg_layerzero_oft'}
+    DIRECT_SUMMARY_KEYS = {'assetfare_fee_bps', 'classification', 'external_intent_protocol_used', 'fee_collection_step_index', 'from', 'mode', 'provider_internal_dex_aggregation_possible', 'route', 'route_aggregator_used', 'server_signing', 'server_submission', 'step_count', 'steps', 'to', 'version'}
+    DIRECT_SUMMARY_STEP_KEYS = {'action', 'aggregator_api_used', 'assetfare_fee_bps', 'direct_protocol', 'expected_input_base', 'expected_output_base', 'external_intent_protocol', 'from', 'index', 'minimum_input_base', 'minimum_output_base', 'provider', 'to'}
 
     def __init__(
         self,
@@ -101,6 +107,12 @@ class AssetFareQuoteTool(Tool):
                 for key in ("server_signing", "server_submission"):
                     if key in node and node[key] is not False:
                         raise ValueError("assetfare_safety_boundary_failed")
+                for key in ("signed", "submitted"):
+                    if key in node and node[key] is not False:
+                        raise ValueError("assetfare_safety_boundary_failed")
+                secret_keys = {"private" + "_key", "mne" + "monic", "seed" + "_phrase"}
+                if secret_keys & set(node):
+                    raise ValueError("assetfare_safety_boundary_failed")
                 for child in node.values():
                     stack.append((child, depth + 1))
             elif isinstance(node, list):
@@ -266,6 +278,235 @@ class AssetFareQuoteTool(Tool):
             raise ValueError("assetfare_fee_step_duplicate")
         if len(steps) != 1:
             raise ValueError("assetfare_fee_step_count_mismatch")
+
+    def _summary_amount(self, value: Any) -> str:
+        if not isinstance(value, str) or not value.isdigit() or value.startswith("0"):
+            raise ValueError("assetfare_direct_route_summary_invalid")
+        return value
+
+    def _add_expected_swap(self, path: Any, chain: str, source: str, destination: str) -> None:
+        provider = (
+            "raydium_clmm"
+            if chain == "solana" and {source, destination} == {"SOL", "USDC"}
+            else "orca_whirlpool"
+            if chain == "solana"
+            else "uniswap_v3"
+        )
+        path.append((provider, chain + ":" + source, chain + ":" + destination))
+
+    def _add_expected_bridge(
+        self, path: Any, provider: str, source: str, destination: str, source_asset: str, destination_asset: str
+    ) -> None:
+        path.append((provider, source + ":" + source_asset, destination + ":" + destination_asset))
+
+    def _expected_direct_route(self, expected_from: str, expected_to: str) -> Any:
+        from_chain, from_token = expected_from.split(":", 1)
+        to_chain, to_token = expected_to.split(":", 1)
+        path = []
+        if from_chain in self.SOURCE_ONLY_CHAINS:
+            self._add_expected_bridge(path, "circle_cctp", from_chain, to_chain, "USDC", "USDC")
+            return from_chain + "_source_cctp", False, path
+        if from_chain == to_chain:
+            composed = from_chain == "solana" and {from_token, to_token} == {"SOL", "USDG"}
+            if composed:
+                self._add_expected_swap(path, "solana", from_token, "USDC")
+                self._add_expected_swap(path, "solana", "USDC", to_token)
+            else:
+                self._add_expected_swap(path, from_chain, from_token, to_token)
+            return ("same_chain_direct_composition" if composed else "same_chain_direct"), False, path
+        if from_chain == "robinhood":
+            if from_token == "ETH":
+                self._add_expected_swap(path, "robinhood", "ETH", "USDG")
+            self._add_expected_bridge(path, "paxos_usdg_layerzero_oft", "robinhood", "solana", "USDG", "USDG")
+            if to_chain == "solana":
+                if to_token == "USDC":
+                    self._add_expected_swap(path, "solana", "USDG", "USDC")
+                elif to_token == "SOL":
+                    self._add_expected_swap(path, "solana", "USDG", "USDC")
+                    self._add_expected_swap(path, "solana", "USDC", "SOL")
+            else:
+                self._add_expected_swap(path, "solana", "USDG", "USDC")
+                self._add_expected_bridge(path, "circle_cctp", "solana", to_chain, "USDC", "USDC")
+                if to_token == "ETH":
+                    self._add_expected_swap(path, to_chain, "USDC", "ETH")
+            return "robinhood_paxos_egress_composition", False, path
+        if to_chain == "robinhood":
+            if from_chain == "solana":
+                if from_token == "SOL":
+                    self._add_expected_swap(path, "solana", "SOL", "USDC")
+                elif from_token == "USDG":
+                    self._add_expected_swap(path, "solana", "USDG", "USDC")
+                self._add_expected_bridge(path, "circle_cctp", "solana", "base", "USDC", "USDC")
+                across_source = "base"
+            else:
+                if from_token == "ETH":
+                    self._add_expected_swap(path, from_chain, "ETH", "USDC")
+                across_source = from_chain
+            self._add_expected_bridge(path, "across_intent_bridge", across_source, "robinhood", "USDC", "USDG")
+            if to_token == "ETH":
+                self._add_expected_swap(path, "robinhood", "USDG", "ETH")
+            return "robinhood_across_ingress_composition", True, path
+        if from_token != "USDC":
+            self._add_expected_swap(path, from_chain, from_token, "USDC")
+        self._add_expected_bridge(path, "circle_cctp", from_chain, to_chain, "USDC", "USDC")
+        if to_token != "USDC":
+            self._add_expected_swap(path, to_chain, "USDC", to_token)
+        return "cctp_direct_composition", False, path
+
+    def _raw_step_shape(self, step: Any) -> Any:
+        provider = step.get("provider")
+        if provider in self.SWAP_PROVIDERS and step.get("kind") == "direct_swap":
+            chain = str(step.get("chain"))
+            return "swap", chain + ":" + str(step.get("from")), chain + ":" + str(step.get("to"))
+        if provider in self.BRIDGE_PROVIDERS and step.get("kind") == "direct_bridge":
+            source_asset = step.get("from_asset") if provider == "across_intent_bridge" else step.get("asset")
+            destination_asset = step.get("to_asset") if provider == "across_intent_bridge" else step.get("asset")
+            source = str(step.get("from")) + ":" + str(source_asset)
+            destination = str(step.get("to")) + ":" + str(destination_asset)
+            return "bridge", source, destination
+        raise ValueError("assetfare_direct_route_summary_invalid")
+
+    def _validate_direct_route_summary(
+        self,
+        value: Any,
+        expected_from: str,
+        expected_to: str,
+        intent: Any,
+        offer: Any,
+        route: Any,
+        risk: Any,
+    ) -> Any:
+        if not isinstance(value, dict) or set(value) != self.DIRECT_SUMMARY_KEYS:
+            raise ValueError("assetfare_direct_route_summary_invalid")
+        expected_route = expected_from + "->" + expected_to
+        expected_mode, expected_external, expected_path = self._expected_direct_route(expected_from, expected_to)
+        if (
+            value.get("version") != "assetfare-direct-route-summary-v1"
+            or value.get("route") != expected_route
+            or value.get("from") != expected_from
+            or value.get("to") != expected_to
+            or value.get("mode") not in self.DIRECT_SUMMARY_MODES
+            or value.get("mode") != expected_mode
+            or value.get("route_aggregator_used") is not False
+            or value.get("assetfare_fee_bps") != 1
+            or value.get("server_signing") is not False
+            or value.get("server_submission") is not False
+        ):
+            raise ValueError("assetfare_direct_route_summary_invalid")
+        summary_steps = value.get("steps")
+        step_count = value.get("step_count")
+        fee_index = value.get("fee_collection_step_index")
+        raw_steps = route.get("steps")
+        if (
+            not self._is_int(step_count)
+            or not 1 <= step_count <= 8
+            or not isinstance(summary_steps, list)
+            or len(summary_steps) != step_count
+            or step_count != len(expected_path)
+            or not isinstance(raw_steps, list)
+            or len(raw_steps) != step_count
+            or not self._is_int(fee_index)
+            or not 0 <= fee_index < step_count
+            or offer.get("fee_collection_steps") != [fee_index]
+        ):
+            raise ValueError("assetfare_direct_route_summary_invalid")
+
+        previous_expected_output = None
+        previous_minimum_output = None
+        any_external = False
+        fee_total = 0
+        for index, step in enumerate(summary_steps):
+            raw_step = raw_steps[index]
+            if not isinstance(step, dict) or set(step) != self.DIRECT_SUMMARY_STEP_KEYS:
+                raise ValueError("assetfare_direct_route_summary_invalid")
+            if step.get("index") != index or step.get("provider") not in self.DIRECT_SUMMARY_PROVIDERS:
+                raise ValueError("assetfare_direct_route_summary_invalid")
+            provider = step["provider"]
+            external = provider == "across_intent_bridge"
+            action = "swap" if provider in self.SWAP_PROVIDERS else "bridge"
+            expected_provider, expected_step_from, expected_step_to = expected_path[index]
+            if (
+                provider != expected_provider
+                or step.get("action") != action
+                or step.get("from") != expected_step_from
+                or step.get("to") != expected_step_to
+                or step.get("direct_protocol") is not (not external)
+                or step.get("external_intent_protocol") is not external
+                or step.get("aggregator_api_used") is not False
+                or step.get("from") not in self.ENDPOINTS
+                or step.get("to") not in self.ENDPOINTS
+                or step.get("to").split(":", 1)[0] in self.SOURCE_ONLY_CHAINS
+            ):
+                raise ValueError("assetfare_direct_route_summary_invalid")
+            expected_input = self._summary_amount(step.get("expected_input_base"))
+            minimum_input = self._summary_amount(step.get("minimum_input_base"))
+            expected_output = self._summary_amount(step.get("expected_output_base"))
+            minimum_output = self._summary_amount(step.get("minimum_output_base"))
+            if int(minimum_input) > int(expected_input) or int(minimum_output) > int(expected_output):
+                raise ValueError("assetfare_direct_route_summary_invalid")
+            if index == 0:
+                if (
+                    step.get("from") != expected_from
+                    or expected_input != str(intent.get("estimated_input_base"))
+                    or minimum_input != expected_input
+                ):
+                    raise ValueError("assetfare_direct_route_summary_invalid")
+            elif (
+                step.get("from") != summary_steps[index - 1].get("to")
+                or expected_input != previous_expected_output
+                or minimum_input != previous_minimum_output
+            ):
+                raise ValueError("assetfare_direct_route_summary_invalid")
+            if index == step_count - 1 and step.get("to") != expected_to:
+                raise ValueError("assetfare_direct_route_summary_invalid")
+
+            raw_action, raw_from, raw_to = self._raw_step_shape(raw_step)
+            raw_expected_input = raw_step.get("expected_input_base")
+            raw_minimum_input = raw_step.get("floor_input_base")
+            raw_expected_output = raw_step.get("expected_output_base")
+            raw_minimum_output = raw_step.get("minimum_output_base")
+            raw_amounts = (raw_expected_input, raw_minimum_input, raw_expected_output, raw_minimum_output)
+            for raw_amount in raw_amounts:
+                if not self._is_int(raw_amount) or raw_amount < 1:
+                    raise ValueError("assetfare_direct_route_summary_invalid")
+            if (
+                raw_step.get("index") != index
+                or raw_step.get("provider") != provider
+                or raw_action != action
+                or raw_from != step.get("from")
+                or raw_to != step.get("to")
+                or raw_step.get("route_fee_bps") != step.get("assetfare_fee_bps")
+                or expected_input != str(raw_expected_input)
+                or minimum_input != str(raw_minimum_input)
+                or expected_output != str(raw_expected_output)
+                or minimum_output != str(raw_minimum_output)
+            ):
+                raise ValueError("assetfare_direct_route_summary_invalid")
+            step_fee = step.get("assetfare_fee_bps")
+            if not self._is_int(step_fee) or step_fee not in (0, 1) or (step_fee == 1) is not (index == fee_index):
+                raise ValueError("assetfare_direct_route_summary_invalid")
+            fee_total += step_fee
+            any_external = any_external or external
+            previous_expected_output = expected_output
+            previous_minimum_output = minimum_output
+
+        if (
+            fee_total != 1
+            or any_external is not expected_external
+            or value.get("classification") != ("external_intent" if any_external else "direct_protocol_only")
+            or value.get("external_intent_protocol_used") is not any_external
+            or value.get("provider_internal_dex_aggregation_possible") is not any_external
+            or route.get("mode") != value.get("mode")
+            or route.get("input_base") != intent.get("estimated_input_base")
+            or str(route.get("expected_output_base")) != previous_expected_output
+            or str(route.get("minimum_output_base")) != previous_minimum_output
+            or route.get("aggregator_api_used") is not False
+            or route.get("external_intent_protocol_used") is not any_external
+            or risk.get("external_intent_protocol_used") is not any_external
+            or risk.get("provider_internal_dex_aggregation_possible") is not any_external
+        ):
+            raise ValueError("assetfare_direct_route_summary_invalid")
+        return dict(value)
 
     def _validate_caller_handoff(self, node: Any) -> Any:
         # FAIL-CLOSED passthrough of the upstream caller_action_plan_handoff. There is
@@ -558,6 +799,9 @@ class AssetFareQuoteTool(Tool):
         if risk.get("fresh_quote_required_each_step") is not True:
             raise ValueError("assetfare_response_invalid")
         self._no_sign(risk)
+        direct_route_summary = self._validate_direct_route_summary(
+            data.get("direct_route_summary"), expected_from, expected_to, intent, offer, route, risk
+        )
 
         # The quoted route is currently available through caller-operated wallets.
         if not isinstance(execution.get("first_unsigned_action_supported"), bool):
@@ -607,6 +851,7 @@ class AssetFareQuoteTool(Tool):
             "estimated_time_seconds": eta if self._is_int(eta) else None,
             "cost_summary": cost,
             "eta": eta_summary or {"estimated_time_seconds":eta if self._is_int(eta) else None,"estimated_time_range_seconds":None,"complete_route_estimate":False,"sources":[],"note":"Legacy-core fallback; full ETA provenance unavailable"},
+            "direct_route_summary": direct_route_summary,
             "non_atomic": risk["non_atomic"],
             "quote_id": data["quote_id"],
             "as_of": as_of,

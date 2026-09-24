@@ -514,7 +514,118 @@ def _enumerate_routes():
 def _quote_payload(sc, st, dc, dt):
     from_s, to_s = f"{sc}:{st}", f"{dc}:{dt}"
     fee = 1
-    steps_meta = [{"kind": "swap"}, {"kind": "bridge"}]
+    steps_meta = []
+
+    def add_swap(chain, source, destination):
+        if chain == "solana":
+            provider = "raydium_clmm" if {source, destination} == {"SOL", "USDC"} else "orca_whirlpool"
+        else:
+            provider = "uniswap_v3"
+        steps_meta.append({
+            "kind": "direct_swap", "provider": provider, "chain": chain,
+            "from": source, "to": destination,
+        })
+
+    def add_bridge(provider, source, destination, source_asset, destination_asset):
+        row = {"kind": "direct_bridge", "provider": provider, "from": source, "to": destination}
+        if provider == "across_intent_bridge":
+            row.update(from_asset=source_asset, to_asset=destination_asset)
+        else:
+            assert source_asset == destination_asset
+            row["asset"] = source_asset
+        steps_meta.append(row)
+
+    if sc in SOURCE_ONLY:
+        mode = sc + "_source_cctp"
+        add_bridge("circle_cctp", sc, dc, "USDC", "USDC")
+    elif sc == dc:
+        if sc == "solana" and {st, dt} == {"SOL", "USDG"}:
+            mode = "same_chain_direct_composition"
+            if st == "SOL":
+                add_swap("solana", "SOL", "USDC")
+                add_swap("solana", "USDC", "USDG")
+            else:
+                add_swap("solana", "USDG", "USDC")
+                add_swap("solana", "USDC", "SOL")
+        else:
+            mode = "same_chain_direct"
+            add_swap(sc, st, dt)
+    elif sc == "robinhood":
+        mode = "robinhood_paxos_egress_composition"
+        if st == "ETH":
+            add_swap("robinhood", "ETH", "USDG")
+        add_bridge("paxos_usdg_layerzero_oft", "robinhood", "solana", "USDG", "USDG")
+        if dc == "solana":
+            if dt == "USDC":
+                add_swap("solana", "USDG", "USDC")
+            elif dt == "SOL":
+                add_swap("solana", "USDG", "USDC")
+                add_swap("solana", "USDC", "SOL")
+        else:
+            add_swap("solana", "USDG", "USDC")
+            add_bridge("circle_cctp", "solana", dc, "USDC", "USDC")
+            if dt == "ETH":
+                add_swap(dc, "USDC", "ETH")
+    elif dc == "robinhood":
+        mode = "robinhood_across_ingress_composition"
+        if sc == "solana":
+            if st == "SOL":
+                add_swap("solana", "SOL", "USDC")
+            elif st == "USDG":
+                add_swap("solana", "USDG", "USDC")
+            add_bridge("circle_cctp", "solana", "base", "USDC", "USDC")
+            across_source = "base"
+        else:
+            if st == "ETH":
+                add_swap(sc, "ETH", "USDC")
+            across_source = sc
+        add_bridge("across_intent_bridge", across_source, "robinhood", "USDC", "USDG")
+        if dt == "ETH":
+            add_swap("robinhood", "USDG", "ETH")
+    else:
+        mode = "cctp_direct_composition"
+        if st != "USDC":
+            add_swap(sc, st, "USDC")
+        add_bridge("circle_cctp", sc, dc, "USDC", "USDC")
+        if dt != "USDC":
+            add_swap(dc, "USDC", dt)
+
+    summary_steps = []
+    expected_input = minimum_input = 1000000
+    external = False
+    for index, row in enumerate(steps_meta):
+        expected_output = expected_input - 1000
+        minimum_output = minimum_input - 2000
+        row.update(
+            index=index,
+            route_fee_bps=1 if index == 0 else 0,
+            expected_input_base=expected_input,
+            floor_input_base=minimum_input,
+            expected_output_base=expected_output,
+            minimum_output_base=minimum_output,
+        )
+        is_external = row["provider"] == "across_intent_bridge"
+        if row["kind"] == "direct_swap":
+            source_ep = f"{row['chain']}:{row['from']}"
+            destination_ep = f"{row['chain']}:{row['to']}"
+            action = "swap"
+        else:
+            source_asset = row.get("from_asset") if is_external else row["asset"]
+            destination_asset = row.get("to_asset") if is_external else row["asset"]
+            source_ep = f"{row['from']}:{source_asset}"
+            destination_ep = f"{row['to']}:{destination_asset}"
+            action = "bridge"
+        summary_steps.append({
+            "index": index, "action": action, "provider": row["provider"],
+            "from": source_ep, "to": destination_ep,
+            "expected_input_base": str(expected_input), "minimum_input_base": str(minimum_input),
+            "expected_output_base": str(expected_output), "minimum_output_base": str(minimum_output),
+            "assetfare_fee_bps": row["route_fee_bps"], "direct_protocol": not is_external,
+            "external_intent_protocol": is_external, "aggregator_api_used": False,
+        })
+        external = external or is_external
+        expected_input = expected_output
+        minimum_input = minimum_output
     handoff = {
         "kind": "caller_operated_rest_prepare",
         "method": "POST",
@@ -567,19 +678,35 @@ def _quote_payload(sc, st, dc, dt):
         "ttl_seconds": 60,
         "as_of": "2026-09-17T00:00:05Z",
         "intent": {"from": from_s, "to": to_s, "amount_usd": 250.0, "estimated_input_base": 1000000},
-        "route": {"route": f"{from_s}->{to_s}", "steps": steps_meta, "quote_latency_ms": 12,
+        "route": {"route": f"{from_s}->{to_s}", "mode": mode, "input_base": 1000000,
+                  "expected_output_base": expected_input, "minimum_output_base": minimum_input,
+                  "steps": steps_meta, "quote_latency_ms": 12, "aggregator_api_used": False,
+                  "external_intent_protocol_used": external,
                   "server_signing": False, "server_submission": False},
         "offer": {
             "expected_receive_amount": 1.02, "estimated_min_receive_amount": 1.0,
             "expected_receive_usd": 249.0, "estimated_min_receive_usd": 247.0,
             "output_symbol": dt, "assetfare_fee_bps": fee, "fee_modeled_bps": fee,
             "fee_collectible_now": fee == 1,
-            "fee_collection_steps": [1] if fee == 1 else [],
+            "fee_collection_steps": [0] if fee == 1 else [],
             "fee_collection": "only_on_eligible_successful_executor_step",
             "estimated_time_seconds": 30,
         },
         "risk": {"non_atomic": True, "fresh_quote_required_each_step": True,
+                 "external_intent_protocol_used": external,
+                 "provider_internal_dex_aggregation_possible": external,
                  "server_signing": False, "server_submission": False},
+        "direct_route_summary": {
+            "version": "assetfare-direct-route-summary-v1", "route": f"{from_s}->{to_s}",
+            "from": from_s, "to": to_s,
+            "classification": "external_intent" if external else "direct_protocol_only",
+            "mode": mode, "route_aggregator_used": False,
+            "external_intent_protocol_used": external,
+            "provider_internal_dex_aggregation_possible": external,
+            "assetfare_fee_bps": 1, "fee_collection_step_index": 0,
+            "server_signing": False, "server_submission": False,
+            "step_count": len(summary_steps), "steps": summary_steps,
+        },
         "execution": execution,
         "caller_action_plan_handoff": handoff,
     }

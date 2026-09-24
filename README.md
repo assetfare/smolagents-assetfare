@@ -20,7 +20,7 @@ Static Spaces (one per tool; nine total):
 
 | file | what |
 |------|------|
-| `assetfare_quote_tool.py` | `AssetFareQuoteTool` — validated `POST /v2/quote`, fail-closed handoff passthrough |
+| `assetfare_quote_tool.py` | `AssetFareQuoteTool` — validated `POST /v2/quote`, ordered direct-route proof, fail-closed handoff passthrough |
 | `assetfare_capabilities_tool.py` | `AssetFareCapabilitiesTool` — validated `GET /v2/capabilities` + `/v2/status` |
 | `assetfare_session_capability_tool.py` | `AssetFareNewSessionCapabilityTool` — local-only 256-bit token, **zero network** |
 | `assetfare_prepare_tool.py` | `AssetFarePrepareTool` — caller-approved one-shot `POST /v2/prepare` |
@@ -53,6 +53,11 @@ Static Spaces (one per tool; nine total):
   availability is read from the API, not assumed. AssetFare service fee is 1bp;
   Circle/provider/network fees are additional and the quote exposes total
   token-path cost.
+- Every quote exposes a validated `direct_route_summary`: the ordered named
+  protocols, normalized `chain:asset` endpoints, expected/minimum base-unit
+  amounts for every step, and the one exact step index that collects the 1bp
+  AssetFare fee. Missing, extra, reordered, discontinuous, or contradictory
+  summary data fails closed against the raw route and risk fields.
 - Strict response validation, RFC3339 tz-aware freshness (stale + future-skew;
   a trailing `Z` is normalized so it validates on Python 3.10 as well as 3.11+),
   1 MiB cap, single fixed sanitized error (no upstream text leaks). Every failure
@@ -79,6 +84,14 @@ Static Spaces (one per tool; nine total):
   one eligible `fee_collection_steps` index. Plus
   `fee_collectible_now` (true exactly for 1bp routes), and the constant
   `fee_collection = "only_on_eligible_successful_executor_step"`.
+- **Direct-route classification is explicit, not inferred by the agent.**
+  `direct_protocol_only` means every step is one of the named direct protocols.
+  `external_intent` is allowed only for a path containing
+  `across_intent_bridge`. `route_aggregator_used=false` means AssetFare did not
+  call a market-wide route-aggregator API; it does not claim that a provider has
+  no internal routing. Across may internally source or aggregate destination
+  liquidity, so those paths explicitly set
+  `provider_internal_dex_aggregation_possible=true`.
 - **Action tools are explicit and caller-owned.** `assetfare_prepare` and
   `assetfare_session_create` require the literal `caller_approved: true` and the
   route's own PUBLIC wallet addresses (private key/seed/signed material rejected
@@ -100,7 +113,7 @@ Static Spaces (one per tool; nine total):
 ## Test / lint locally (offline)
 
 ```bash
-python -m pytest tests/ -q     # 277 passed with SMOLAGENTS_ALT_PYTHON set; otherwise 276 passed + 1 skipped
+python -m pytest tests/ -q     # 355 passed with SMOLAGENTS_ALT_PYTHON set; otherwise 354 passed + 1 skipped
 ruff check .                   # clean (generated hub_bundles/ excluded)
 ```
 

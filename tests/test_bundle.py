@@ -111,6 +111,17 @@ def test_bundle_card_is_static(bundles, space):
     assert "- smolagents" in card and "- tool" in card
 
 
+def test_quote_card_and_landing_surface_direct_route_transparency(bundles):
+    card = " ".join((bundles["assetfare-quote"] / "README.md").read_text().lower().split())
+    html = " ".join((bundles["assetfare-quote"] / "index.html").read_text().lower().split())
+    for surface in (card, html):
+        assert "direct_route_summary" in surface
+        assert "1bp" in surface
+        assert "route_aggregator_used=false" in surface
+        assert "across" in surface
+        assert "internally source or aggregate destination liquidity" in surface
+
+
 def test_action_card_examples_include_required_solana_event_signer(bundles):
     for space in ("assetfare-prepare", "assetfare-session-create"):
         card = (bundles[space] / "README.md").read_text()

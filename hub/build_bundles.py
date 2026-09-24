@@ -140,6 +140,17 @@ def _index_html(space: str, title: str, tagline: str, tool_name: str, descriptio
     """Deterministic static landing page. Contains load_tool + trust_remote_code=True,
     no gradio, and the already-reviewed immutable Space revision."""
     summary = description[:400]
+    route_transparency = ""
+    if tool_name == "assetfare_quote":
+        route_transparency = """
+  <div class="box">
+    <strong>Validated route transparency:</strong> every quote returns an ordered
+    <code>direct_route_summary</code> with named protocols, normalized endpoints,
+    base-unit amounts, and the exact 1bp fee step. <code>route_aggregator_used=false</code>
+    means AssetFare did not call a market-wide aggregator API. Across
+    <code>external_intent</code> routes may internally source or aggregate destination
+    liquidity; that provider behavior is disclosed separately.
+  </div>"""
     return f"""<!doctype html>
 <html lang="en">
 <head>
@@ -168,7 +179,7 @@ def _index_html(space: str, title: str, tagline: str, tool_name: str, descriptio
   <p>This Space hosts an <strong>agent tool</strong> (<code>tool.py</code>), meant to be loaded
   by an agent &mdash; not run as a web app. {summary}
   AssetFare never signs or submits; this tool never receives a private key and fails
-  closed on any response that claims the server will sign or submit.</p>
+  closed on any response that claims the server will sign or submit.</p>{route_transparency}
 
   <div class="box">
     <strong>Load it in an agent (review <code>tool.py</code> first):</strong>
