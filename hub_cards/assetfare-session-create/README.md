@@ -46,12 +46,12 @@ from smolagents import load_tool
 new_token = load_tool(
     "odaiin/assetfare-new-session-capability",
     trust_remote_code=True,
-    revision="561c6b23da41936757087054ca32e472f4e9a399",
+    revision="96b2e49b9ae7ed8366ca07ebd1c06a96f1b5a7d3",
 )
 create = load_tool(
     "odaiin/assetfare-session-create",
     trust_remote_code=True,
-    revision="99384c75080942562ee1badc4d22d316dc27553a",
+    revision="656fee9c5c870808d0f6d31c4610f8dd3a1fe40b",
 )
 cap = new_token()
 session = create(

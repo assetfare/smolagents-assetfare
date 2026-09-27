@@ -41,7 +41,7 @@ from smolagents import load_tool
 get = load_tool(
     "odaiin/assetfare-session-get",
     trust_remote_code=True,
-    revision="cf03a26155aba8804aa38c1a4ed7c2c410fe9d1a",
+    revision="1ced0ee1192f1524469a62a9b65160527b935869",
 )
 state = get(session_token="<caller-owned-token>", session_id="<uuid>")
 ```

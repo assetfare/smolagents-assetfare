@@ -50,7 +50,7 @@ from smolagents import load_tool
 prepare = load_tool(
     "odaiin/assetfare-prepare",
     trust_remote_code=True,
-    revision="ce62cfb91de1442e2c0634e31383e159b807ff32",
+    revision="b72782eddd4d723fbc7c59756fd0420515eb49d0",
 )
 bundle = prepare(
     # Set this only after the caller explicitly approves this exact action.

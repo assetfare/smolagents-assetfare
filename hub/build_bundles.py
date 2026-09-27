@@ -72,15 +72,15 @@ BUNDLE_REQUIREMENTS = "smolagents==1.26.0\nrequests>=2.32.3,<3\n"
 # Reviewed public Space revisions. Update a pin only after the exact generated
 # bundle has been uploaded and verified at that immutable revision.
 REVIEWED_REVISIONS = {
-    "assetfare-quote": "c65ab5604c2f8e04e0d344b98d85d3ceaf9e78fb",
-    "assetfare-capabilities": "2cde821ca957e9ebc4434a4c7d065546fdb05686",
-    "assetfare-new-session-capability": "561c6b23da41936757087054ca32e472f4e9a399",
-    "assetfare-prepare": "ce62cfb91de1442e2c0634e31383e159b807ff32",
-    "assetfare-session-create": "99384c75080942562ee1badc4d22d316dc27553a",
-    "assetfare-session-get": "cf03a26155aba8804aa38c1a4ed7c2c410fe9d1a",
-    "assetfare-observe-source": "ee76aa24e745114b5e4cff226b6ef88b7cd69266",
-    "assetfare-observe-output": "aeaadbd52a56595e8949f2f9a9eb0ff66dd54c0a",
-    "assetfare-refresh-action": "e7ad8ddc91217cf676466212a04bc9c944036ba3",
+    "assetfare-quote": "8d0464911cf7db3528458c53082a08dfa01f276c",
+    "assetfare-capabilities": "9abd25f1c40a0b77d51f901108b490949fb80bbf",
+    "assetfare-new-session-capability": "96b2e49b9ae7ed8366ca07ebd1c06a96f1b5a7d3",
+    "assetfare-prepare": "b72782eddd4d723fbc7c59756fd0420515eb49d0",
+    "assetfare-session-create": "656fee9c5c870808d0f6d31c4610f8dd3a1fe40b",
+    "assetfare-session-get": "1ced0ee1192f1524469a62a9b65160527b935869",
+    "assetfare-observe-source": "17c8bdca7c439e815d012db08ee837d90ccc2b2e",
+    "assetfare-observe-output": "65bf293571d28b62720c0d6cd4a14035b7fd38a9",
+    "assetfare-refresh-action": "13600024229c9a2539d487447e9411a35fd068fd",
 }
 
 # (space, Class, human title, one-line tagline). space == card dir == repo name.
