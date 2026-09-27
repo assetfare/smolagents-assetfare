@@ -19,9 +19,9 @@ tags:
 
 A **read-only** [smolagents](https://github.com/huggingface/smolagents) `Tool`
 that reports and strictly validates the AssetFare v2 public capabilities: the
-six source chains, the 11 `(chain, token)` source endpoints, the 76 directed
-conversion routes, and the USD amount bounds. Polygon and Optimism are native-USDC
-**source-only** (to Base or Arbitrum USDC). AssetFare service fee is **1bp**;
+eight source chains, the 13 `(chain, token)` source endpoints, the 80 directed
+conversion routes, and the USD amount bounds. Polygon/Optimism are source-only
+to Base/Arbitrum USDC; Ethereum/HyperEVM are source-only to Base/Solana USDC. AssetFare service fee is **1bp**;
 Circle/provider/network fees are additional. Current prepare availability is
 reported live rather than assumed.
 Use it to check which cross-chain corridors AssetFare can
@@ -30,9 +30,10 @@ quote before requesting a quote with
 whose result then names the separate caller-operated REST `/v2/prepare` handoff.
 
 For economic evaluation, treat the USD 1 technical minimum as a
-reachability/response-shape smoke test only. USD 50 is the lowest observed
-native-USDC winning bucket, not a guarantee, and USD 1,000 is the primary
-representative example. Always compare fresh AssetFare and competitor quotes at
+reachability/response-shape smoke test only. Use the route-specific
+`economic_guidance.advisory_start_usd` and
+<https://assetfare.dev/route-economics.json>; no global native-USDC starting
+amount exists. Always compare fresh AssetFare and competitor quotes at
 the actual intended amount; AssetFare is not always cheapest.
 
 - **Fixed origin:** `https://api.assetfare.dev` (any other base URL is rejected).
@@ -65,24 +66,27 @@ print(caps())  # -> dict of chains, endpoints, route counts, amount bounds
 
 ## Output (object)
 
-`status`, `chains`, `asset_endpoints`, `directed_conversion_routes` (76),
-`unsigned_route_plans_ready` (76), `execution_ready_routes` (76),
+`status`, `chains`, `asset_endpoints`, `directed_conversion_routes` (80),
+`unsigned_route_plans_ready` (80), `execution_ready_routes` (80),
 `phase_b_blocked_routes` (0), `blocked_source_only_routes` (empty),
 `source_only_asset_endpoints`
-(`optimism:USDC`, `polygon:USDC`), exact `source_only_routes`
+(`ethereum:USDC`, `hyperevm:USDC`, `optimism:USDC`, `polygon:USDC`), exact `source_only_routes`
 (`polygon:USDC->base:USDC`, `polygon:USDC->arbitrum:USDC`,
-`optimism:USDC->base:USDC`, `optimism:USDC->arbitrum:USDC`),
+`optimism:USDC->base:USDC`, `optimism:USDC->arbitrum:USDC`,
+`ethereum:USDC->base:USDC`, `ethereum:USDC->solana:USDC`,
+`hyperevm:USDC->base:USDC`, `hyperevm:USDC->solana:USDC`),
 `destination_chains`, `amount_usd` (`minimum: 1.0`, `maximum: null`,
 `policy: no_business_maximum`),
+`economic_guidance`, `economic_guidance_url`,
 `tool_scope_quote_only` (`true`, scoped to this tool's surface), and
 `server_signs_or_submits` (`false`).
 
 ## Validation & safety
 
-The reported surface is checked for exact identity: the chain set and the 11
+The reported surface is checked for exact identity: the chain set and the 13
 endpoints must match exactly (a substituted or duplicated entry is rejected), the
-route counts must equal 76, Polygon and Optimism must be the two source-only
-endpoints (to Base/Arbitrum USDC), and `server_signing` /
+route counts must equal 80, all four directional native-USDC origins must match
+their exact destinations, and `server_signing` /
 `server_submission` must be
 `false` on both `capabilities` and `status`. Any mismatch raises a single, fixed,
 sanitized error. Response body is capped at 1 MiB and must be `application/json`.

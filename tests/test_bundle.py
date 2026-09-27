@@ -118,8 +118,8 @@ def test_quote_card_and_landing_surface_direct_route_transparency(bundles):
         assert "direct_route_summary" in surface
         assert "1bp" in surface
         assert "route_aggregator_used=false" in surface
-        assert "across" in surface
-        assert "internally source or aggregate destination liquidity" in surface
+        assert "direct_protocol_only" in surface
+        assert "zero current routes" in surface
         assert "continuation_descriptor" in surface
         assert "sanitized" in surface
         assert "suppressed" in surface

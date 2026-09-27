@@ -40,9 +40,8 @@ caller to verify, sign, and submit with their **own** wallet.
 - **event_signer_public** is required only for Solana-CCTP: generate a fresh ephemeral Solana keypair locally, send only its public key, keep the private key client-side, and use it to co-sign the returned unsigned event-account transaction.
 - AssetFare **never signs or submits**; `server_signs_or_submits` is always `false`.
 - Before calling this tool, fetch fresh AssetFare and competitor quotes at the
-  actual intended amount. USD 1 is smoke-only, USD 50 is only the lowest
-  observed native-USDC winning bucket, and the USD 1,000 example below is not an
-  approval or guarantee that AssetFare is cheapest.
+  actual intended amount. USD 1 is smoke-only; the selected quote's route-specific
+  economic guidance controls evaluation and no global native-USDC starting amount exists.
 
 ## Use it in an agent
 

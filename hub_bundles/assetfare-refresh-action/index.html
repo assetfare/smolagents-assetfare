@@ -24,7 +24,7 @@
   <p><span class="tag">smolagents</span><span class="tag">tool</span><span class="tag">non-custodial</span><span class="tag">cross-chain</span></p>
 
   <p>This Space hosts an <strong>agent tool</strong> (<code>tool.py</code>), meant to be loaded
-  by an agent &mdash; not run as a web app. Explicit caller-approved POST /v2/session/{session_id}/refresh-action for a caller-owned AssetFare session (fixed origin https://api.assetfare.dev). It replaces an expired, UNSUBMITTED session action with a fresh quote-bound unsigned action for the caller to verify, sign and submit. It never signs, never submits, and never auto-chains. Requires the caller-owned session capability token (sent only 
+  by an agent &mdash; not run as a web app. Explicit caller-approved POST /v2/session/{session_id}/refresh-action for a caller-owned AssetFare session (fixed origin https://api.assetfare.dev). It replaces an expired, UNSUBMITTED session action with a fresh quote-bound unsigned action for the caller to verify, sign and submit. It never signs, never submits, and never auto-chains. Requires the caller-owned session capability token (sent only
   AssetFare never signs or submits; this tool never receives a private key and fails
   closed on any response that claims the server will sign or submit.</p>
 

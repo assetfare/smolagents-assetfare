@@ -36,9 +36,8 @@ route whose fresh quote reports current availability and returns its first workf
   session; same token + same key + different request = conflict (server-enforced).
 - Never auto-chains, signs, or submits; `server_signs_or_submits` is always `false`.
 - Before session creation, fetch fresh AssetFare and competitor quotes at the
-  actual intended amount. USD 1 is smoke-only, USD 50 is only the lowest
-  observed native-USDC winning bucket, and the USD 1,000 example below is not an
-  approval or guarantee that AssetFare is cheapest.
+  actual intended amount. USD 1 is smoke-only; the selected quote's route-specific
+  economic guidance controls evaluation and no global native-USDC starting amount exists.
 
 ## Use it in an agent
 

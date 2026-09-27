@@ -139,7 +139,7 @@ def canonicalize(code: str) -> str:
 def _index_html(space: str, title: str, tagline: str, tool_name: str, description: str) -> str:
     """Deterministic static landing page. Contains load_tool + trust_remote_code=True,
     no gradio, and the already-reviewed immutable Space revision."""
-    summary = description[:400]
+    summary = description[:400].rstrip()
     route_transparency = ""
     if tool_name == "assetfare_quote":
         route_transparency = """
@@ -147,9 +147,9 @@ def _index_html(space: str, title: str, tagline: str, tool_name: str, descriptio
     <strong>Validated route transparency:</strong> every quote returns an ordered
     <code>direct_route_summary</code> with named protocols, normalized endpoints,
     base-unit amounts, and the exact 1bp fee step. <code>route_aggregator_used=false</code>
-    means AssetFare did not call a market-wide aggregator API. Across
-    <code>external_intent</code> routes may internally source or aggregate destination
-    liquidity; that provider behavior is disclosed separately.
+    means AssetFare did not call a market-wide aggregator API. All 80 current
+    routes are <code>direct_protocol_only</code>; <code>external_intent</code>
+    remains only a compatibility enum with zero current routes.
     Every response also validates the complete <code>continuation_v3</code> and
     returns only a sanitized, unranked, expiring
     <code>continuation_descriptor</code>. Raw claims, bounds, and action handoffs

@@ -24,16 +24,16 @@
   <p><span class="tag">smolagents</span><span class="tag">tool</span><span class="tag">non-custodial</span><span class="tag">cross-chain</span></p>
 
   <p>This Space hosts an <strong>agent tool</strong> (<code>tool.py</code>), meant to be loaded
-  by an agent &mdash; not run as a web app. Read-only quote client for one cross-chain corridor via the AssetFare v2 API (fixed origin https://api.assetfare.dev). This tool's entire scope is to fetch and validate a single conversion quote and return it; it is not the AssetFare service and does not itself prepare, sign or submit. It covers 6 source chains (solana, base, arbitrum, robinhood, polygon, optimism), 11 (chain, token) source endpoi
+  by an agent &mdash; not run as a web app. Read-only quote client for one cross-chain corridor via the AssetFare v2 API (fixed origin https://api.assetfare.dev). This tool's entire scope is to fetch and validate a single conversion quote and return it; it is not the AssetFare service and does not itself prepare, sign or submit. It covers 8 source chains, 13 (chain, token) source endpoints and 80 directed quote routes, for any finite USD am
   AssetFare never signs or submits; this tool never receives a private key and fails
   closed on any response that claims the server will sign or submit.</p>
   <div class="box">
     <strong>Validated route transparency:</strong> every quote returns an ordered
     <code>direct_route_summary</code> with named protocols, normalized endpoints,
     base-unit amounts, and the exact 1bp fee step. <code>route_aggregator_used=false</code>
-    means AssetFare did not call a market-wide aggregator API. Across
-    <code>external_intent</code> routes may internally source or aggregate destination
-    liquidity; that provider behavior is disclosed separately.
+    means AssetFare did not call a market-wide aggregator API. All 80 current
+    routes are <code>direct_protocol_only</code>; <code>external_intent</code>
+    remains only a compatibility enum with zero current routes.
     Every response also validates the complete <code>continuation_v3</code> and
     returns only a sanitized, unranked, expiring
     <code>continuation_descriptor</code>. Raw claims, bounds, and action handoffs

@@ -24,10 +24,9 @@ AssetFare v2 API. It is meant to be **discovered and loaded by agents**, not use
 as a human demo.
 
 - **Fixed origin:** `https://api.assetfare.dev` (any other base URL is rejected).
-- **Surface:** 6 source chains (solana, base, arbitrum, robinhood, polygon,
-  optimism), 11 `(chain, token)` source endpoints, 76 directed routes, and finite
-  numeric USD amounts of at least **$1**, with no business maximum. Polygon and Optimism are native-USDC **source-only** to Base or
-  Arbitrum USDC. All paths are usable only while the live quote reports them
+- **Surface:** 8 source chains, 13 `(chain, token)` source endpoints, 80 directed
+  routes, and finite numeric USD amounts of at least **$1**, with no business maximum. Polygon/Optimism are source-only to Base/Arbitrum USDC;
+  Ethereum/HyperEVM are source-only to Base/Solana USDC. All paths are usable only while the live quote reports them
   available. AssetFare service fee is 1bp; Circle/provider/network fees are
   additional and the quote exposes total token-path cost.
 - **Never** authenticates a wallet, opens a session, prepares an unsigned action,
@@ -36,7 +35,8 @@ as a human demo.
 - **Route-transparent:** every result includes a strictly validated, ordered
   `direct_route_summary` with each named protocol, normalized endpoint,
   expected/minimum base-unit amount, and the one exact step collecting the 1bp
-  AssetFare fee.
+  AssetFare fee. All 80 current routes are `direct_protocol_only`;
+  `external_intent` remains only a compatibility enum with zero current routes.
 - **Quote-bound continuation:** every result includes a sanitized
   `continuation_descriptor` only after strict validation of the complete
   `continuation_v3` fingerprint/hashes, expiry, exact bounds, required wallet
@@ -54,10 +54,10 @@ as a human demo.
 
 - **$1 is only the technical minimum** for reachability/response-shape smoke
   tests; do not use it to judge economics.
-- Start native-USDC evaluation at **$50**. This is the lowest observed winning
-  bucket, not a guarantee for any route or time.
-- **$1,000** is the primary representative example, not a default transaction or
-  promise of savings.
+- Require the returned route-specific `economic_guidance.advisory_start_usd`.
+  It is dated, non-enforcing, and never a minimum or market ranking. There is no
+  global native-USDC starting amount. Full catalog:
+  <https://assetfare.dev/route-economics.json>.
 - Always fetch fresh AssetFare and competitor quotes at the actual intended
   amount. Compare total cost, expected/minimum receive, ETA, and risk; never
   assume AssetFare is always cheapest.

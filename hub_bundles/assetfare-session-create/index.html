@@ -24,7 +24,7 @@
   <p><span class="tag">smolagents</span><span class="tag">tool</span><span class="tag">non-custodial</span><span class="tag">cross-chain</span></p>
 
   <p>This Space hosts an <strong>agent tool</strong> (<code>tool.py</code>), meant to be loaded
-  by an agent &mdash; not run as a web app. Explicit caller-approved, non-custodial POST /v2/session create for an AssetFare route whose fresh quote reports current availability (fixed origin https://api.assetfare.dev). Before creating it, compare fresh AssetFare and competitor quotes at the actual intended amount; USD 1 is smoke-only, USD 50 is merely the lowest observed native-USDC winning bucket, and USD 1,000 is a representative example
+  by an agent &mdash; not run as a web app. Explicit caller-approved, non-custodial POST /v2/session create for an AssetFare route whose fresh quote reports current availability (fixed origin https://api.assetfare.dev). Before creating it, compare fresh AssetFare and competitor quotes at the actual intended amount; USD 1 is smoke-only, the selected quote's route-specific economic_guidance controls evaluation; there is no global native-USDC
   AssetFare never signs or submits; this tool never receives a private key and fails
   closed on any response that claims the server will sign or submit.</p>
 

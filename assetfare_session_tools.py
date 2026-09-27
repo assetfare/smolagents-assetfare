@@ -35,7 +35,7 @@ class AssetFareSessionCreateTool(Tool):
         "Explicit caller-approved, non-custodial POST /v2/session create for an "
         "AssetFare route whose fresh quote reports current availability (fixed origin https://api.assetfare.dev). Before "
         "creating it, compare fresh AssetFare and competitor quotes at the actual intended amount; USD 1 is smoke-only, "
-        "USD 50 is merely the lowest observed native-USDC winning bucket, and USD 1,000 is a representative example, "
+        "the selected quote's route-specific economic_guidance controls evaluation; there is no global native-USDC starting amount, "
         "not an approval or guarantee. It "
         "opens one idempotent receipt-driven session and returns its first workflow "
         "state / unsigned action for the caller to verify, sign and submit with their "
@@ -61,7 +61,7 @@ class AssetFareSessionCreateTool(Tool):
         },
         "from_chain": {
             "type": "string",
-            "description": "Source chain: one of solana, base, arbitrum, robinhood, polygon, optimism.",
+            "description": "Source chain: one of solana, base, arbitrum, robinhood, polygon, optimism, ethereum, hyperevm.",
         },
         "from_token": {
             "type": "string",
@@ -109,8 +109,8 @@ class AssetFareSessionCreateTool(Tool):
     STALE_BUDGET_S = 45.0
     MAX_BYTES = 1048576
     MIN_USD = 1.0
-    CHAINS = {"arbitrum", "base", "optimism", "polygon", "robinhood", "solana"}
-    SOURCE_ONLY_CHAINS = {"optimism", "polygon"}
+    CHAINS = {"arbitrum", "base", "ethereum", "hyperevm", "optimism", "polygon", "robinhood", "solana"}
+    SOURCE_ONLY_CHAINS = {"ethereum", "hyperevm", "optimism", "polygon"}
     ENDPOINTS = {
         "solana:SOL",
         "solana:USDC",
@@ -123,6 +123,8 @@ class AssetFareSessionCreateTool(Tool):
         "robinhood:USDG",
         "polygon:USDC",
         "optimism:USDC",
+        "ethereum:USDC",
+        "hyperevm:USDC",
     }
     FORBIDDEN_SECRET_KEYS = {
         "private_key",
@@ -279,10 +281,9 @@ class AssetFareSessionCreateTool(Tool):
             raise ValueError("assetfare_identity_route_rejected")
         if to_chain in self.SOURCE_ONLY_CHAINS:
             raise ValueError("assetfare_destination_endpoint_invalid")
-        if from_chain in self.SOURCE_ONLY_CHAINS and not (
-            from_u == "USDC" and to_chain in {"base", "arbitrum"} and to_u == "USDC"
-        ):
-            raise ValueError("assetfare_source_endpoint_invalid")
+        if from_chain in self.SOURCE_ONLY_CHAINS:
+            allowed=(from_u=="USDC" and to_u=="USDC" and ((from_chain in {"optimism","polygon"} and to_chain in {"base","arbitrum"}) or (from_chain in {"ethereum","hyperevm"} and to_chain in {"base","solana"})))
+            if not allowed:raise ValueError("assetfare_source_endpoint_invalid")
         self._reject_secret_material(
             {
                 "wallets": wallets,

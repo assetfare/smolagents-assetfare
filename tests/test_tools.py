@@ -29,22 +29,23 @@ AS_OF = "2026-09-17T00:00:05Z"  # 5s before FIXED_NOW
 QUOTE_PAYLOAD_SHA256_SPEC = "sha256(AssetFare typed-canonical-v1 bytes of the quote without continuation_v3 after exact base-unit substitution: n=null; t/f=boolean; d=<IEEE-754 binary64 big-endian 16 lowercase hex> for each finite JSON number; s=<UTF-8 byte length>:<Unicode scalar text with lone surrogates forbidden>; a=<count>:[items]; o=<count>:{UTF-8-byte-sorted string-key/value pairs}; every non-substituted integral JSON number must be within +/-9007199254740991; substituted paths are intent.estimated_input_base, route.input_base, route.expected_output_base, route.minimum_output_base, and every route.steps[i].expected_input_base/floor_input_base/expected_output_base/minimum_output_base from direct_route_summary exact decimal strings)"
 
 EVALUATION_GUIDANCE = {
-    "schema_version": 1,
+    "schema_version": 2,
     "route_minimum_usd": 1,
     "reachability_smoke_usd": 1,
     "reachability_smoke_scope": "connectivity_only_not_economic_evaluation",
-    "native_usdc_economic_evaluation_start_usd": 50,
-    "representative_economic_evaluation_usd": 1000,
-    "sol_input_representative_evaluation_usd": 1000,
+    "route_specific_guidance": {"version":"assetfare-route-economic-guidance-v1","url":"https://assetfare.dev/route-economics.json","required_on_every_quote":True,"controls_evaluation_start":True,"values_change_with_market":True},
+    "documentation_example_usd": 1000,
+    "documentation_example_scope": "example_only_not_route_guidance_or_minimum",
     "sol_input_caveat": (
         "SOL-input routes add a source swap, so compare their full fee-inclusive route economics separately."
     ),
-    "evidence_as_of": "2026-09-23",
-    "evidence_scope": "Dated Solana native USDC to Base native USDC measurements at USD 50, 250, and 1000.",
+    "historical_observation": {"route":"solana:USDC->base:USDC","observed_competitive_bucket_usd":50,"evidence_as_of":"2026-09-23","not_generalizable":True},
     "not_a_minimum": True,
     "not_guaranteed_best": True,
     "always_compare_fresh_at_intended_amount": True,
 }
+ECONOMIC_GUIDANCE={"version":"assetfare-route-economic-guidance-v1","as_of":"2026-09-27","route_count":80,"currency":"USD","technical_quote_minimum_usd":1,"economic_guidance_is_non_enforcing":True,"amount_is_never_rejected_by_economic_guidance":True,"values_change_with_market":True,"fresh_quote_and_caller_decision_control":True,"update_policy":"append_daily_observations_then_replace_values_without_schema_change","confidence_counts":{"measured_two_day":4,"measured_route_specific":11,"structural_estimate":37,"reworked_route_remeasure":14,"coverage_only_retest":14},"advisory_start_distribution":{"50":1,"100":6,"250":13,"500":12,"1000":19,"2500":4,"5000":18,"10000":7}}
+ROUTE_ECONOMIC_GUIDANCE={"advisory_start_usd":1000,"advisory_role":"structural_evaluation_start_not_observed_eligibility","status":"provisional_evaluation_start","confidence":"structural_estimate","basis":"offline_fixture_only","tested_amounts_usd":[],"not_an_execution_minimum":True,"not_a_best_price_guarantee":True,"fresh_quote_required":True}
 
 
 def fixed_now() -> datetime:
@@ -110,11 +111,11 @@ def caps_payload():
     return {
         "status": "capped_public_agent_release",
         "public_api_enabled": True,
-        "directed_conversion_routes": 76,
-        "unsigned_route_plans_ready": 76,
-        "execution_ready_routes": 76,
-        "execution_implemented_routes": 76,
-        "currently_prepare_ready_routes": 76,
+        "directed_conversion_routes": 80,
+        "unsigned_route_plans_ready": 80,
+        "execution_ready_routes": 80,
+        "execution_implemented_routes": 80,
+        "currently_prepare_ready_routes": 80,
         "temporarily_unavailable_routes": [],
         "temporarily_unavailable_route_count": 0,
         "execution_availability": {"status":"available","provider":"circle_iris","provider_dependent_routes":50,"recent_fee_snapshot_usable":True,"guarantees_future_availability":False},
@@ -122,7 +123,7 @@ def caps_payload():
         "blocked_source_only_routes": [],
         "server_signing": False,
         "server_submission": False,
-        "chains": ["solana", "base", "arbitrum", "robinhood", "polygon", "optimism"],
+        "chains": ["solana", "base", "arbitrum", "robinhood", "polygon", "optimism", "ethereum", "hyperevm"],
         "asset_endpoints": [
             {"chain": "solana", "token": "SOL"},
             {"chain": "solana", "token": "USDC"},
@@ -135,20 +136,30 @@ def caps_payload():
             {"chain": "robinhood", "token": "USDG"},
             {"chain": "polygon", "token": "USDC"},
             {"chain": "optimism", "token": "USDC"},
+            {"chain": "ethereum", "token": "USDC"},
+            {"chain": "hyperevm", "token": "USDC"},
         ],
         "source_only_asset_endpoints": [
             {"chain": "polygon", "token": "USDC"},
             {"chain": "optimism", "token": "USDC"},
+            {"chain": "ethereum", "token": "USDC"},
+            {"chain": "hyperevm", "token": "USDC"},
         ],
         "source_only_routes": [
             "polygon:USDC->base:USDC",
             "polygon:USDC->arbitrum:USDC",
             "optimism:USDC->base:USDC",
             "optimism:USDC->arbitrum:USDC",
+            "ethereum:USDC->base:USDC",
+            "ethereum:USDC->solana:USDC",
+            "hyperevm:USDC->base:USDC",
+            "hyperevm:USDC->solana:USDC",
         ],
         "destination_chains": ["arbitrum", "base", "robinhood", "solana"],
         "amount_usd": {"minimum": 1, "maximum": None, "policy": "no_business_maximum"},
         "evaluation_guidance": dict(EVALUATION_GUIDANCE),
+        "economic_guidance": copy.deepcopy(ECONOMIC_GUIDANCE),
+        "route_product_policy": {"amount_conditioned_routes":{},"economic_guidance":copy.deepcopy(ECONOMIC_GUIDANCE),"economic_guidance_url":"https://assetfare.dev/route-economics.json"},
     }
 
 
@@ -221,6 +232,11 @@ def quote_payload():
         "route": {
             "route": "solana:SOL->base:ETH",
             "mode": "cctp_direct_composition",
+            "product_classification": "primary_direct",
+            "economic_eligibility": "not_asserted_by_capability",
+            "public_execution_eligible": True,
+            "primary_selection_eligible": True,
+            "route_minimum_guard_bps": None,
             "input_base": 1500000000,
             "expected_output_base": 72100000000000000,
             "minimum_output_base": 71500000000000000,
@@ -259,6 +275,11 @@ def quote_payload():
             "to": "base:ETH",
             "classification": "direct_protocol_only",
             "mode": "cctp_direct_composition",
+            "product_classification": "primary_direct",
+            "economic_eligibility": "not_asserted_by_capability",
+            "public_execution_eligible": True,
+            "primary_selection_eligible": True,
+            "route_minimum_guard_bps": None,
             "route_aggregator_used": False,
             "external_intent_protocol_used": False,
             "provider_internal_dex_aggregation_possible": False,
@@ -274,6 +295,7 @@ def quote_payload():
             "first_unsigned_action_supported": True,
             "future_actions_require_verified_receipts": True,
         },
+        "economic_guidance": dict(ROUTE_ECONOMIC_GUIDANCE),
         "caller_action_plan_handoff": executable_handoff(),
         "caller_action_plan_handoff_v2": executable_handoff_v2(),
         "handoff_schema_version": 2,
@@ -404,24 +426,25 @@ def with_cost_summary(quote):
     return add_continuation(quote)
 
 
-def across_quote_payload():
+def robinhood_ingress_quote_payload():
     p = quote_payload()
     p["intent"].update(**{
         "from": "base:USDC", "to": "robinhood:USDG", "estimated_input_base": 250000000,
     })
     p["route"].update(
         route="base:USDC->robinhood:USDG",
-        mode="robinhood_across_ingress_composition",
+        mode="robinhood_paxos_ingress_composition",
+        product_classification="primary_direct", economic_eligibility="not_asserted_by_capability",
+        public_execution_eligible=True, primary_selection_eligible=True, route_minimum_guard_bps=50,
         input_base=250000000,
         expected_output_base=249000000,
         minimum_output_base=248000000,
-        external_intent_protocol_used=True,
-        steps=[{
-            "index": 0, "kind": "direct_bridge", "provider": "across_intent_bridge",
-            "from": "base", "to": "robinhood", "from_asset": "USDC", "to_asset": "USDG",
-            "route_fee_bps": 1, "expected_input_base": 250000000, "floor_input_base": 250000000,
-            "expected_output_base": 249000000, "minimum_output_base": 248000000,
-        }],
+        external_intent_protocol_used=False,
+        steps=[
+            {"index":0,"kind":"direct_bridge","provider":"circle_cctp","from":"base","to":"solana","asset":"USDC","route_fee_bps":1,"minimum_guard_bps":17,"expected_input_base":250000000,"floor_input_base":250000000,"expected_output_base":249500000,"minimum_output_base":249000000},
+            {"index":1,"kind":"direct_swap","provider":"orca_whirlpool","chain":"solana","from":"USDC","to":"USDG","route_fee_bps":0,"minimum_guard_bps":17,"expected_input_base":249500000,"floor_input_base":249000000,"expected_output_base":249250000,"minimum_output_base":248500000},
+            {"index":2,"kind":"direct_bridge","provider":"paxos_usdg_layerzero_oft","from":"solana","to":"robinhood","asset":"USDG","route_fee_bps":0,"minimum_guard_bps":16,"expected_input_base":249250000,"floor_input_base":248500000,"expected_output_base":249000000,"minimum_output_base":248000000},
+        ],
     )
     p["offer"].update(
         expected_receive_amount=249.0,
@@ -430,32 +453,30 @@ def across_quote_payload():
         fee_collection_steps=[0],
     )
     p["risk"].update(
-        external_intent_protocol_used=True,
-        provider_internal_dex_aggregation_possible=True,
+        external_intent_protocol_used=False,
+        provider_internal_dex_aggregation_possible=False,
     )
     p["direct_route_summary"] = {
         "version": "assetfare-direct-route-summary-v1",
         "route": "base:USDC->robinhood:USDG",
         "from": "base:USDC",
         "to": "robinhood:USDG",
-        "classification": "external_intent",
-        "mode": "robinhood_across_ingress_composition",
+        "classification": "direct_protocol_only",
+        "mode": "robinhood_paxos_ingress_composition",
+        "product_classification":"primary_direct","economic_eligibility":"not_asserted_by_capability","public_execution_eligible":True,"primary_selection_eligible":True,"route_minimum_guard_bps":50,
         "route_aggregator_used": False,
-        "external_intent_protocol_used": True,
-        "provider_internal_dex_aggregation_possible": True,
+        "external_intent_protocol_used": False,
+        "provider_internal_dex_aggregation_possible": False,
         "assetfare_fee_bps": 1,
         "fee_collection_step_index": 0,
         "server_signing": False,
         "server_submission": False,
-        "step_count": 1,
-        "steps": [{
-            "index": 0, "action": "bridge", "provider": "across_intent_bridge",
-            "from": "base:USDC", "to": "robinhood:USDG",
-            "expected_input_base": "250000000", "minimum_input_base": "250000000",
-            "expected_output_base": "249000000", "minimum_output_base": "248000000",
-            "assetfare_fee_bps": 1, "direct_protocol": False,
-            "external_intent_protocol": True, "aggregator_api_used": False,
-        }],
+        "step_count": 3,
+        "steps": [
+            {"index":0,"action":"bridge","provider":"circle_cctp","from":"base:USDC","to":"solana:USDC","expected_input_base":"250000000","minimum_input_base":"250000000","expected_output_base":"249500000","minimum_output_base":"249000000","assetfare_fee_bps":1,"direct_protocol":True,"external_intent_protocol":False,"aggregator_api_used":False,"minimum_guard_bps":17},
+            {"index":1,"action":"swap","provider":"orca_whirlpool","from":"solana:USDC","to":"solana:USDG","expected_input_base":"249500000","minimum_input_base":"249000000","expected_output_base":"249250000","minimum_output_base":"248500000","assetfare_fee_bps":0,"direct_protocol":True,"external_intent_protocol":False,"aggregator_api_used":False,"minimum_guard_bps":17},
+            {"index":2,"action":"bridge","provider":"paxos_usdg_layerzero_oft","from":"solana:USDG","to":"robinhood:USDG","expected_input_base":"249250000","minimum_input_base":"248500000","expected_output_base":"249000000","minimum_output_base":"248000000","assetfare_fee_bps":0,"direct_protocol":True,"external_intent_protocol":False,"aggregator_api_used":False,"minimum_guard_bps":16},
+        ],
     }
     return add_continuation(p)
 
@@ -542,14 +563,20 @@ def source_only_quote_payload(from_ep, to_ep, route, fee_bps, fee_modeled, steps
         "expected_input_base": 1500000000, "floor_input_base": 1500000000,
         "expected_output_base": 1499850000, "minimum_output_base": 1499800000,
     }
-    mode = from_ep[0] + "_source_cctp"
+    raw_steps=[raw_step]
+    summary_steps=[{"index":0,"action":"bridge","provider":"circle_cctp","from":from_ep_str(from_ep),"to":from_ep_str(to_ep),"expected_input_base":"1500000000","minimum_input_base":"1500000000","expected_output_base":"1499850000","minimum_output_base":"1499800000","assetfare_fee_bps":1,"direct_protocol":True,"external_intent_protocol":False,"aggregator_api_used":False}]
+    mode = from_ep[0] + "_source_cctp" if from_ep[0] in {"optimism","polygon"} else "cctp_direct_composition"
+    if from_ep[0] in {"optimism","polygon"}:
+        raw_steps.append({"index":1,"kind":"direct_receive","provider":"circle_cctp_receive","chain":to_ep[0],"from":"USDC","to":"USDC","source_chain":from_ep[0],"cctp_mode":"no_forward","destination_native_gas_required":True,"route_fee_bps":0,"expected_input_base":1499850000,"floor_input_base":1499800000,"expected_output_base":1499850000,"minimum_output_base":1499800000})
+        summary_steps.append({"index":1,"action":"receive","provider":"circle_cctp_receive","from":from_ep_str(to_ep),"to":from_ep_str(to_ep),"expected_input_base":"1499850000","minimum_input_base":"1499800000","expected_output_base":"1499850000","minimum_output_base":"1499800000","assetfare_fee_bps":0,"direct_protocol":True,"external_intent_protocol":False,"aggregator_api_used":False})
     p["route"].update(
         route=route,
         mode=mode,
+        product_classification="primary_direct",economic_eligibility="not_asserted_by_capability",public_execution_eligible=True,primary_selection_eligible=True,route_minimum_guard_bps=None,
         input_base=1500000000,
         expected_output_base=1499850000,
         minimum_output_base=1499800000,
-        steps=[raw_step],
+        steps=raw_steps,
     )
     p["direct_route_summary"] = {
         "version": "assetfare-direct-route-summary-v1",
@@ -558,6 +585,7 @@ def source_only_quote_payload(from_ep, to_ep, route, fee_bps, fee_modeled, steps
         "to": from_ep_str(to_ep),
         "classification": "direct_protocol_only",
         "mode": mode,
+        "product_classification":"primary_direct","economic_eligibility":"not_asserted_by_capability","public_execution_eligible":True,"primary_selection_eligible":True,"route_minimum_guard_bps":None,
         "route_aggregator_used": False,
         "external_intent_protocol_used": False,
         "provider_internal_dex_aggregation_possible": False,
@@ -565,15 +593,8 @@ def source_only_quote_payload(from_ep, to_ep, route, fee_bps, fee_modeled, steps
         "fee_collection_step_index": 0,
         "server_signing": False,
         "server_submission": False,
-        "step_count": 1,
-        "steps": [{
-            "index": 0, "action": "bridge", "provider": "circle_cctp",
-            "from": from_ep_str(from_ep), "to": from_ep_str(to_ep),
-            "expected_input_base": "1500000000", "minimum_input_base": "1500000000",
-            "expected_output_base": "1499850000", "minimum_output_base": "1499800000",
-            "assetfare_fee_bps": 1, "direct_protocol": True,
-            "external_intent_protocol": False, "aggregator_api_used": False,
-        }],
+        "step_count": len(summary_steps),
+        "steps": summary_steps,
     }
     p["offer"]["output_symbol"] = to_ep[1]
     p["offer"]["assetfare_fee_bps"] = fee_bps
@@ -622,15 +643,15 @@ def test_output_type_object(Cls):
     assert Cls.output_type == "object"
 
 
-def test_quote_tool_description_surfaces_route_transparency_and_across_caveat():
+def test_quote_tool_description_surfaces_route_transparency_and_current_direct_scope():
     description = AssetFareQuoteTool.description.lower()
     for marker in (
         "direct_route_summary",
         "route_aggregator_used=false",
         "market-wide aggregator api",
         "external_intent",
-        "across",
-        "internally source or aggregate destination liquidity",
+        "80 current routes are direct_protocol_only",
+        "route-economics.json",
         "1bp fee step",
     ):
         assert marker in description
@@ -674,16 +695,20 @@ def test_origin_accepts_canonical_and_trailing_slash():
 def test_capabilities_happy():
     s = _Session([_Resp(caps_payload()), _Resp(status_payload())])
     out = caps_tool(s).forward()
-    assert out["directed_conversion_routes"] == 76
-    assert out["unsigned_route_plans_ready"] == 76
-    assert out["execution_ready_routes"] == 76
-    assert out["currently_prepare_ready_routes"] == 76
+    assert out["directed_conversion_routes"] == 80
+    assert out["unsigned_route_plans_ready"] == 80
+    assert out["execution_ready_routes"] == 80
+    assert out["currently_prepare_ready_routes"] == 80
     assert out["phase_b_blocked_routes"] == 0
     assert out["blocked_source_only_routes"] == []
-    assert out["chains"] == ["arbitrum", "base", "optimism", "polygon", "robinhood", "solana"]
-    assert len(out["asset_endpoints"]) == 11
-    assert out["source_only_asset_endpoints"] == ["optimism:USDC", "polygon:USDC"]
+    assert out["chains"] == ["arbitrum", "base", "ethereum", "hyperevm", "optimism", "polygon", "robinhood", "solana"]
+    assert len(out["asset_endpoints"]) == 13
+    assert out["source_only_asset_endpoints"] == ["ethereum:USDC", "hyperevm:USDC", "optimism:USDC", "polygon:USDC"]
     assert sorted(out["source_only_routes"]) == [
+        "ethereum:USDC->base:USDC",
+        "ethereum:USDC->solana:USDC",
+        "hyperevm:USDC->base:USDC",
+        "hyperevm:USDC->solana:USDC",
         "optimism:USDC->arbitrum:USDC",
         "optimism:USDC->base:USDC",
         "polygon:USDC->arbitrum:USDC",
@@ -698,6 +723,8 @@ def test_capabilities_happy():
         "policy": "no_business_maximum",
     }
     assert out["evaluation_guidance"] == EVALUATION_GUIDANCE
+    assert out["economic_guidance"] == ECONOMIC_GUIDANCE
+    assert out["economic_guidance_url"] == "https://assetfare.dev/route-economics.json"
     assert s.calls[0][1] == "https://api.assetfare.dev/v2/capabilities"
     assert s.calls[1][1] == "https://api.assetfare.dev/v2/status"
 
@@ -823,6 +850,18 @@ def test_capabilities_rejects_source_only_semantic_mismatch(mut):
         caps_tool(_Session([_Resp(p), _Resp(status_payload())])).forward()
 
 
+@pytest.mark.parametrize("mut",[
+    lambda c:c.pop("economic_guidance"),
+    lambda c:c["route_product_policy"].pop("economic_guidance"),
+    lambda c:c["route_product_policy"]["economic_guidance"].update(as_of="2099-01-01"),
+    lambda c:c["route_product_policy"].update(amount_conditioned_routes={"ethereum:USDC->base:USDC":500}),
+    lambda c:c["evaluation_guidance"].update(native_usdc_economic_evaluation_start_usd=50),
+])
+def test_capabilities_route_specific_economic_guidance_fail_closed(mut):
+    p=caps_payload();mut(p)
+    with pytest.raises(ValueError):caps_tool(_Session([_Resp(p),_Resp(status_payload())])).forward()
+
+
 @pytest.mark.parametrize("key", ["server_signing", "server_submission"])
 def test_capabilities_rejects_nested_sign_or_submit_claim(key):
     p = caps_payload()
@@ -854,6 +893,8 @@ def test_quote_happy():
     assert out["execution_supported"] is True
     assert out["source_only"] is False
     assert out["evaluation_guidance"] == EVALUATION_GUIDANCE
+    assert out["economic_guidance"] == ROUTE_ECONOMIC_GUIDANCE
+    assert out["economic_guidance_url"] == "https://assetfare.dev/route-economics.json"
     assert out["server_signs_or_submits"] is False
     assert out["cost_summary"]["maximum_total_cost_usd"] == pytest.approx(3.0)
     assert out["eta"]["estimated_time_seconds"] == 45
@@ -899,17 +940,29 @@ def test_quote_happy():
         assert raw not in out
 
 
-def test_across_quote_exposes_honest_external_intent_caveat():
-    out = quote_tool(quote_session(across_quote_payload())).forward(
+@pytest.mark.parametrize("mut",[
+    lambda q:q.pop("economic_guidance"),
+    lambda q:q["economic_guidance"].update(native_usdc_economic_evaluation_start_usd=50),
+    lambda q:q["economic_guidance"].update(advisory_start_usd=75),
+    lambda q:q["economic_guidance"].update(not_an_execution_minimum=False),
+])
+def test_quote_route_specific_economic_guidance_fail_closed(mut):
+    payload=with_cost_summary(quote_payload());mut(payload)
+    with pytest.raises(ValueError,match="assetfare_route_economic_guidance_invalid"):
+        quote_tool(quote_session(payload)).forward("solana","SOL","base","ETH",250)
+
+
+def test_robinhood_ingress_exposes_direct_paxos_path():
+    out = quote_tool(quote_session(robinhood_ingress_quote_payload())).forward(
         "base", "USDC", "robinhood", "USDG", 250
     )
     summary = out["direct_route_summary"]
-    assert summary["classification"] == "external_intent"
+    assert summary["classification"] == "direct_protocol_only"
+    assert summary["product_classification"] == "primary_direct"
+    assert summary["route_minimum_guard_bps"] == 50
     assert summary["route_aggregator_used"] is False
-    assert summary["external_intent_protocol_used"] is True
-    assert summary["provider_internal_dex_aggregation_possible"] is True
-    assert summary["steps"][0]["provider"] == "across_intent_bridge"
-    assert summary["steps"][0]["direct_protocol"] is False
+    assert summary["external_intent_protocol_used"] is False
+    assert [step["provider"] for step in summary["steps"]] == ["circle_cctp", "orca_whirlpool", "paxos_usdg_layerzero_oft"]
 
 
 @pytest.mark.parametrize(
@@ -966,7 +1019,7 @@ def test_continuation_v3_hostiles_fail_closed(mut):
 
 def test_continuation_payload_hash_accepts_integral_float_and_base_units_above_js_safe_integer():
     payload = source_only_quote_payload(
-        ("polygon", "USDC"), ("base", "USDC"), "polygon:USDC->base:USDC", 1, 1, [0]
+        ("ethereum", "USDC"), ("base", "USDC"), "ethereum:USDC->base:USDC", 1, 1, [0]
     )
     expected_input = 9_007_199_254_740_993
     expected_output = expected_input - 100
@@ -990,7 +1043,7 @@ def test_continuation_payload_hash_accepts_integral_float_and_base_units_above_j
         minimum_output_base=str(minimum_output),
     )
     add_continuation(payload)
-    out = quote_tool(quote_session(payload)).forward("polygon", "USDC", "base", "USDC", 1000.0)
+    out = quote_tool(quote_session(payload)).forward("ethereum", "USDC", "base", "USDC", 1000.0)
     assert out["continuation_descriptor"]["quote_fingerprint"] == payload["continuation_v3"]["quote_fingerprint"]
 
 
@@ -1025,26 +1078,16 @@ def test_typed_payload_hash_preserves_number_string_and_negative_zero_and_reject
         tool._quote_payload_sha256(invalid_unicode, invalid_unicode["direct_route_summary"])
 
 
-def test_robinhood_ingress_cannot_be_collusively_relabelled_direct():
-    payload = across_quote_payload()
-    raw = payload["route"]["steps"][0]
-    raw.update(provider="circle_cctp", asset="USDC")
-    raw.pop("from_asset")
-    raw.pop("to_asset")
-    payload["route"]["external_intent_protocol_used"] = False
-    payload["risk"]["external_intent_protocol_used"] = False
-    payload["risk"]["provider_internal_dex_aggregation_possible"] = False
+def test_robinhood_ingress_cannot_be_relabelled_external():
+    payload = robinhood_ingress_quote_payload()
+    payload["route"]["external_intent_protocol_used"] = True
+    payload["risk"]["external_intent_protocol_used"] = True
+    payload["risk"]["provider_internal_dex_aggregation_possible"] = True
     summary = payload["direct_route_summary"]
     summary.update(
-        classification="direct_protocol_only",
-        external_intent_protocol_used=False,
-        provider_internal_dex_aggregation_possible=False,
-    )
-    summary["steps"][0].update(
-        provider="circle_cctp",
-        to="robinhood:USDC",
-        direct_protocol=True,
-        external_intent_protocol=False,
+        classification="external_intent",
+        external_intent_protocol_used=True,
+        provider_internal_dex_aggregation_possible=True,
     )
     with pytest.raises(ValueError, match="assetfare_direct_route_summary_invalid"):
         quote_tool(quote_session(payload)).forward("base", "USDC", "robinhood", "USDG", 250)

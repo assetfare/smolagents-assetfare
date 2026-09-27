@@ -27,7 +27,7 @@ Static Spaces (one per tool; nine total):
 | `assetfare_prepare_tool.py` | `AssetFarePrepareTool` — caller-approved one-shot `POST /v2/prepare` |
 | `assetfare_session_tools.py` | `AssetFareSessionCreate/Get/ObserveSource/ObserveOutput/RefreshAction` — full `/v2/session` lifecycle |
 | `tests/test_tools.py` | offline mock tests for quote + capabilities (no network) |
-| `tests/test_action_tools.py` | offline mock tests for prepare/session/token + 76-route e2e matrix (no network) |
+| `tests/test_action_tools.py` | offline mock tests for prepare/session/token + 80-route e2e matrix (no network) |
 | `tests/test_bundle.py` | builds + loads each Static-Space bundle in a subprocess (no network) |
 | `hub/build_bundles.py` | deterministic builder → `hub_bundles/<space>/` (generates `index.html`) |
 | `hub_bundles/<space>/` | generated, atomically-uploadable Space bundle (9 spaces) |
@@ -41,16 +41,16 @@ Static Spaces (one per tool; nine total):
 - Fixed origin `https://api.assetfare.dev`; any other base URL rejected (injected
   `requests.Session` included — `trust_env` is forced off). The
   `new_session_capability` token tool makes **no network call** at all.
-- Exact surface: 6 source chains, 11 `(chain, token)` source endpoints, **76**
+- Exact surface: 8 source chains, 13 `(chain, token)` source endpoints, **80**
   implemented directed routes, and finite numeric USD amounts of at least $1
   with no business maximum. The $1 technical minimum is only for
-  reachability/response-shape smoke tests, never economic comparison. Start
-  native-USDC economic evaluation at $50: that is the lowest observed winning
-  bucket, not a guarantee. Use $1,000 as the primary representative economic
-  example when no intended amount is known. Always fetch fresh AssetFare and
-  competitor quotes at the actual intended amount and never assume AssetFare is
-  always cheapest. Polygon and Optimism are directional
-  native-USDC source-only origins to Base or Arbitrum USDC. Current prepare
+  reachability/response-shape smoke tests. Every quote requires dated
+  route-specific `economic_guidance.advisory_start_usd`; there is no global
+  native-USDC starting amount. The canonical catalog is
+  <https://assetfare.dev/route-economics.json>. Always fetch fresh AssetFare and
+  competitor quotes at the actual intended amount. Polygon/Optimism are
+  source-only to Base/Arbitrum USDC; Ethereum/HyperEVM are source-only to
+  Base/Solana USDC. Current prepare
   availability is read from the API, not assumed. AssetFare service fee is 1bp;
   Circle/provider/network fees are additional and the quote exposes total
   token-path cost.
@@ -67,7 +67,7 @@ Static Spaces (one per tool; nine total):
   are suppressed. The quote tool never creates an approval, selects a candidate,
   collects wallets, or calls prepare/session. Multi-step routes allow `session`
   only; one-shot and session are mutually exclusive. Payload hashes use the
-  portable REST 2.4 projection: exact base-unit strings from the validated
+  portable REST 2.5 projection: exact base-unit strings from the validated
   summary replace duplicated raw numbers before typed-canonical-v1 preserves
   JSON types and negative zero, encodes finite numbers as IEEE-754 binary64,
   and rejects unsafe non-substituted integral numbers and lone Unicode

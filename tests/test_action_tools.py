@@ -7,8 +7,8 @@ Covers the new smolagents tools:
 
 No network. A stateful fake session models the server's create idempotency (keyed on
 the caller-owned X-AssetFare-Session-Token + idempotency_key) so replay / crash /
-independent-session behaviour can be asserted. Also runs the full 76-route multi-step
-MOCK e2e matrix: all 76 execution-ready routes complete quote -> prepare ->
+independent-session behaviour can be asserted. Also runs the full 80-route multi-step
+MOCK e2e matrix: all 80 execution-ready routes complete quote -> prepare ->
 session lifecycle, including the four directional Polygon/Optimism source-only routes.
 """
 
@@ -544,7 +544,7 @@ def test_session_rejects_unsafe_response():
         create_tool(s).forward(True, "solana", "SOL", "base", "ETH", 250, WALLETS, TOKEN, "key-unsafe", approval("session", "key-unsafe"))
 
 
-# ---- 76-route multi-step MOCK e2e matrix (all executable) ---------------------
+# ---- 80-route multi-step MOCK e2e matrix (all executable) ---------------------
 
 SOURCE_ENDPOINTS = [
     ("solana", "SOL"), ("solana", "USDC"), ("solana", "USDG"),
@@ -552,11 +552,12 @@ SOURCE_ENDPOINTS = [
     ("arbitrum", "ETH"), ("arbitrum", "USDC"),
     ("robinhood", "ETH"), ("robinhood", "USDG"),
     ("polygon", "USDC"), ("optimism", "USDC"),
+    ("ethereum", "USDC"), ("hyperevm", "USDC"),
 ]
-DEST_ENDPOINTS = [ep for ep in SOURCE_ENDPOINTS if ep[0] not in ("polygon", "optimism")]
-SOURCE_ONLY = {"polygon", "optimism"}
+DEST_ENDPOINTS = [ep for ep in SOURCE_ENDPOINTS if ep[0] not in ("ethereum", "hyperevm", "polygon", "optimism")]
+SOURCE_ONLY = {"ethereum", "hyperevm", "polygon", "optimism"}
 WALLET_ADDR = {
-    "solana": SOL, "base": EVM, "arbitrum": EVM, "robinhood": EVM, "polygon": EVM, "optimism": EVM,
+    "solana": SOL, "base": EVM, "arbitrum": EVM, "robinhood": EVM, "polygon": EVM, "optimism": EVM, "ethereum": EVM, "hyperevm": EVM,
 }
 
 
@@ -566,7 +567,9 @@ def _enumerate_routes():
         for dc, dt in DEST_ENDPOINTS:
             if (sc, st) == (dc, dt):
                 continue
-            if sc in SOURCE_ONLY and not (st == "USDC" and dc in ("base", "arbitrum") and dt == "USDC"):
+            if sc in {"polygon","optimism"} and not (st == "USDC" and dc in ("base", "arbitrum") and dt == "USDC"):
+                continue
+            if sc in {"ethereum","hyperevm"} and not (st == "USDC" and dc in ("base", "solana") and dt == "USDC"):
                 continue
             routes.append((sc, st, dc, dt))
     return routes
@@ -596,9 +599,13 @@ def _quote_payload(sc, st, dc, dt):
             row["asset"] = source_asset
         steps_meta.append(row)
 
+    def add_receive(chain, source_chain):
+        steps_meta.append({"kind":"direct_receive","provider":"circle_cctp_receive","chain":chain,"from":"USDC","to":"USDC","source_chain":source_chain,"cctp_mode":"no_forward","destination_native_gas_required":True})
+
     if sc in SOURCE_ONLY:
-        mode = sc + "_source_cctp"
+        mode = sc + "_source_cctp" if sc in {"optimism","polygon"} else "cctp_direct_composition"
         add_bridge("circle_cctp", sc, dc, "USDC", "USDC")
+        if sc in {"optimism","polygon"}:add_receive(dc,sc)
     elif sc == dc:
         if sc == "solana" and {st, dt} == {"SOL", "USDG"}:
             mode = "same_chain_direct_composition"
@@ -628,21 +635,19 @@ def _quote_payload(sc, st, dc, dt):
             if dt == "ETH":
                 add_swap(dc, "USDC", "ETH")
     elif dc == "robinhood":
-        mode = "robinhood_across_ingress_composition"
+        mode = "robinhood_paxos_ingress_composition"
         if sc == "solana":
             if st == "SOL":
                 add_swap("solana", "SOL", "USDC")
-            elif st == "USDG":
-                add_swap("solana", "USDG", "USDC")
-            add_bridge("circle_cctp", "solana", "base", "USDC", "USDC")
-            across_source = "base"
+            if st != "USDG":add_swap("solana","USDC","USDG")
+            add_bridge("paxos_usdg_layerzero_oft","solana","robinhood","USDG","USDG")
+            if dt=="ETH":add_swap("robinhood","USDG","ETH")
         else:
-            if st == "ETH":
-                add_swap(sc, "ETH", "USDC")
-            across_source = sc
-        add_bridge("across_intent_bridge", across_source, "robinhood", "USDC", "USDG")
-        if dt == "ETH":
-            add_swap("robinhood", "USDG", "ETH")
+            if st=="ETH":add_swap(sc,"ETH","USDC")
+            add_bridge("circle_cctp",sc,"solana","USDC","USDC")
+            add_swap("solana","USDC","USDG")
+            add_bridge("paxos_usdg_layerzero_oft","solana","robinhood","USDG","USDG")
+            if dt=="ETH":add_swap("robinhood","USDG","ETH")
     else:
         mode = "cctp_direct_composition"
         if st != "USDC":
@@ -654,6 +659,8 @@ def _quote_payload(sc, st, dc, dt):
     summary_steps = []
     expected_input = minimum_input = 1000000
     external = False
+    guard_base=50//len(steps_meta) if mode=="robinhood_paxos_ingress_composition" else 0
+    guard_remainder=50%len(steps_meta) if mode=="robinhood_paxos_ingress_composition" else 0
     for index, row in enumerate(steps_meta):
         expected_output = expected_input - 1000
         minimum_output = minimum_input - 2000
@@ -665,11 +672,14 @@ def _quote_payload(sc, st, dc, dt):
             expected_output_base=expected_output,
             minimum_output_base=minimum_output,
         )
+        if mode=="robinhood_paxos_ingress_composition":row["minimum_guard_bps"]=guard_base+(1 if index<guard_remainder else 0)
         is_external = row["provider"] == "across_intent_bridge"
         if row["kind"] == "direct_swap":
             source_ep = f"{row['chain']}:{row['from']}"
             destination_ep = f"{row['chain']}:{row['to']}"
             action = "swap"
+        elif row["kind"] == "direct_receive":
+            source_ep=f"{row['chain']}:{row['from']}";destination_ep=f"{row['chain']}:{row['to']}";action="receive"
         else:
             source_asset = row.get("from_asset") if is_external else row["asset"]
             destination_asset = row.get("to_asset") if is_external else row["asset"]
@@ -683,6 +693,7 @@ def _quote_payload(sc, st, dc, dt):
             "expected_output_base": str(expected_output), "minimum_output_base": str(minimum_output),
             "assetfare_fee_bps": row["route_fee_bps"], "direct_protocol": not is_external,
             "external_intent_protocol": is_external, "aggregator_api_used": False,
+            **({"minimum_guard_bps":row["minimum_guard_bps"]} if "minimum_guard_bps" in row else {}),
         })
         external = external or is_external
         expected_input = expected_output
@@ -739,7 +750,7 @@ def _quote_payload(sc, st, dc, dt):
         "ttl_seconds": 60,
         "as_of": "2026-09-17T00:00:05Z",
         "intent": {"from": from_s, "to": to_s, "amount_usd": 250.0, "estimated_input_base": 1000000},
-        "route": {"route": f"{from_s}->{to_s}", "mode": mode, "input_base": 1000000,
+        "route": {"route": f"{from_s}->{to_s}", "mode": mode, "product_classification":"primary_direct","economic_eligibility":"not_asserted_by_capability","public_execution_eligible":True,"primary_selection_eligible":True,"route_minimum_guard_bps":50 if mode=="robinhood_paxos_ingress_composition" else None,"input_base": 1000000,
                   "expected_output_base": expected_input, "minimum_output_base": minimum_input,
                   "steps": steps_meta, "quote_latency_ms": 12, "aggregator_api_used": False,
                   "external_intent_protocol_used": external,
@@ -761,7 +772,7 @@ def _quote_payload(sc, st, dc, dt):
             "version": "assetfare-direct-route-summary-v1", "route": f"{from_s}->{to_s}",
             "from": from_s, "to": to_s,
             "classification": "external_intent" if external else "direct_protocol_only",
-            "mode": mode, "route_aggregator_used": False,
+            "mode": mode, "product_classification":"primary_direct","economic_eligibility":"not_asserted_by_capability","public_execution_eligible":True,"primary_selection_eligible":True,"route_minimum_guard_bps":50 if mode=="robinhood_paxos_ingress_composition" else None,"route_aggregator_used": False,
             "external_intent_protocol_used": external,
             "provider_internal_dex_aggregation_possible": external,
             "assetfare_fee_bps": 1, "fee_collection_step_index": 0,
@@ -769,6 +780,7 @@ def _quote_payload(sc, st, dc, dt):
             "step_count": len(summary_steps), "steps": summary_steps,
         },
         "execution": execution,
+        "economic_guidance":{"advisory_start_usd":1000,"advisory_role":"structural_evaluation_start_not_observed_eligibility","status":"provisional_evaluation_start","confidence":"structural_estimate","basis":"offline_fixture_only","tested_amounts_usd":[],"not_an_execution_minimum":True,"not_a_best_price_guarantee":True,"fresh_quote_required":True},
         "caller_action_plan_handoff": handoff,
     }
     return _add_continuation(quote)
@@ -849,12 +861,16 @@ def _fixed_utcnow():
 
 def test_route_matrix_counts():
     routes = _enumerate_routes()
-    assert len(routes) == 76
+    assert len(routes) == 80
     executable = [r for r in routes if r[0] not in SOURCE_ONLY]
     blocked = [r for r in routes if r[0] in SOURCE_ONLY]
     assert len(executable) == 72
-    assert len(blocked) == 4
+    assert len(blocked) == 8
     assert sorted(f"{a}:{b}->{c}:{d}" for a, b, c, d in blocked) == [
+        "ethereum:USDC->base:USDC",
+        "ethereum:USDC->solana:USDC",
+        "hyperevm:USDC->base:USDC",
+        "hyperevm:USDC->solana:USDC",
         "optimism:USDC->arbitrum:USDC",
         "optimism:USDC->base:USDC",
         "polygon:USDC->arbitrum:USDC",
@@ -862,13 +878,13 @@ def test_route_matrix_counts():
     ]
 
 
-def test_e2e_76_route_matrix():
+def test_e2e_80_route_matrix():
     from assetfare_quote_tool import AssetFareQuoteTool
 
     routes = _enumerate_routes()
     executed_full = 0
     for sc, st, dc, dt in routes:
-        # 1) quote (all 76)
+        # 1) quote (all 80)
         qs = _Session([_Resp(_quote_payload(sc, st, dc, dt))])
         q = AssetFareQuoteTool(session=qs, monotonic=clk(), utcnow=_fixed_utcnow)
         quote = q.forward(sc, st, dc, dt, 250)
@@ -892,4 +908,4 @@ def test_e2e_76_route_matrix():
         assert refresh_tool(srv).forward(TOKEN, sid, "key-e2e-0004")["session_id"] == sid
         executed_full += 1
 
-    assert executed_full == 76
+    assert executed_full == 80
