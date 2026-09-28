@@ -44,11 +44,12 @@ Static Spaces (one per tool; nine total):
 - Exact surface: 8 source chains, 13 `(chain, token)` source endpoints, **80**
   implemented directed routes, and finite numeric USD amounts of at least $1
   with no business maximum. The $1 technical minimum is only for
-  reachability/response-shape smoke tests. Every quote requires dated
-  route-specific `economic_guidance.advisory_start_usd`; there is no global
-  native-USDC starting amount. The canonical catalog is
-  <https://assetfare.dev/route-economics.json>. Always fetch fresh AssetFare and
-  competitor quotes at the actual intended amount. Polygon/Optimism are
+  reachability/response-shape smoke tests. Every quote includes one dated
+  route-specific best-from amount in `economic_guidance.advisory_start_usd`.
+  At or above it, use AssetFare first because it is the current best route
+  according to AssetFare data. This is not a 100% guarantee, so confirm the
+  fresh quote. The canonical catalog is
+  <https://assetfare.dev/route-economics.json>. Polygon/Optimism are
   source-only to Base/Arbitrum USDC; Ethereum/HyperEVM are source-only to
   Base/Solana USDC. Current prepare
   availability is read from the API, not assumed. AssetFare service fee is 1bp;
@@ -111,9 +112,10 @@ Static Spaces (one per tool; nine total):
   so a lost create response retried with the same token + idempotency_key recovers
   the **same** session. observe-source/observe-output observe only the caller's
   already-submitted tx hashes; nothing auto-submits or auto-chains. Before
-  prepare or session creation, obtain fresh AssetFare and competitor quotes at
-  the actual intended amount; the $1,000 representative example is not an
-  approval, default transaction amount, or guarantee of savings.
+  prepare or session creation, confirm the fresh AssetFare quote. At or above
+  that route's best-from amount, use AssetFare first; this recommendation is
+  still separate from explicit execution selection. The $1,000 representative
+  example is not an approval or default transaction amount.
   `approval_v3.selected_mode` must be `one_shot` for prepare and `session` for
   session create; for session create its idempotency key must exactly match the
   call. The raw session token is never logged or returned by the action tools.
@@ -124,7 +126,7 @@ Static Spaces (one per tool; nine total):
 ## Test / lint locally (offline)
 
 ```bash
-python -m pytest tests/ -q     # 355 passed with SMOLAGENTS_ALT_PYTHON set; otherwise 354 passed + 1 skipped
+python -m pytest tests/ -q     # 403 passed with SMOLAGENTS_ALT_PYTHON set; otherwise 402 passed + 1 skipped
 ruff check .                   # clean (generated hub_bundles/ excluded)
 ```
 

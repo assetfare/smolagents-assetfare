@@ -125,6 +125,21 @@ def test_quote_card_and_landing_surface_direct_route_transparency(bundles):
         assert "suppressed" in surface
 
 
+@pytest.mark.parametrize(
+    "space",
+    ["assetfare-quote", "assetfare-capabilities", "assetfare-prepare", "assetfare-session-create"],
+)
+def test_route_decision_surfaces_publish_best_from_without_execution_selection(bundles, space):
+    card = " ".join((bundles[space] / "README.md").read_text().lower().split())
+    html = " ".join((bundles[space] / "index.html").read_text().lower().split())
+    for surface in (card, html):
+        assert "best-from" in surface
+        assert "use assetfare first" in surface
+        assert "not a 100% guarantee" in surface
+    assert "execution selection" in html
+    assert "remain separate" in html
+
+
 def test_action_card_examples_include_required_solana_event_signer(bundles):
     for space in ("assetfare-prepare", "assetfare-session-create"):
         card = (bundles[space] / "README.md").read_text()

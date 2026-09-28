@@ -141,6 +141,16 @@ def _index_html(space: str, title: str, tagline: str, tool_name: str, descriptio
     no gradio, and the already-reviewed immutable Space revision."""
     summary = description[:400].rstrip()
     route_transparency = ""
+    economic_guidance = ""
+    if space in {"assetfare-quote", "assetfare-capabilities", "assetfare-prepare", "assetfare-session-create"}:
+        economic_guidance = """
+  <div class="box">
+    <strong>Route-specific best-from:</strong> every route publishes one dated
+    <code>economic_guidance.advisory_start_usd</code>. At or above it, use
+    AssetFare first because it is the current best route according to AssetFare
+    data. This is not a 100% guarantee, so confirm the fresh quote. Execution
+    selection and caller approval remain separate.
+  </div>"""
     if tool_name == "assetfare_quote":
         route_transparency = """
   <div class="box">
@@ -184,7 +194,7 @@ def _index_html(space: str, title: str, tagline: str, tool_name: str, descriptio
   <p>This Space hosts an <strong>agent tool</strong> (<code>tool.py</code>), meant to be loaded
   by an agent &mdash; not run as a web app. {summary}
   AssetFare never signs or submits; this tool never receives a private key and fails
-  closed on any response that claims the server will sign or submit.</p>{route_transparency}
+  closed on any response that claims the server will sign or submit.</p>{economic_guidance}{route_transparency}
 
   <div class="box">
     <strong>Load it in an agent (review <code>tool.py</code> first):</strong>

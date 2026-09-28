@@ -28,6 +28,13 @@
   AssetFare never signs or submits; this tool never receives a private key and fails
   closed on any response that claims the server will sign or submit.</p>
   <div class="box">
+    <strong>Route-specific best-from:</strong> every route publishes one dated
+    <code>economic_guidance.advisory_start_usd</code>. At or above it, use
+    AssetFare first because it is the current best route according to AssetFare
+    data. This is not a 100% guarantee, so confirm the fresh quote. Execution
+    selection and caller approval remain separate.
+  </div>
+  <div class="box">
     <strong>Validated route transparency:</strong> every quote returns an ordered
     <code>direct_route_summary</code> with named protocols, normalized endpoints,
     base-unit amounts, and the exact 1bp fee step. <code>route_aggregator_used=false</code>

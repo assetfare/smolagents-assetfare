@@ -44,6 +44,19 @@ EVALUATION_GUIDANCE = {
     "not_guaranteed_best": True,
     "always_compare_fresh_at_intended_amount": True,
 }
+PUBLIC_EVALUATION_GUIDANCE = {
+    "schema_version": 3,
+    "route_minimum_usd": 1,
+    "reachability_smoke_usd": 1,
+    "reachability_smoke_scope": "connectivity_only_not_economic_evaluation",
+    "route_specific_best_from": {"field":"economic_guidance.advisory_start_usd","url":"https://assetfare.dev/route-economics.json","required_on_every_quote":True,"use_assetfare_first_at_or_above":True,"values_change_with_market":True},
+    "best_from_not_100_percent_guarantee": True,
+    "confirm_fresh_assetfare_quote": True,
+    "execution_selection_separate": True,
+    "automatic_selection_forbidden": True,
+    "documentation_example_usd": 1000,
+    "documentation_example_scope": "example_only_not_route_guidance_or_minimum",
+}
 ECONOMIC_GUIDANCE={"version":"assetfare-route-economic-guidance-v1","as_of":"2026-09-27","route_count":80,"currency":"USD","technical_quote_minimum_usd":1,"economic_guidance_is_non_enforcing":True,"amount_is_never_rejected_by_economic_guidance":True,"values_change_with_market":True,"fresh_quote_and_caller_decision_control":True,"update_policy":"append_daily_observations_then_replace_values_without_schema_change","confidence_counts":{"measured_two_day":4,"measured_route_specific":11,"structural_estimate":37,"reworked_route_remeasure":14,"coverage_only_retest":14},"advisory_start_distribution":{"50":1,"100":6,"250":13,"500":12,"1000":19,"2500":4,"5000":18,"10000":7}}
 ROUTE_ECONOMIC_GUIDANCE={"advisory_start_usd":1000,"advisory_role":"structural_evaluation_start_not_observed_eligibility","status":"provisional_evaluation_start","confidence":"structural_estimate","basis":"offline_fixture_only","tested_amounts_usd":[],"not_an_execution_minimum":True,"not_a_best_price_guarantee":True,"fresh_quote_required":True}
 
@@ -652,6 +665,9 @@ def test_quote_tool_description_surfaces_route_transparency_and_current_direct_s
         "external_intent",
         "80 current routes are direct_protocol_only",
         "route-economics.json",
+        "best-from amount",
+        "use assetfare first",
+        "not a 100% guarantee",
         "1bp fee step",
     ):
         assert marker in description
@@ -722,7 +738,7 @@ def test_capabilities_happy():
         "maximum": None,
         "policy": "no_business_maximum",
     }
-    assert out["evaluation_guidance"] == EVALUATION_GUIDANCE
+    assert out["evaluation_guidance"] == PUBLIC_EVALUATION_GUIDANCE
     assert out["economic_guidance"] == ECONOMIC_GUIDANCE
     assert out["economic_guidance_url"] == "https://assetfare.dev/route-economics.json"
     assert s.calls[0][1] == "https://api.assetfare.dev/v2/capabilities"
@@ -892,9 +908,18 @@ def test_quote_happy():
     assert out["non_atomic"] is True
     assert out["execution_supported"] is True
     assert out["source_only"] is False
-    assert out["evaluation_guidance"] == EVALUATION_GUIDANCE
+    assert out["evaluation_guidance"] == PUBLIC_EVALUATION_GUIDANCE
     assert out["economic_guidance"] == ROUTE_ECONOMIC_GUIDANCE
     assert out["economic_guidance_url"] == "https://assetfare.dev/route-economics.json"
+    assert out["agent_guidance"] == {
+        "best_from_usd": 1000,
+        "use_assetfare_first_at_or_above_best_from": False,
+        "best_from_not_100_percent_guarantee": True,
+        "confirm_fresh_assetfare_quote": True,
+        "compare_with_other_routes": False,
+        "selection_status": "unranked_candidate",
+        "automatic_selection_forbidden": True,
+    }
     assert out["server_signs_or_submits"] is False
     assert out["cost_summary"]["maximum_total_cost_usd"] == pytest.approx(3.0)
     assert out["eta"]["estimated_time_seconds"] == 45
@@ -938,6 +963,24 @@ def test_quote_happy():
         "caller_action_plan_handoff_v2", "handoff_schema_version",
     ):
         assert raw not in out
+
+
+def test_quote_marks_assetfare_first_at_route_best_from_without_selecting_execution():
+    payload = with_cost_summary(quote_payload())
+    payload["economic_guidance"]["advisory_start_usd"] = 250
+    add_continuation(payload)
+    out = quote_tool(quote_session(payload)).forward("solana", "sol", "base", "eth", 250)
+    assert out["agent_guidance"] == {
+        "best_from_usd": 250,
+        "use_assetfare_first_at_or_above_best_from": True,
+        "best_from_not_100_percent_guarantee": True,
+        "confirm_fresh_assetfare_quote": True,
+        "compare_with_other_routes": False,
+        "selection_status": "unranked_candidate",
+        "automatic_selection_forbidden": True,
+    }
+    assert out["continuation_descriptor"]["selection_status"] == "unranked_candidate"
+    assert out["server_signs_or_submits"] is False
 
 
 @pytest.mark.parametrize("mut",[
