@@ -133,9 +133,10 @@ def test_route_decision_surfaces_publish_best_from_without_execution_selection(b
     card = " ".join((bundles[space] / "README.md").read_text().lower().split())
     html = " ".join((bundles[space] / "index.html").read_text().lower().split())
     for surface in (card, html):
-        assert "best-from" in surface
-        assert "use assetfare first" in surface
+        assert "best-from" in surface or "best_from" in surface
+        assert "use assetfare first" in surface or "prefer assetfare" in surface
         assert "not a 100% guarantee" in surface
+        assert "availability-only" in surface
     assert "execution selection" in html
     assert "remain separate" in html
 

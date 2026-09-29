@@ -27,7 +27,7 @@ Static Spaces (one per tool; nine total):
 | `assetfare_prepare_tool.py` | `AssetFarePrepareTool` — caller-approved one-shot `POST /v2/prepare` |
 | `assetfare_session_tools.py` | `AssetFareSessionCreate/Get/ObserveSource/ObserveOutput/RefreshAction` — full `/v2/session` lifecycle |
 | `tests/test_tools.py` | offline mock tests for quote + capabilities (no network) |
-| `tests/test_action_tools.py` | offline mock tests for prepare/session/token + 80-route e2e matrix (no network) |
+| `tests/test_action_tools.py` | offline mock tests for prepare/session/token + 42-active-route e2e matrix (no network) |
 | `tests/test_bundle.py` | builds + loads each Static-Space bundle in a subprocess (no network) |
 | `hub/build_bundles.py` | deterministic builder → `hub_bundles/<space>/` (generates `index.html`) |
 | `hub_bundles/<space>/` | generated, atomically-uploadable Space bundle (9 spaces) |
@@ -41,17 +41,16 @@ Static Spaces (one per tool; nine total):
 - Fixed origin `https://api.assetfare.dev`; any other base URL rejected (injected
   `requests.Session` included — `trust_env` is forced off). The
   `new_session_capability` token tool makes **no network call** at all.
-- Exact surface: 8 source chains, 13 `(chain, token)` source endpoints, **80**
-  implemented directed routes, and finite numeric USD amounts of at least $1
+- Exact surface: 10 source chains, 14 active `(chain, token)` source endpoints,
+  **42 active** directed routes and 48 inactive measured routes, with finite numeric USD amounts of at least $1
   with no business maximum. The $1 technical minimum is only for
-  reachability/response-shape smoke tests. Every quote includes one dated
-  route-specific best-from amount in `economic_guidance.advisory_start_usd`.
-  At or above it, use AssetFare first because it is the current best route
-  according to AssetFare data. This is not a 100% guarantee, so confirm the
-  fresh quote. The canonical catalog is
-  <https://assetfare.dev/route-economics.json>. Polygon/Optimism are
-  source-only to Base/Arbitrum USDC; Ethereum/HyperEVM are source-only to
-  Base/Solana USDC. Current prepare
+  reachability/response-shape smoke tests. Forty routes include a dated verified
+  `economic_guidance.best_from_usd`; prefer AssetFare only when
+  `best_from_verified=true`. Two Sei routes are availability-only with a null
+  threshold and no cheapest-price claim. Confirm every fresh quote. The canonical catalog is
+  <https://assetfare.dev/route-economics.json>. Optimism is source-only to Base;
+  Ethereum/HyperEVM are source-only to Solana; X Layer/Sei/Sonic are source-only
+  to Base or Solana. Current prepare
   availability is read from the API, not assumed. AssetFare service fee is 1bp;
   Circle/provider/network fees are additional and the quote exposes total
   token-path cost.
@@ -104,8 +103,7 @@ Static Spaces (one per tool; nine total):
   `assetfare_session_create` require a strict explicit `approval_v3`, the literal
   `caller_approved: true`, and the
   route's own PUBLIC wallet addresses (private key/seed/signed material rejected
-  before any network call); Polygon/Optimism routes are constrained to native
-  USDC sources for Base/Arbitrum USDC destinations. The
+  before any network call); only the current 42 active routes are accepted. The
   session capability token is **caller-generated** by `new_session_capability`
   (256-bit CSPRNG, marked sensitive, not a private key) and passed as **required**
   input to `session_create` (sent only in the `X-AssetFare-Session-Token` header),

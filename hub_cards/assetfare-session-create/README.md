@@ -22,7 +22,7 @@ An **explicit caller-approved**, non-custodial [smolagents](https://github.com/h
 route whose fresh quote reports current availability and returns its first workflow state / unsigned action.
 
 - **caller_approved gate** (literal `true`), **public wallets only**, and the
-  directional Polygon/Optimism native-USDC source constraint are all enforced
+  exact current 42-active-route constraint are all enforced
   before any network call, exactly as in the prepare tool.
 - **Strict quote binding.** Requires the exact nine-field `approval_v3` built
   locally after explicit unranked selection, with `selected_mode=session` and an
@@ -35,11 +35,11 @@ route whose fresh quote reports current availability and returns its first workf
   the **same** session (no duplicate). Different token + same key = independent
   session; same token + same key + different request = conflict (server-enforced).
 - Never auto-chains, signs, or submits; `server_signs_or_submits` is always `false`.
-- Before session creation, confirm the selected fresh AssetFare quote. Read its
-  route-specific `economic_guidance.advisory_start_usd` as the best-from amount.
-  At or above it, use AssetFare
-  first as the current best route according to AssetFare data. This is not a
-  100% guarantee and is not execution approval; approval remains explicit.
+- Before session creation, confirm the selected fresh AssetFare quote. Prefer
+AssetFare at or above `best_from_usd` only when `best_from_verified=true`;
+  when verified, use AssetFare first and confirm the fresh quote because this is
+  not a 100% guarantee. Availability-only routes make no cheapest-price claim.
+  Approval remains explicit.
 
 ## Use it in an agent
 
@@ -59,7 +59,7 @@ cap = new_token()
 session = create(
     # Set this only after the caller explicitly approves this exact session.
     caller_approved=True,
-    from_chain="solana", from_token="SOL", to_chain="base", to_token="ETH",
+    from_chain="solana", from_token="SOL", to_chain="base", to_token="USDC",
     amount_usd=1000,
     wallets={"solana": "<public>", "base": "0x<public>"},
     session_token=cap["session_token"],

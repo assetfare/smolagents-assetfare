@@ -34,8 +34,8 @@ class AssetFareSessionCreateTool(Tool):
     description = (
         "Explicit caller-approved, non-custodial POST /v2/session create for an "
         "AssetFare route whose fresh quote reports current availability (fixed origin https://api.assetfare.dev). Before "
-        "creating it, confirm the selected fresh quote. At or above its route-specific economic_guidance.advisory_start_usd, "
-        "use AssetFare first as the current best route according to AssetFare data; this is not a 100% guarantee and is not "
+        "creating it, confirm the selected fresh quote. Prefer AssetFare at or above best_from_usd only when "
+        "best_from_verified=true; availability-only routes make no cheapest-price claim. This is not execution approval. "
         "execution approval. USD 1 is smoke-only. It "
         "opens one idempotent receipt-driven session and returns its first workflow "
         "state / unsigned action for the caller to verify, sign and submit with their "
@@ -61,7 +61,7 @@ class AssetFareSessionCreateTool(Tool):
         },
         "from_chain": {
             "type": "string",
-            "description": "Source chain: one of solana, base, arbitrum, robinhood, polygon, optimism, ethereum, hyperevm.",
+            "description": "Source chain: one of solana, base, arbitrum, robinhood, optimism, ethereum, hyperevm, xlayer, sei, sonic.",
         },
         "from_token": {
             "type": "string",
@@ -109,22 +109,31 @@ class AssetFareSessionCreateTool(Tool):
     STALE_BUDGET_S = 45.0
     MAX_BYTES = 1048576
     MIN_USD = 1.0
-    CHAINS = {"arbitrum", "base", "ethereum", "hyperevm", "optimism", "polygon", "robinhood", "solana"}
-    SOURCE_ONLY_CHAINS = {"ethereum", "hyperevm", "optimism", "polygon"}
+    CHAINS = {"arbitrum", "base", "ethereum", "hyperevm", "optimism", "robinhood", "sei", "solana", "sonic", "xlayer"}
+    SOURCE_ONLY_CHAINS = {"ethereum", "hyperevm", "optimism", "sei", "sonic", "xlayer"}
     ENDPOINTS = {
         "solana:SOL",
         "solana:USDC",
         "solana:USDG",
-        "base:ETH",
         "base:USDC",
         "arbitrum:ETH",
         "arbitrum:USDC",
         "robinhood:ETH",
         "robinhood:USDG",
-        "polygon:USDC",
         "optimism:USDC",
         "ethereum:USDC",
         "hyperevm:USDC",
+        "xlayer:USDC",
+        "sei:USDC",
+        "sonic:USDC",
+    }
+    ROUTES = {
+        "arbitrum:ETH->arbitrum:USDC", "arbitrum:USDC->arbitrum:ETH", "arbitrum:USDC->robinhood:USDG", "arbitrum:USDC->solana:USDC", "arbitrum:USDC->solana:USDG",
+        "base:USDC->robinhood:USDG", "base:USDC->solana:USDC", "base:USDC->solana:USDG", "ethereum:USDC->solana:USDC", "hyperevm:USDC->solana:USDC", "optimism:USDC->base:USDC",
+        "robinhood:ETH->arbitrum:USDC", "robinhood:ETH->base:USDC", "robinhood:ETH->robinhood:USDG", "robinhood:ETH->solana:SOL", "robinhood:ETH->solana:USDC", "robinhood:ETH->solana:USDG",
+        "robinhood:USDG->arbitrum:USDC", "robinhood:USDG->base:USDC", "robinhood:USDG->robinhood:ETH", "robinhood:USDG->solana:SOL", "robinhood:USDG->solana:USDC",
+        "solana:SOL->base:USDC", "solana:SOL->robinhood:ETH", "solana:SOL->robinhood:USDG", "solana:SOL->solana:USDC", "solana:SOL->solana:USDG", "solana:USDC->arbitrum:USDC", "solana:USDC->base:USDC", "solana:USDC->robinhood:ETH", "solana:USDC->robinhood:USDG",
+        "solana:USDG->arbitrum:ETH", "solana:USDG->arbitrum:USDC", "solana:USDG->base:USDC", "solana:USDG->robinhood:ETH", "solana:USDG->robinhood:USDG", "xlayer:USDC->base:USDC", "xlayer:USDC->solana:USDC", "sei:USDC->base:USDC", "sei:USDC->solana:USDC", "sonic:USDC->base:USDC", "sonic:USDC->solana:USDC",
     }
     FORBIDDEN_SECRET_KEYS = {
         "private_key",
@@ -281,9 +290,8 @@ class AssetFareSessionCreateTool(Tool):
             raise ValueError("assetfare_identity_route_rejected")
         if to_chain in self.SOURCE_ONLY_CHAINS:
             raise ValueError("assetfare_destination_endpoint_invalid")
-        if from_chain in self.SOURCE_ONLY_CHAINS:
-            allowed=(from_u=="USDC" and to_u=="USDC" and ((from_chain in {"optimism","polygon"} and to_chain in {"base","arbitrum"}) or (from_chain in {"ethereum","hyperevm"} and to_chain in {"base","solana"})))
-            if not allowed:raise ValueError("assetfare_source_endpoint_invalid")
+        if from_chain+":"+from_u+"->"+to_chain+":"+to_u not in self.ROUTES:
+            raise ValueError("assetfare_route_inactive_or_unsupported")
         self._reject_secret_material(
             {
                 "wallets": wallets,

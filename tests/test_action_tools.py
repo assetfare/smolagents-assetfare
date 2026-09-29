@@ -7,8 +7,8 @@ Covers the new smolagents tools:
 
 No network. A stateful fake session models the server's create idempotency (keyed on
 the caller-owned X-AssetFare-Session-Token + idempotency_key) so replay / crash /
-independent-session behaviour can be asserted. Also runs the full 80-route multi-step
-MOCK e2e matrix: all 80 execution-ready routes complete quote -> prepare ->
+independent-session behaviour can be asserted. Also runs the full 42-route multi-step
+MOCK e2e matrix: all 42 active execution-ready routes complete quote -> prepare ->
 session lifecycle, including the four directional Polygon/Optimism source-only routes.
 """
 
@@ -246,7 +246,7 @@ def test_new_session_capability_unique_each_call():
 
 def test_prepare_happy():
     s = _Session([prepare_bundle_resp()])
-    out = prepare_tool(s).forward(True, "solana", "SOL", "base", "ETH", 250, WALLETS, approval("one_shot"))
+    out = prepare_tool(s).forward(True, "solana", "SOL", "base", "USDC", 250, WALLETS, approval("one_shot"))
     assert out["action_prepared"] is True
     assert out["transaction_signed"] is False and out["transaction_submitted"] is False
     assert out["server_signs_or_submits"] is False
@@ -273,14 +273,14 @@ def test_prepare_rejects_malformed_or_wrong_mode_approval_before_network(mut):
     mut(candidate)
     s = _Session([])
     with pytest.raises(ValueError, match="assetfare_(approval_v3|secret_material)"):
-        prepare_tool(s).forward(True, "solana", "SOL", "base", "ETH", 250, WALLETS, candidate)
+        prepare_tool(s).forward(True, "solana", "SOL", "base", "USDC", 250, WALLETS, candidate)
     assert s.calls == []
 
 
 @pytest.mark.parametrize("amt", [1000.01, 5000])
 def test_prepare_amount_above_former_business_maximum_accepted(amt):
     s = _Session([prepare_bundle_resp()])
-    prepare_tool(s).forward(True, "solana", "SOL", "base", "ETH", amt, WALLETS, approval("one_shot"))
+    prepare_tool(s).forward(True, "solana", "SOL", "base", "USDC", amt, WALLETS, approval("one_shot"))
     assert s.calls[0][2]["json"]["amount_usd"] == amt
 
 
@@ -288,7 +288,7 @@ def test_prepare_amount_above_former_business_maximum_accepted(amt):
 def test_prepare_rejects_non_finite_non_numeric_or_below_minimum_amount(amt):
     s = _Session([])
     with pytest.raises(ValueError, match="assetfare_amount_(invalid|out_of_range)"):
-        prepare_tool(s).forward(True, "solana", "SOL", "base", "ETH", amt, WALLETS, approval("one_shot"))
+        prepare_tool(s).forward(True, "solana", "SOL", "base", "USDC", amt, WALLETS, approval("one_shot"))
     assert s.calls == []
 
 
@@ -296,13 +296,13 @@ def test_prepare_rejects_non_finite_non_numeric_or_below_minimum_amount(amt):
 def test_prepare_caller_approved_gate(approved):
     s = _Session([])  # must fail BEFORE any network call
     with pytest.raises(ValueError, match="assetfare_caller_approval_required"):
-        prepare_tool(s).forward(approved, "solana", "SOL", "base", "ETH", 250, WALLETS, approval("one_shot"))
+        prepare_tool(s).forward(approved, "solana", "SOL", "base", "USDC", 250, WALLETS, approval("one_shot"))
     assert s.calls == []
 
 
 def test_prepare_accepts_source_only_execution_route():
     s = _Session([prepare_bundle_resp()])
-    out = prepare_tool(s).forward(True, "polygon", "USDC", "base", "USDC", 10, {"polygon": EVM, "base": EVM}, approval("one_shot"))
+    out = prepare_tool(s).forward(True, "xlayer", "USDC", "base", "USDC", 10, {"xlayer": EVM, "base": EVM}, approval("one_shot"))
     assert out["action_prepared"] is True
 
 
@@ -316,21 +316,21 @@ def test_prepare_accepts_source_only_execution_route():
 def test_prepare_rejects_secret_material(wallets):
     s = _Session([])
     with pytest.raises(ValueError, match="assetfare_secret_material_rejected"):
-        prepare_tool(s).forward(True, "solana", "SOL", "base", "ETH", 250, wallets, approval("one_shot"))
+        prepare_tool(s).forward(True, "solana", "SOL", "base", "USDC", 250, wallets, approval("one_shot"))
     assert s.calls == []
 
 
 def test_prepare_rejects_non_public_wallet():
     s = _Session([])
     with pytest.raises(ValueError, match="assetfare_wallet_not_public_address"):
-        prepare_tool(s).forward(True, "solana", "SOL", "base", "ETH", 250, {"solana": SOL, "base": "not-an-address"}, approval("one_shot"))
+        prepare_tool(s).forward(True, "solana", "SOL", "base", "USDC", 250, {"solana": SOL, "base": "not-an-address"}, approval("one_shot"))
     assert s.calls == []
 
 
 def test_prepare_rejects_wallets_route_mismatch():
     s = _Session([])
     with pytest.raises(ValueError, match="assetfare_wallets_route_mismatch"):
-        prepare_tool(s).forward(True, "solana", "SOL", "base", "ETH", 250, {"arbitrum": EVM}, approval("one_shot"))
+        prepare_tool(s).forward(True, "solana", "SOL", "base", "USDC", 250, {"arbitrum": EVM}, approval("one_shot"))
     assert s.calls == []
 
 
@@ -350,20 +350,20 @@ def test_prepare_rejects_private_key_as_event_signer():
 def test_prepare_rejects_unsafe_bundle():
     s = _Session([_Resp({"server_signing": True, "unsigned_action": {}})])
     with pytest.raises(ValueError, match="assetfare_safety_boundary_failed"):
-        prepare_tool(s).forward(True, "solana", "SOL", "base", "ETH", 250, WALLETS, approval("one_shot"))
+        prepare_tool(s).forward(True, "solana", "SOL", "base", "USDC", 250, WALLETS, approval("one_shot"))
 
 
 def test_prepare_rejects_bundle_missing_action():
     s = _Session([_Resp({"server_signing": False, "server_submission": False, "signed": False, "submitted": False})])
     with pytest.raises(ValueError, match="assetfare_bundle_missing_action"):
-        prepare_tool(s).forward(True, "solana", "SOL", "base", "ETH", 250, WALLETS, approval("one_shot"))
+        prepare_tool(s).forward(True, "solana", "SOL", "base", "USDC", 250, WALLETS, approval("one_shot"))
 
 
 # ---- session create + gate + token hostiles -----------------------------------
 
 def test_session_create_happy_sends_token_header():
     s = _Session([session_resp()])
-    out = create_tool(s).forward(True, "solana", "SOL", "base", "ETH", 250, WALLETS, TOKEN, "key-00000001", approval("session", "key-00000001"))
+    out = create_tool(s).forward(True, "solana", "SOL", "base", "USDC", 250, WALLETS, TOKEN, "key-00000001", approval("session", "key-00000001"))
     assert out["session_id"] == "3f2504e0-4f89-41d3-9a0c-0305e82c3301"
     hdr = s.calls[0][2]["headers"]["X-AssetFare-Session-Token"]
     assert hdr == TOKEN
@@ -388,7 +388,7 @@ def test_session_create_rejects_malformed_wrong_mode_or_key_approval_before_netw
     s = _Session([])
     with pytest.raises(ValueError, match="assetfare_(approval_v3|secret_material)"):
         create_tool(s).forward(
-            True, "solana", "SOL", "base", "ETH", 250, WALLETS,
+            True, "solana", "SOL", "base", "USDC", 250, WALLETS,
             TOKEN, "key-00000001", candidate,
         )
     assert s.calls == []
@@ -397,7 +397,7 @@ def test_session_create_rejects_malformed_wrong_mode_or_key_approval_before_netw
 @pytest.mark.parametrize("amt", [1000.01, 5000])
 def test_session_create_amount_above_former_business_maximum_accepted(amt):
     s = _Session([session_resp()])
-    create_tool(s).forward(True, "solana", "SOL", "base", "ETH", amt, WALLETS, TOKEN, "key-00000001", approval("session", "key-00000001"))
+    create_tool(s).forward(True, "solana", "SOL", "base", "USDC", amt, WALLETS, TOKEN, "key-00000001", approval("session", "key-00000001"))
     assert s.calls[0][2]["json"]["amount_usd"] == amt
 
 
@@ -405,7 +405,7 @@ def test_session_create_amount_above_former_business_maximum_accepted(amt):
 def test_session_create_caller_approved_gate(approved):
     s = _Session([])
     with pytest.raises(ValueError, match="assetfare_caller_approval_required"):
-        create_tool(s).forward(approved, "solana", "SOL", "base", "ETH", 250, WALLETS, TOKEN, "key-00000001", approval("session", "key-00000001"))
+        create_tool(s).forward(approved, "solana", "SOL", "base", "USDC", 250, WALLETS, TOKEN, "key-00000001", approval("session", "key-00000001"))
     assert s.calls == []
 
 
@@ -413,7 +413,7 @@ def test_session_create_caller_approved_gate(approved):
 def test_session_create_rejects_bad_token(bad):
     s = _Session([])
     with pytest.raises(ValueError, match="assetfare_session_token_invalid"):
-        create_tool(s).forward(True, "solana", "SOL", "base", "ETH", 250, WALLETS, bad, "key-00000001", approval("session", "key-00000001"))
+        create_tool(s).forward(True, "solana", "SOL", "base", "USDC", 250, WALLETS, bad, "key-00000001", approval("session", "key-00000001"))
     assert s.calls == []
 
 
@@ -421,7 +421,7 @@ def test_session_create_rejects_bad_token(bad):
 def test_session_create_rejects_bad_idempotency(bad):
     s = _Session([])
     with pytest.raises(ValueError, match="assetfare_idempotency_key_invalid"):
-        create_tool(s).forward(True, "solana", "SOL", "base", "ETH", 250, WALLETS, TOKEN, bad, approval("session", "key-00000001"))
+        create_tool(s).forward(True, "solana", "SOL", "base", "USDC", 250, WALLETS, TOKEN, bad, approval("session", "key-00000001"))
     assert s.calls == []
 
 
@@ -435,8 +435,8 @@ def test_session_create_accepts_source_only_execution_route():
 
 def test_session_replay_same_token_and_key_returns_same_session():
     srv = FakeServer()
-    a = create_tool(srv).forward(True, "solana", "SOL", "base", "ETH", 250, WALLETS, TOKEN, "key-abc-001", approval("session", "key-abc-001"))
-    b = create_tool(srv).forward(True, "solana", "SOL", "base", "ETH", 250, WALLETS, TOKEN, "key-abc-001", approval("session", "key-abc-001"))
+    a = create_tool(srv).forward(True, "solana", "SOL", "base", "USDC", 250, WALLETS, TOKEN, "key-abc-001", approval("session", "key-abc-001"))
+    b = create_tool(srv).forward(True, "solana", "SOL", "base", "USDC", 250, WALLETS, TOKEN, "key-abc-001", approval("session", "key-abc-001"))
     assert a["session_id"] == b["session_id"]  # replay -> same session
 
 
@@ -445,17 +445,17 @@ def test_session_lost_response_retry_same_token_key_recovers_same_session():
     # response never reaches the caller; the caller retries with the SAME token +
     # idempotency_key and recovers the SAME session (no duplicate).
     srv = FakeServer()
-    first = create_tool(srv).forward(True, "solana", "SOL", "base", "ETH", 250, WALLETS, TOKEN, "key-lost-1", approval("session", "key-lost-1"))
+    first = create_tool(srv).forward(True, "solana", "SOL", "base", "USDC", 250, WALLETS, TOKEN, "key-lost-1", approval("session", "key-lost-1"))
     # caller never saw `first`; retries identically
-    retry = create_tool(srv).forward(True, "solana", "SOL", "base", "ETH", 250, WALLETS, TOKEN, "key-lost-1", approval("session", "key-lost-1"))
+    retry = create_tool(srv).forward(True, "solana", "SOL", "base", "USDC", 250, WALLETS, TOKEN, "key-lost-1", approval("session", "key-lost-1"))
     assert first["session_id"] == retry["session_id"]
     assert srv._counter == 1  # exactly one session created despite two create calls
 
 
 def test_session_different_token_same_key_independent_sessions():
     srv = FakeServer()
-    a = create_tool(srv).forward(True, "solana", "SOL", "base", "ETH", 250, WALLETS, TOKEN, "key-shared", approval("session", "key-shared"))
-    b = create_tool(srv).forward(True, "solana", "SOL", "base", "ETH", 250, WALLETS, TOKEN2, "key-shared", approval("session", "key-shared"))
+    a = create_tool(srv).forward(True, "solana", "SOL", "base", "USDC", 250, WALLETS, TOKEN, "key-shared", approval("session", "key-shared"))
+    b = create_tool(srv).forward(True, "solana", "SOL", "base", "USDC", 250, WALLETS, TOKEN2, "key-shared", approval("session", "key-shared"))
     assert a["session_id"] != b["session_id"]  # idempotency key is token-scoped
 
 
@@ -463,7 +463,7 @@ def test_session_different_token_same_key_independent_sessions():
 
 def test_session_get_happy():
     srv = FakeServer()
-    created = create_tool(srv).forward(True, "solana", "SOL", "base", "ETH", 250, WALLETS, TOKEN, "key-get-1", approval("session", "key-get-1"))
+    created = create_tool(srv).forward(True, "solana", "SOL", "base", "USDC", 250, WALLETS, TOKEN, "key-get-1", approval("session", "key-get-1"))
     got = get_tool(srv).forward(TOKEN, created["session_id"])
     assert got["session_id"] == created["session_id"]
     # last call carried the token header and hit the {id} path
@@ -481,7 +481,7 @@ def test_session_get_rejects_bad_session_id():
 
 def test_observe_source_happy_only_caller_tx_hashes():
     srv = FakeServer()
-    created = create_tool(srv).forward(True, "solana", "SOL", "base", "ETH", 250, WALLETS, TOKEN, "key-os-1", approval("session", "key-os-1"))
+    created = create_tool(srv).forward(True, "solana", "SOL", "base", "USDC", 250, WALLETS, TOKEN, "key-os-1", approval("session", "key-os-1"))
     out = observe_source_tool(srv).forward(TOKEN, created["session_id"], "key-os-2", [TX_SRC])
     assert out["session_id"] == created["session_id"]
     body = srv.calls[-1][2]["json"]
@@ -498,7 +498,7 @@ def test_observe_source_rejects_bad_hashes(hashes):
 
 def test_observe_output_happy_optional_hash():
     srv = FakeServer()
-    created = create_tool(srv).forward(True, "solana", "SOL", "base", "ETH", 250, WALLETS, TOKEN, "key-oo-1", approval("session", "key-oo-1"))
+    created = create_tool(srv).forward(True, "solana", "SOL", "base", "USDC", 250, WALLETS, TOKEN, "key-oo-1", approval("session", "key-oo-1"))
     out = observe_output_tool(srv).forward(TOKEN, created["session_id"], "key-oo-2", TX_OUT)
     assert out["session_id"] == created["session_id"]
     assert srv.calls[-1][2]["json"]["transaction_hash"] == TX_OUT
@@ -506,14 +506,14 @@ def test_observe_output_happy_optional_hash():
 
 def test_observe_output_without_hash():
     srv = FakeServer()
-    created = create_tool(srv).forward(True, "solana", "SOL", "base", "ETH", 250, WALLETS, TOKEN, "key-oo-3", approval("session", "key-oo-3"))
+    created = create_tool(srv).forward(True, "solana", "SOL", "base", "USDC", 250, WALLETS, TOKEN, "key-oo-3", approval("session", "key-oo-3"))
     observe_output_tool(srv).forward(TOKEN, created["session_id"], "key-oo-4")
     assert "transaction_hash" not in srv.calls[-1][2]["json"]
 
 
 def test_refresh_action_happy():
     srv = FakeServer()
-    created = create_tool(srv).forward(True, "solana", "SOL", "base", "ETH", 250, WALLETS, TOKEN, "key-rf-1", approval("session", "key-rf-1"))
+    created = create_tool(srv).forward(True, "solana", "SOL", "base", "USDC", 250, WALLETS, TOKEN, "key-rf-1", approval("session", "key-rf-1"))
     out = refresh_tool(srv).forward(TOKEN, created["session_id"], "key-rf-2")
     assert out["session_id"] == created["session_id"]
     assert srv.calls[-1][1].endswith("/refresh-action")
@@ -541,38 +541,29 @@ def test_session_read_rejects_bad_token(tool_factory):
 def test_session_rejects_unsafe_response():
     s = _Session([_Resp({"session_id": "x", "server_signing": True})])
     with pytest.raises(ValueError, match="assetfare_safety_boundary_failed"):
-        create_tool(s).forward(True, "solana", "SOL", "base", "ETH", 250, WALLETS, TOKEN, "key-unsafe", approval("session", "key-unsafe"))
+        create_tool(s).forward(True, "solana", "SOL", "base", "USDC", 250, WALLETS, TOKEN, "key-unsafe", approval("session", "key-unsafe"))
 
 
-# ---- 80-route multi-step MOCK e2e matrix (all executable) ---------------------
+# ---- 42-route multi-step MOCK e2e matrix (all executable) ---------------------
 
 SOURCE_ENDPOINTS = [
     ("solana", "SOL"), ("solana", "USDC"), ("solana", "USDG"),
-    ("base", "ETH"), ("base", "USDC"),
+    ("base", "USDC"),
     ("arbitrum", "ETH"), ("arbitrum", "USDC"),
     ("robinhood", "ETH"), ("robinhood", "USDG"),
-    ("polygon", "USDC"), ("optimism", "USDC"),
+    ("optimism", "USDC"),
     ("ethereum", "USDC"), ("hyperevm", "USDC"),
+    ("xlayer", "USDC"), ("sei", "USDC"), ("sonic", "USDC"),
 ]
-DEST_ENDPOINTS = [ep for ep in SOURCE_ENDPOINTS if ep[0] not in ("ethereum", "hyperevm", "polygon", "optimism")]
-SOURCE_ONLY = {"ethereum", "hyperevm", "polygon", "optimism"}
+DEST_ENDPOINTS = [ep for ep in SOURCE_ENDPOINTS if ep[0] not in ("ethereum", "hyperevm", "optimism", "xlayer", "sei", "sonic")]
+SOURCE_ONLY = {"ethereum", "hyperevm", "optimism", "xlayer", "sei", "sonic"}
 WALLET_ADDR = {
-    "solana": SOL, "base": EVM, "arbitrum": EVM, "robinhood": EVM, "polygon": EVM, "optimism": EVM, "ethereum": EVM, "hyperevm": EVM,
+    "solana": SOL, "base": EVM, "arbitrum": EVM, "robinhood": EVM, "optimism": EVM, "ethereum": EVM, "hyperevm": EVM, "xlayer": EVM, "sei": EVM, "sonic": EVM,
 }
 
 
 def _enumerate_routes():
-    routes = []
-    for sc, st in SOURCE_ENDPOINTS:
-        for dc, dt in DEST_ENDPOINTS:
-            if (sc, st) == (dc, dt):
-                continue
-            if sc in {"polygon","optimism"} and not (st == "USDC" and dc in ("base", "arbitrum") and dt == "USDC"):
-                continue
-            if sc in {"ethereum","hyperevm"} and not (st == "USDC" and dc in ("base", "solana") and dt == "USDC"):
-                continue
-            routes.append((sc, st, dc, dt))
-    return routes
+    return [tuple(route.replace("->", ":").split(":")) for route in sorted(AssetFarePrepareTool.ROUTES)]
 
 
 def _quote_payload(sc, st, dc, dt):
@@ -603,9 +594,9 @@ def _quote_payload(sc, st, dc, dt):
         steps_meta.append({"kind":"direct_receive","provider":"circle_cctp_receive","chain":chain,"from":"USDC","to":"USDC","source_chain":source_chain,"cctp_mode":"no_forward","destination_native_gas_required":True})
 
     if sc in SOURCE_ONLY:
-        mode = sc + "_source_cctp" if sc in {"optimism","polygon"} else "cctp_direct_composition"
+        mode = "optimism_source_cctp" if sc == "optimism" else "cctp_direct_composition"
         add_bridge("circle_cctp", sc, dc, "USDC", "USDC")
-        if sc in {"optimism","polygon"}:add_receive(dc,sc)
+        if sc == "optimism":add_receive(dc,sc)
     elif sc == dc:
         if sc == "solana" and {st, dt} == {"SOL", "USDG"}:
             mode = "same_chain_direct_composition"
@@ -780,7 +771,7 @@ def _quote_payload(sc, st, dc, dt):
             "step_count": len(summary_steps), "steps": summary_steps,
         },
         "execution": execution,
-        "economic_guidance":{"advisory_start_usd":1000,"advisory_role":"structural_evaluation_start_not_observed_eligibility","status":"provisional_evaluation_start","confidence":"structural_estimate","basis":"offline_fixture_only","tested_amounts_usd":[],"not_an_execution_minimum":True,"not_a_best_price_guarantee":True,"fresh_quote_required":True},
+        "economic_guidance":{"advisory_start_usd":None if sc=="sei" else 1000,"best_from_usd":None if sc=="sei" else 1000,"best_from_verified":sc!="sei","availability_only":sc=="sei","public_activation_status":"active_unique_availability" if sc=="sei" else "active_price_verified","public_active":True,"recommendation_status":"active_unique_availability" if sc=="sei" else "active_price_verified","recommended_action":"use_assetfare_when_route_availability_is_required" if sc=="sei" else "use_assetfare_first_at_or_above_best_from","confidence":"paired_all_in_snapshot","basis":"offline_fixture_only","tested_amounts_usd":[50,100,250,500,1000,2500,5000,10000],"tested_ceiling_usd":10000,"not_an_execution_minimum":True,"not_a_best_price_guarantee":True,"fresh_quote_required":True},
         "caller_action_plan_handoff": handoff,
     }
     return _add_continuation(quote)
@@ -861,30 +852,28 @@ def _fixed_utcnow():
 
 def test_route_matrix_counts():
     routes = _enumerate_routes()
-    assert len(routes) == 80
+    assert len(routes) == 42
     executable = [r for r in routes if r[0] not in SOURCE_ONLY]
     blocked = [r for r in routes if r[0] in SOURCE_ONLY]
-    assert len(executable) == 72
-    assert len(blocked) == 8
+    assert len(executable) == 33
+    assert len(blocked) == 9
     assert sorted(f"{a}:{b}->{c}:{d}" for a, b, c, d in blocked) == [
-        "ethereum:USDC->base:USDC",
         "ethereum:USDC->solana:USDC",
-        "hyperevm:USDC->base:USDC",
         "hyperevm:USDC->solana:USDC",
-        "optimism:USDC->arbitrum:USDC",
         "optimism:USDC->base:USDC",
-        "polygon:USDC->arbitrum:USDC",
-        "polygon:USDC->base:USDC",
+        "sei:USDC->base:USDC", "sei:USDC->solana:USDC",
+        "sonic:USDC->base:USDC", "sonic:USDC->solana:USDC",
+        "xlayer:USDC->base:USDC", "xlayer:USDC->solana:USDC",
     ]
 
 
-def test_e2e_80_route_matrix():
+def test_e2e_42_route_matrix():
     from assetfare_quote_tool import AssetFareQuoteTool
 
     routes = _enumerate_routes()
     executed_full = 0
     for sc, st, dc, dt in routes:
-        # 1) quote (all 80)
+        # 1) quote (all 42 active routes)
         qs = _Session([_Resp(_quote_payload(sc, st, dc, dt))])
         q = AssetFareQuoteTool(session=qs, monotonic=clk(), utcnow=_fixed_utcnow)
         quote = q.forward(sc, st, dc, dt, 250)
@@ -908,4 +897,4 @@ def test_e2e_80_route_matrix():
         assert refresh_tool(srv).forward(TOKEN, sid, "key-e2e-0004")["session_id"] == sid
         executed_full += 1
 
-    assert executed_full == 80
+    assert executed_full == 42

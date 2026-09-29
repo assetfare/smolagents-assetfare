@@ -29,36 +29,24 @@ AS_OF = "2026-09-17T00:00:05Z"  # 5s before FIXED_NOW
 QUOTE_PAYLOAD_SHA256_SPEC = "sha256(AssetFare typed-canonical-v1 bytes of the quote without continuation_v3 after exact base-unit substitution: n=null; t/f=boolean; d=<IEEE-754 binary64 big-endian 16 lowercase hex> for each finite JSON number; s=<UTF-8 byte length>:<Unicode scalar text with lone surrogates forbidden>; a=<count>:[items]; o=<count>:{UTF-8-byte-sorted string-key/value pairs}; every non-substituted integral JSON number must be within +/-9007199254740991; substituted paths are intent.estimated_input_base, route.input_base, route.expected_output_base, route.minimum_output_base, and every route.steps[i].expected_input_base/floor_input_base/expected_output_base/minimum_output_base from direct_route_summary exact decimal strings)"
 
 EVALUATION_GUIDANCE = {
-    "schema_version": 2,
+    "schema_version": 4,
     "route_minimum_usd": 1,
     "reachability_smoke_usd": 1,
     "reachability_smoke_scope": "connectivity_only_not_economic_evaluation",
-    "route_specific_guidance": {"version":"assetfare-route-economic-guidance-v1","url":"https://assetfare.dev/route-economics.json","required_on_every_quote":True,"controls_evaluation_start":True,"values_change_with_market":True},
+    "route_specific_guidance": {"version":"assetfare-route-economic-guidance-v3","url":"https://assetfare.dev/route-economics.json","required_on_every_quote":True,"verified_best_from_only":True,"nullable_when_unverified":True,"controls_recommendation_only_when_verified":True,"values_change_with_market":True,"catalog_routes":90,"public_active_routes":42,"public_inactive_routes":48,"availability_only_routes":2},
     "documentation_example_usd": 1000,
     "documentation_example_scope": "example_only_not_route_guidance_or_minimum",
     "sol_input_caveat": (
         "SOL-input routes add a source swap, so compare their full fee-inclusive route economics separately."
     ),
-    "historical_observation": {"route":"solana:USDC->base:USDC","observed_competitive_bucket_usd":50,"evidence_as_of":"2026-09-23","not_generalizable":True},
+    "historical_observation": {"route":"solana:USDC->base:USDC","observed_competitive_bucket_usd":500,"evidence_as_of":"2026-09-29","not_generalizable":True},
     "not_a_minimum": True,
     "not_guaranteed_best": True,
     "always_compare_fresh_at_intended_amount": True,
 }
-PUBLIC_EVALUATION_GUIDANCE = {
-    "schema_version": 3,
-    "route_minimum_usd": 1,
-    "reachability_smoke_usd": 1,
-    "reachability_smoke_scope": "connectivity_only_not_economic_evaluation",
-    "route_specific_best_from": {"field":"economic_guidance.advisory_start_usd","url":"https://assetfare.dev/route-economics.json","required_on_every_quote":True,"use_assetfare_first_at_or_above":True,"values_change_with_market":True},
-    "best_from_not_100_percent_guarantee": True,
-    "confirm_fresh_assetfare_quote": True,
-    "execution_selection_separate": True,
-    "automatic_selection_forbidden": True,
-    "documentation_example_usd": 1000,
-    "documentation_example_scope": "example_only_not_route_guidance_or_minimum",
-}
-ECONOMIC_GUIDANCE={"version":"assetfare-route-economic-guidance-v1","as_of":"2026-09-27","route_count":80,"currency":"USD","technical_quote_minimum_usd":1,"economic_guidance_is_non_enforcing":True,"amount_is_never_rejected_by_economic_guidance":True,"values_change_with_market":True,"fresh_quote_and_caller_decision_control":True,"update_policy":"append_daily_observations_then_replace_values_without_schema_change","confidence_counts":{"measured_two_day":4,"measured_route_specific":11,"structural_estimate":37,"reworked_route_remeasure":14,"coverage_only_retest":14},"advisory_start_distribution":{"50":1,"100":6,"250":13,"500":12,"1000":19,"2500":4,"5000":18,"10000":7}}
-ROUTE_ECONOMIC_GUIDANCE={"advisory_start_usd":1000,"advisory_role":"structural_evaluation_start_not_observed_eligibility","status":"provisional_evaluation_start","confidence":"structural_estimate","basis":"offline_fixture_only","tested_amounts_usd":[],"not_an_execution_minimum":True,"not_a_best_price_guarantee":True,"fresh_quote_required":True}
+PUBLIC_EVALUATION_GUIDANCE = EVALUATION_GUIDANCE
+ECONOMIC_GUIDANCE={"version":"assetfare-route-economic-guidance-v3","as_of":"2026-09-29","route_count":90,"public_active_route_count":42,"public_inactive_route_count":48,"verified_best_from_route_count":40,"availability_only_route_count":2,"currency":"USD","technical_quote_minimum_usd":1,"economic_guidance_is_non_enforcing":True,"amount_is_never_rejected_by_economic_guidance":True,"values_change_with_market":True,"fresh_quote_and_caller_decision_control":True,"update_policy":"daily_measurement_with_three_day_activation_hysteresis","first_use_zero_allowance_scenario":True,"expected_output_ranking":True,"incomplete_cost_never_promoted":True,"tested_ceiling_usd":10000,"advisory_start_distribution":{"50":5,"100":5,"250":5,"500":5,"1000":5,"2500":5,"5000":5,"10000":5},"recommendation_status_counts":{"active_price_verified":40,"active_unique_availability":2,"inactive_economics":48}}
+ROUTE_ECONOMIC_GUIDANCE={"advisory_start_usd":1000,"best_from_usd":1000,"best_from_verified":True,"availability_only":False,"public_activation_status":"active_price_verified","public_active":True,"recommendation_status":"active_price_verified","recommended_action":"use_assetfare_first_at_or_above_best_from","confidence":"paired_all_in_snapshot","basis":"offline_fixture_only","tested_amounts_usd":[50,100,250,500,1000,2500,5000,10000],"tested_ceiling_usd":10000,"not_an_execution_minimum":True,"not_a_best_price_guarantee":True,"fresh_quote_required":True}
 
 
 def fixed_now() -> datetime:
@@ -124,11 +112,11 @@ def caps_payload():
     return {
         "status": "capped_public_agent_release",
         "public_api_enabled": True,
-        "directed_conversion_routes": 80,
-        "unsigned_route_plans_ready": 80,
-        "execution_ready_routes": 80,
-        "execution_implemented_routes": 80,
-        "currently_prepare_ready_routes": 80,
+        "directed_conversion_routes": 42,
+        "unsigned_route_plans_ready": 42,
+        "execution_ready_routes": 42,
+        "execution_implemented_routes": 42,
+        "currently_prepare_ready_routes": 42,
         "temporarily_unavailable_routes": [],
         "temporarily_unavailable_route_count": 0,
         "execution_availability": {"status":"available","provider":"circle_iris","provider_dependent_routes":50,"recent_fee_snapshot_usable":True,"guarantees_future_availability":False},
@@ -136,43 +124,44 @@ def caps_payload():
         "blocked_source_only_routes": [],
         "server_signing": False,
         "server_submission": False,
-        "chains": ["solana", "base", "arbitrum", "robinhood", "polygon", "optimism", "ethereum", "hyperevm"],
+        "chains": ["solana", "base", "arbitrum", "robinhood", "optimism", "ethereum", "hyperevm", "xlayer", "sei", "sonic"],
         "asset_endpoints": [
             {"chain": "solana", "token": "SOL"},
             {"chain": "solana", "token": "USDC"},
             {"chain": "solana", "token": "USDG"},
-            {"chain": "base", "token": "ETH"},
             {"chain": "base", "token": "USDC"},
             {"chain": "arbitrum", "token": "ETH"},
             {"chain": "arbitrum", "token": "USDC"},
             {"chain": "robinhood", "token": "ETH"},
             {"chain": "robinhood", "token": "USDG"},
-            {"chain": "polygon", "token": "USDC"},
             {"chain": "optimism", "token": "USDC"},
             {"chain": "ethereum", "token": "USDC"},
             {"chain": "hyperevm", "token": "USDC"},
+            {"chain": "xlayer", "token": "USDC"},
+            {"chain": "sei", "token": "USDC"},
+            {"chain": "sonic", "token": "USDC"},
         ],
         "source_only_asset_endpoints": [
-            {"chain": "polygon", "token": "USDC"},
             {"chain": "optimism", "token": "USDC"},
             {"chain": "ethereum", "token": "USDC"},
             {"chain": "hyperevm", "token": "USDC"},
+            {"chain": "xlayer", "token": "USDC"},
+            {"chain": "sei", "token": "USDC"},
+            {"chain": "sonic", "token": "USDC"},
         ],
         "source_only_routes": [
-            "polygon:USDC->base:USDC",
-            "polygon:USDC->arbitrum:USDC",
             "optimism:USDC->base:USDC",
-            "optimism:USDC->arbitrum:USDC",
-            "ethereum:USDC->base:USDC",
             "ethereum:USDC->solana:USDC",
-            "hyperevm:USDC->base:USDC",
             "hyperevm:USDC->solana:USDC",
+            "xlayer:USDC->base:USDC", "xlayer:USDC->solana:USDC",
+            "sei:USDC->base:USDC", "sei:USDC->solana:USDC",
+            "sonic:USDC->base:USDC", "sonic:USDC->solana:USDC",
         ],
         "destination_chains": ["arbitrum", "base", "robinhood", "solana"],
         "amount_usd": {"minimum": 1, "maximum": None, "policy": "no_business_maximum"},
         "evaluation_guidance": dict(EVALUATION_GUIDANCE),
         "economic_guidance": copy.deepcopy(ECONOMIC_GUIDANCE),
-        "route_product_policy": {"amount_conditioned_routes":{},"economic_guidance":copy.deepcopy(ECONOMIC_GUIDANCE),"economic_guidance_url":"https://assetfare.dev/route-economics.json"},
+        "route_product_policy": {"primary_direct_route_count":42,"external_coverage_only_route_count":0,"active_route_count":42,"inactive_route_count":48,"inactive_routes":[f"inactive-{index}" for index in range(48)],"amount_conditioned_routes":{route:1000 for route in AssetFareCapabilitiesTool.ROUTES if not route.startswith("sei:")},"economic_guidance":copy.deepcopy(ECONOMIC_GUIDANCE),"economic_guidance_url":"https://assetfare.dev/route-economics.json","automatic_external_fallback_forbidden":True},
     }
 
 
@@ -187,19 +176,19 @@ def status_payload():
 def quote_payload():
     raw_steps = [
         {
-            "index": 0, "kind": "direct_swap", "provider": "raydium_clmm", "chain": "solana",
-            "from": "SOL", "to": "USDC", "route_fee_bps": 0,
+            "index": 0, "kind": "direct_swap", "provider": "orca_whirlpool", "chain": "solana",
+            "from": "USDG", "to": "USDC", "route_fee_bps": 0,
             "expected_input_base": 1500000000, "floor_input_base": 1500000000,
             "expected_output_base": 250000000, "minimum_output_base": 249000000,
         },
         {
             "index": 1, "kind": "direct_bridge", "provider": "circle_cctp", "from": "solana",
-            "to": "base", "asset": "USDC", "route_fee_bps": 1,
+            "to": "arbitrum", "asset": "USDC", "route_fee_bps": 1,
             "expected_input_base": 250000000, "floor_input_base": 249000000,
             "expected_output_base": 249900000, "minimum_output_base": 248000000,
         },
         {
-            "index": 2, "kind": "direct_swap", "provider": "uniswap_v3", "chain": "base",
+            "index": 2, "kind": "direct_swap", "provider": "uniswap_v3", "chain": "arbitrum",
             "from": "USDC", "to": "ETH", "route_fee_bps": 0,
             "expected_input_base": 249900000, "floor_input_base": 248000000,
             "expected_output_base": 72100000000000000, "minimum_output_base": 71500000000000000,
@@ -207,8 +196,8 @@ def quote_payload():
     ]
     summary_steps = [
         {
-            "index": 0, "action": "swap", "provider": "raydium_clmm",
-            "from": "solana:SOL", "to": "solana:USDC",
+            "index": 0, "action": "swap", "provider": "orca_whirlpool",
+            "from": "solana:USDG", "to": "solana:USDC",
             "expected_input_base": "1500000000", "minimum_input_base": "1500000000",
             "expected_output_base": "250000000", "minimum_output_base": "249000000",
             "assetfare_fee_bps": 0, "direct_protocol": True,
@@ -216,7 +205,7 @@ def quote_payload():
         },
         {
             "index": 1, "action": "bridge", "provider": "circle_cctp",
-            "from": "solana:USDC", "to": "base:USDC",
+            "from": "solana:USDC", "to": "arbitrum:USDC",
             "expected_input_base": "250000000", "minimum_input_base": "249000000",
             "expected_output_base": "249900000", "minimum_output_base": "248000000",
             "assetfare_fee_bps": 1, "direct_protocol": True,
@@ -224,7 +213,7 @@ def quote_payload():
         },
         {
             "index": 2, "action": "swap", "provider": "uniswap_v3",
-            "from": "base:USDC", "to": "base:ETH",
+            "from": "arbitrum:USDC", "to": "arbitrum:ETH",
             "expected_input_base": "249900000", "minimum_input_base": "248000000",
             "expected_output_base": "72100000000000000", "minimum_output_base": "71500000000000000",
             "assetfare_fee_bps": 0, "direct_protocol": True,
@@ -237,13 +226,13 @@ def quote_payload():
         "ttl_seconds": 60,
         "as_of": AS_OF,
         "intent": {
-            "from": "solana:SOL",
-            "to": "base:ETH",
+            "from": "solana:USDG",
+            "to": "arbitrum:ETH",
             "amount_usd": 250.0,
             "estimated_input_base": 1500000000,
         },
         "route": {
-            "route": "solana:SOL->base:ETH",
+            "route": "solana:USDG->arbitrum:ETH",
             "mode": "cctp_direct_composition",
             "product_classification": "primary_direct",
             "economic_eligibility": "not_asserted_by_capability",
@@ -283,9 +272,9 @@ def quote_payload():
         },
         "direct_route_summary": {
             "version": "assetfare-direct-route-summary-v1",
-            "route": "solana:SOL->base:ETH",
-            "from": "solana:SOL",
-            "to": "base:ETH",
+            "route": "solana:USDG->arbitrum:ETH",
+            "from": "solana:USDG",
+            "to": "arbitrum:ETH",
             "classification": "direct_protocol_only",
             "mode": "cctp_direct_composition",
             "product_classification": "primary_direct",
@@ -663,11 +652,11 @@ def test_quote_tool_description_surfaces_route_transparency_and_current_direct_s
         "route_aggregator_used=false",
         "market-wide aggregator api",
         "external_intent",
-        "80 current routes are direct_protocol_only",
+        "42 active routes are direct_protocol_only",
         "route-economics.json",
-        "best-from amount",
-        "use assetfare first",
-        "not a 100% guarantee",
+        "best_from_usd",
+        "best_from_verified=true",
+        "availability-only",
         "1bp fee step",
     ):
         assert marker in description
@@ -711,24 +700,22 @@ def test_origin_accepts_canonical_and_trailing_slash():
 def test_capabilities_happy():
     s = _Session([_Resp(caps_payload()), _Resp(status_payload())])
     out = caps_tool(s).forward()
-    assert out["directed_conversion_routes"] == 80
-    assert out["unsigned_route_plans_ready"] == 80
-    assert out["execution_ready_routes"] == 80
-    assert out["currently_prepare_ready_routes"] == 80
+    assert out["directed_conversion_routes"] == 42
+    assert out["unsigned_route_plans_ready"] == 42
+    assert out["execution_ready_routes"] == 42
+    assert out["currently_prepare_ready_routes"] == 42
     assert out["phase_b_blocked_routes"] == 0
     assert out["blocked_source_only_routes"] == []
-    assert out["chains"] == ["arbitrum", "base", "ethereum", "hyperevm", "optimism", "polygon", "robinhood", "solana"]
-    assert len(out["asset_endpoints"]) == 13
-    assert out["source_only_asset_endpoints"] == ["ethereum:USDC", "hyperevm:USDC", "optimism:USDC", "polygon:USDC"]
+    assert out["chains"] == ["arbitrum", "base", "ethereum", "hyperevm", "optimism", "robinhood", "sei", "solana", "sonic", "xlayer"]
+    assert len(out["asset_endpoints"]) == 14
+    assert out["source_only_asset_endpoints"] == ["ethereum:USDC", "hyperevm:USDC", "optimism:USDC", "sei:USDC", "sonic:USDC", "xlayer:USDC"]
     assert sorted(out["source_only_routes"]) == [
-        "ethereum:USDC->base:USDC",
         "ethereum:USDC->solana:USDC",
-        "hyperevm:USDC->base:USDC",
         "hyperevm:USDC->solana:USDC",
-        "optimism:USDC->arbitrum:USDC",
         "optimism:USDC->base:USDC",
-        "polygon:USDC->arbitrum:USDC",
-        "polygon:USDC->base:USDC",
+        "sei:USDC->base:USDC", "sei:USDC->solana:USDC",
+        "sonic:USDC->base:USDC", "sonic:USDC->solana:USDC",
+        "xlayer:USDC->base:USDC", "xlayer:USDC->solana:USDC",
     ]
     assert out["destination_chains"] == ["arbitrum", "base", "robinhood", "solana"]
     assert out["tool_scope_quote_only"] is True
@@ -897,9 +884,9 @@ def test_capabilities_rejects_status_wrong():
 # ---- quote happy --------------------------------------------------------
 
 def test_quote_happy():
-    out = quote_tool(quote_session(with_cost_summary(quote_payload()))).forward("solana", "sol", "base", "eth", 250)
-    assert out["from"] == "solana:SOL"
-    assert out["to"] == "base:ETH"
+    out = quote_tool(quote_session(with_cost_summary(quote_payload()))).forward("solana", "usdg", "arbitrum", "eth", 250)
+    assert out["from"] == "solana:USDG"
+    assert out["to"] == "arbitrum:ETH"
     assert out["output_symbol"] == "ETH"
     assert out["amount_usd"] == 250.0
     assert out["assetfare_fee_bps"] == 1
@@ -913,6 +900,10 @@ def test_quote_happy():
     assert out["economic_guidance_url"] == "https://assetfare.dev/route-economics.json"
     assert out["agent_guidance"] == {
         "best_from_usd": 1000,
+        "best_from_verified": True,
+        "availability_only": False,
+        "recommendation_status": "active_price_verified",
+        "recommended_action": "use_assetfare_first_at_or_above_best_from",
         "use_assetfare_first_at_or_above_best_from": False,
         "best_from_not_100_percent_guarantee": True,
         "confirm_fresh_assetfare_quote": True,
@@ -928,7 +919,7 @@ def test_quote_happy():
     assert summary["route_aggregator_used"] is False
     assert summary["fee_collection_step_index"] == 1
     assert [step["provider"] for step in summary["steps"]] == [
-        "raydium_clmm", "circle_cctp", "uniswap_v3"
+        "orca_whirlpool", "circle_cctp", "uniswap_v3"
     ]
     descriptor = out["continuation_descriptor"]
     assert descriptor == {
@@ -938,7 +929,7 @@ def test_quote_happy():
         "expires_at": "2026-09-17T00:01:00.000Z",
         "ttl_seconds": 60,
         "selection_status": "unranked_candidate",
-        "required_wallet_chains": ["base", "solana"],
+        "required_wallet_chains": ["arbitrum", "solana"],
         "event_signer_public_required": True,
         "allowed_modes": ["session"],
         "recommended_mode": "session",
@@ -968,10 +959,15 @@ def test_quote_happy():
 def test_quote_marks_assetfare_first_at_route_best_from_without_selecting_execution():
     payload = with_cost_summary(quote_payload())
     payload["economic_guidance"]["advisory_start_usd"] = 250
+    payload["economic_guidance"]["best_from_usd"] = 250
     add_continuation(payload)
-    out = quote_tool(quote_session(payload)).forward("solana", "sol", "base", "eth", 250)
+    out = quote_tool(quote_session(payload)).forward("solana", "usdg", "arbitrum", "eth", 250)
     assert out["agent_guidance"] == {
         "best_from_usd": 250,
+        "best_from_verified": True,
+        "availability_only": False,
+        "recommendation_status": "active_price_verified",
+        "recommended_action": "use_assetfare_first_at_or_above_best_from",
         "use_assetfare_first_at_or_above_best_from": True,
         "best_from_not_100_percent_guarantee": True,
         "confirm_fresh_assetfare_quote": True,
@@ -992,7 +988,7 @@ def test_quote_marks_assetfare_first_at_route_best_from_without_selecting_execut
 def test_quote_route_specific_economic_guidance_fail_closed(mut):
     payload=with_cost_summary(quote_payload());mut(payload)
     with pytest.raises(ValueError,match="assetfare_route_economic_guidance_invalid"):
-        quote_tool(quote_session(payload)).forward("solana","SOL","base","ETH",250)
+        quote_tool(quote_session(payload)).forward("solana","USDG","arbitrum","ETH",250)
 
 
 def test_robinhood_ingress_exposes_direct_paxos_path():
@@ -1031,7 +1027,7 @@ def test_direct_route_summary_hostiles_fail_closed(mut):
     payload = quote_payload()
     mut(payload)
     with pytest.raises(ValueError):
-        quote_tool(quote_session(payload)).forward("solana", "SOL", "base", "ETH", 250)
+        quote_tool(quote_session(payload)).forward("solana", "USDG", "arbitrum", "ETH", 250)
 
 
 @pytest.mark.parametrize("mut", [
@@ -1057,12 +1053,12 @@ def test_continuation_v3_hostiles_fail_closed(mut):
     payload = with_cost_summary(quote_payload())
     mut(payload)
     with pytest.raises(ValueError):
-        quote_tool(quote_session(payload)).forward("solana", "SOL", "base", "ETH", 250)
+        quote_tool(quote_session(payload)).forward("solana", "USDG", "arbitrum", "ETH", 250)
 
 
 def test_continuation_payload_hash_accepts_integral_float_and_base_units_above_js_safe_integer():
     payload = source_only_quote_payload(
-        ("ethereum", "USDC"), ("base", "USDC"), "ethereum:USDC->base:USDC", 1, 1, [0]
+        ("ethereum", "USDC"), ("solana", "USDC"), "ethereum:USDC->solana:USDC", 1, 1, [0]
     )
     expected_input = 9_007_199_254_740_993
     expected_output = expected_input - 100
@@ -1086,7 +1082,7 @@ def test_continuation_payload_hash_accepts_integral_float_and_base_units_above_j
         minimum_output_base=str(minimum_output),
     )
     add_continuation(payload)
-    out = quote_tool(quote_session(payload)).forward("ethereum", "USDC", "base", "USDC", 1000.0)
+    out = quote_tool(quote_session(payload)).forward("ethereum", "USDC", "solana", "USDC", 1000.0)
     assert out["continuation_descriptor"]["quote_fingerprint"] == payload["continuation_v3"]["quote_fingerprint"]
 
 
@@ -1148,14 +1144,14 @@ def test_raw_route_secret_or_signed_claim_fails_closed(mut):
     payload = quote_payload()
     mut(payload)
     with pytest.raises(ValueError, match="assetfare_safety_boundary_failed"):
-        quote_tool(quote_session(payload)).forward("solana", "SOL", "base", "ETH", 250)
+        quote_tool(quote_session(payload)).forward("solana", "USDG", "arbitrum", "ETH", 250)
 
 
 def test_raw_provider_evidence_is_not_projected_into_normalized_summary():
     payload = quote_payload()
     payload["route"]["steps"][0]["expected_evidence"] = {"provider_raw": "opaque", "signed": False}
     add_continuation(payload)
-    out = quote_tool(quote_session(payload)).forward("solana", "SOL", "base", "ETH", 250)
+    out = quote_tool(quote_session(payload)).forward("solana", "USDG", "arbitrum", "ETH", 250)
     encoded = json.dumps(out["direct_route_summary"], sort_keys=True)
     assert "expected_evidence" not in encoded
     assert "provider_raw" not in encoded
@@ -1176,11 +1172,11 @@ def test_raw_provider_evidence_is_not_projected_into_normalized_summary():
 ])
 def test_quote_cost_and_eta_binding_hostiles(mut):
     payload=with_cost_summary(quote_payload());mut(payload)
-    with pytest.raises(ValueError):quote_tool(quote_session(payload)).forward("solana","SOL","base","ETH",250)
+    with pytest.raises(ValueError):quote_tool(quote_session(payload)).forward("solana","USDG","arbitrum","ETH",250)
 
 
 def test_rollback_core_without_cost_derives_honest_total():
-    out=quote_tool(quote_session(quote_payload())).forward("solana","SOL","base","ETH",250)
+    out=quote_tool(quote_session(quote_payload())).forward("solana","USDG","arbitrum","ETH",250)
     assert out["cost_summary"]["scope"]=="token_path_only_network_gas_excluded"
     assert "provider_fee_breakdown_unavailable_legacy_core" in out["cost_summary"]["unpriced_costs"]
 
@@ -1188,17 +1184,17 @@ def test_rollback_core_without_cost_derives_honest_total():
 def test_quote_accepts_sub_micro_usd_rounding_alignment():
     payload=with_cost_summary(quote_payload());payload["offer"]["expected_receive_usd"]=249.1234567;payload["cost_summary"]["expected_receive_value_usd"]=249.123457;payload["cost_summary"]["expected_total_cost_usd"]=.876543;payload["cost_summary"]["expected_total_cost_percent"]=.3506172
     add_continuation(payload)
-    out=quote_tool(quote_session(payload)).forward("solana","SOL","base","ETH",250)
+    out=quote_tool(quote_session(payload)).forward("solana","USDG","arbitrum","ETH",250)
     assert out["cost_summary"]["expected_receive_value_usd"]==249.123457
 
 
-def test_polygon_source_quote_happy():
-    # Polygon is directional source-only and usable only while live availability permits.
+def test_xlayer_source_quote_happy():
+    # X Layer is directional source-only and usable only while live availability permits.
     payload = source_only_quote_payload(
-        ("polygon", "USDC"), ("arbitrum", "USDC"), "polygon:USDC->arbitrum:USDC", 1, 1, [0]
+        ("xlayer", "USDC"), ("base", "USDC"), "xlayer:USDC->base:USDC", 1, 1, [0]
     )
-    out = quote_tool(quote_session(payload)).forward("polygon", "USDC", "arbitrum", "USDC", 10)
-    assert out["from"] == "polygon:USDC" and out["to"] == "arbitrum:USDC"
+    out = quote_tool(quote_session(payload)).forward("xlayer", "USDC", "base", "USDC", 10)
+    assert out["from"] == "xlayer:USDC" and out["to"] == "base:USDC"
     assert out["source_only"] is True
     assert out["execution_supported"] is True
     assert out["execution_blocker"] is None
@@ -1206,7 +1202,7 @@ def test_polygon_source_quote_happy():
     assert out["fee_modeled_bps"] == 1
     assert out["fee_collectible_now"] is True
     assert "caller_action_plan_handoff" not in out
-    assert out["continuation_descriptor"]["required_wallet_chains"] == ["arbitrum", "polygon"]
+    assert out["continuation_descriptor"]["required_wallet_chains"] == ["base", "xlayer"]
 
 
 def test_polygon_destination_and_wrong_corridor_rejected():
@@ -1233,7 +1229,7 @@ def test_optimism_source_quote_happy():
 def test_optimism_destination_and_wrong_corridor_rejected():
     with pytest.raises(ValueError, match="assetfare_destination_endpoint_invalid"):
         quote_tool(quote_session()).forward("base", "USDC", "optimism", "USDC", 10)
-    with pytest.raises(ValueError, match="assetfare_source_endpoint_invalid"):
+    with pytest.raises(ValueError, match="assetfare_route_inactive_or_unsupported"):
         quote_tool(quote_session()).forward("optimism", "USDC", "solana", "USDC", 10)
 
 
@@ -1241,14 +1237,14 @@ def test_optimism_destination_and_wrong_corridor_rejected():
 
 def test_quote_handoff_validated_but_suppressed_from_output():
     # The upstream handoff remains fail-closed input but is not projected by the quote tool.
-    out = quote_tool(quote_session()).forward("solana", "SOL", "base", "ETH", 250)
+    out = quote_tool(quote_session()).forward("solana", "USDG", "arbitrum", "ETH", 250)
     assert "caller_action_plan_handoff" not in out
     assert "caller_action_plan_handoff_v2" not in out
     assert "handoff_schema_version" not in out
 
 
 def test_quote_validates_but_suppresses_v2_sibling():
-    out = quote_tool(quote_session()).forward("solana", "SOL", "base", "ETH", 250)
+    out = quote_tool(quote_session()).forward("solana", "USDG", "arbitrum", "ETH", 250)
     assert "caller_action_plan_handoff_v2" not in out
     assert "handoff_schema_version" not in out
 
@@ -1256,7 +1252,7 @@ def test_quote_validates_but_suppresses_v2_sibling():
 def test_rollback_core_no_v2_still_quotes():
     p = _mutated(lambda q: (q.pop("caller_action_plan_handoff_v2"), q.pop("handoff_schema_version")))
     add_continuation(p)
-    out = quote_tool(quote_session(p)).forward("solana", "SOL", "base", "ETH", 250)
+    out = quote_tool(quote_session(p)).forward("solana", "USDG", "arbitrum", "ETH", 250)
     assert "caller_action_plan_handoff_v2" not in out
     assert "handoff_schema_version" not in out
     assert "caller_action_plan_handoff" not in out
@@ -1287,7 +1283,7 @@ def test_rollback_core_no_v2_still_quotes():
 def test_quote_v2_sibling_malformed_rejected(mut):
     p = _mutated(mut)
     with pytest.raises(ValueError):
-        quote_tool(quote_session(p)).forward("solana", "SOL", "base", "ETH", 250)
+        quote_tool(quote_session(p)).forward("solana", "USDG", "arbitrum", "ETH", 250)
 
 
 @pytest.mark.parametrize(
@@ -1303,26 +1299,26 @@ def test_quote_handoff_fail_closed_no_local_fallback(mut, match):
     # regression and is rejected, never synthesized.
     p = _mutated(mut)
     with pytest.raises(ValueError, match=match):
-        quote_tool(quote_session(p)).forward("solana", "SOL", "base", "ETH", 250)
+        quote_tool(quote_session(p)).forward("solana", "USDG", "arbitrum", "ETH", 250)
 
 
 def test_quote_handoff_rejects_extra_field():
     p = _mutated(lambda q: q["caller_action_plan_handoff"].__setitem__("surprise", "x"))
     with pytest.raises(ValueError, match="assetfare_handoff_extra_field"):
-        quote_tool(quote_session(p)).forward("solana", "SOL", "base", "ETH", 250)
+        quote_tool(quote_session(p)).forward("solana", "USDG", "arbitrum", "ETH", 250)
 
 
 def test_quote_handoff_rejects_private_key_field():
     # Secret-material keys are rejected recursively before handoff validation.
     p = _mutated(lambda q: q["caller_action_plan_handoff"].__setitem__("private_key", "abc"))
     with pytest.raises(ValueError, match="assetfare_safety_boundary_failed"):
-        quote_tool(quote_session(p)).forward("solana", "SOL", "base", "ETH", 250)
+        quote_tool(quote_session(p)).forward("solana", "USDG", "arbitrum", "ETH", 250)
 
 
 def test_quote_handoff_rejects_missing_option():
     p = _mutated(lambda q: q["caller_action_plan_handoff"].__setitem__("options", q["caller_action_plan_handoff"]["options"][:1]))
     with pytest.raises(ValueError, match="assetfare_handoff_options_invalid"):
-        quote_tool(quote_session(p)).forward("solana", "SOL", "base", "ETH", 250)
+        quote_tool(quote_session(p)).forward("solana", "USDG", "arbitrum", "ETH", 250)
 
 
 def test_quote_handoff_rejects_broken_lifecycle_url():
@@ -1330,13 +1326,13 @@ def test_quote_handoff_rejects_broken_lifecycle_url():
         q["caller_action_plan_handoff"]["options"][1]["lifecycle_urls"]["observe_source"] = {"url": "https://evil/x"}
     p = _mutated(mut)
     with pytest.raises(ValueError, match="assetfare_handoff_session_lifecycle_invalid"):
-        quote_tool(quote_session(p)).forward("solana", "SOL", "base", "ETH", 250)
+        quote_tool(quote_session(p)).forward("solana", "USDG", "arbitrum", "ETH", 250)
 
 
 def test_quote_handoff_rejects_server_signing_claim():
     p = _mutated(lambda q: q["caller_action_plan_handoff"].__setitem__("assetfare_server_signing", True))
     with pytest.raises(ValueError, match="assetfare_safety_boundary_failed"):
-        quote_tool(quote_session(p)).forward("solana", "SOL", "base", "ETH", 250)
+        quote_tool(quote_session(p)).forward("solana", "USDG", "arbitrum", "ETH", 250)
 
 
 @pytest.mark.parametrize(
@@ -1362,31 +1358,31 @@ def test_quote_handoff_rejects_server_signing_claim():
 def test_quote_handoff_rejects_noncanonical_request_fields(fields):
     p = _mutated(lambda q: q["caller_action_plan_handoff"].__setitem__("request_fields", fields))
     with pytest.raises(ValueError, match="assetfare_handoff_request_fields_invalid"):
-        quote_tool(quote_session(p)).forward("solana", "SOL", "base", "ETH", 250)
+        quote_tool(quote_session(p)).forward("solana", "USDG", "arbitrum", "ETH", 250)
 
 
 def test_quote_handoff_rejects_wrong_url():
     p = _mutated(lambda q: q["caller_action_plan_handoff"].__setitem__("url", "https://api.assetfare.dev/v2/execute"))
     with pytest.raises(ValueError, match="assetfare_handoff_invalid"):
-        quote_tool(quote_session(p)).forward("solana", "SOL", "base", "ETH", 250)
+        quote_tool(quote_session(p)).forward("solana", "USDG", "arbitrum", "ETH", 250)
 
 
 def test_quote_handoff_rejects_missing_caller_approval_flag():
     p = _mutated(lambda q: q["caller_action_plan_handoff"].__setitem__("requires_explicit_caller_approval", False))
     with pytest.raises(ValueError, match="assetfare_handoff_invalid"):
-        quote_tool(quote_session(p)).forward("solana", "SOL", "base", "ETH", 250)
+        quote_tool(quote_session(p)).forward("solana", "USDG", "arbitrum", "ETH", 250)
 
 
 def test_quote_handoff_rejects_missing_requires_fresh_requote():
     p = _mutated(lambda q: q["caller_action_plan_handoff"].pop("requires_fresh_requote"))
     with pytest.raises(ValueError, match="assetfare_handoff_invalid"):
-        quote_tool(quote_session(p)).forward("solana", "SOL", "base", "ETH", 250)
+        quote_tool(quote_session(p)).forward("solana", "USDG", "arbitrum", "ETH", 250)
 
 
 # ---- fee EXACTLY 1bp (conditional, not an unconditional flat fee) ----
 
 def test_quote_fee_eligibility_surfaced():
-    out = quote_tool(quote_session()).forward("solana", "SOL", "base", "ETH", 250)
+    out = quote_tool(quote_session()).forward("solana", "USDG", "arbitrum", "ETH", 250)
     assert out["assetfare_fee_bps"] == 1
     assert out["fee_collection_steps"] == [1]
     assert out["fee_modeled_bps"] == 1
@@ -1404,7 +1400,7 @@ def test_quote_zero_fee_rejected():
         q["offer"]["fee_collection_steps"] = []
     p = _mutated(mut)
     with pytest.raises(ValueError, match="assetfare_response_invalid"):
-        quote_tool(quote_session(p)).forward("solana", "SOL", "base", "ETH", 250)
+        quote_tool(quote_session(p)).forward("solana", "USDG", "arbitrum", "ETH", 250)
 
 
 @pytest.mark.parametrize("fee_bps", [2, 8, -1, 5])
@@ -1412,21 +1408,21 @@ def test_quote_rejects_fee_out_of_exact_range(fee_bps):
     # fee must be EXACTLY 1; 8bp / 2bp / negative are rejected.
     p = _mutated(lambda q: q["offer"].__setitem__("assetfare_fee_bps", fee_bps))
     with pytest.raises(ValueError, match="assetfare_response_invalid"):
-        quote_tool(quote_session(p)).forward("solana", "SOL", "base", "ETH", 250)
+        quote_tool(quote_session(p)).forward("solana", "USDG", "arbitrum", "ETH", 250)
 
 
 def test_quote_rejects_fee_two_steps():
     # fee=1 but 2 collection steps -> step count mismatch
     p = _mutated(lambda q: q["offer"].__setitem__("fee_collection_steps", [0, 1]))
     with pytest.raises(ValueError, match="assetfare_fee_step_count_mismatch"):
-        quote_tool(quote_session(p)).forward("solana", "SOL", "base", "ETH", 250)
+        quote_tool(quote_session(p)).forward("solana", "USDG", "arbitrum", "ETH", 250)
 
 
 def test_quote_rejects_positive_fee_with_no_collection_step():
     # fee=1 but 0 steps -> step count mismatch
     p = _mutated(lambda q: q["offer"].__setitem__("fee_collection_steps", []))
     with pytest.raises(ValueError, match="assetfare_fee_step_count_mismatch"):
-        quote_tool(quote_session(p)).forward("solana", "SOL", "base", "ETH", 250)
+        quote_tool(quote_session(p)).forward("solana", "USDG", "arbitrum", "ETH", 250)
 
 
 def test_quote_rejects_zero_fee_with_step():
@@ -1437,19 +1433,19 @@ def test_quote_rejects_zero_fee_with_step():
         q["offer"]["fee_collection_steps"] = [0]
     p = _mutated(mut)
     with pytest.raises(ValueError, match="assetfare_response_invalid"):
-        quote_tool(quote_session(p)).forward("solana", "SOL", "base", "ETH", 250)
+        quote_tool(quote_session(p)).forward("solana", "USDG", "arbitrum", "ETH", 250)
 
 
 def test_quote_rejects_fee_step_out_of_range():
     p = _mutated(lambda q: q["offer"].__setitem__("fee_collection_steps", [5]))
     with pytest.raises(ValueError, match="assetfare_fee_step_out_of_range"):
-        quote_tool(quote_session(p)).forward("solana", "SOL", "base", "ETH", 250)
+        quote_tool(quote_session(p)).forward("solana", "USDG", "arbitrum", "ETH", 250)
 
 
 def test_quote_rejects_missing_fee_collection_const():
     p = _mutated(lambda q: q["offer"].pop("fee_collection"))
     with pytest.raises(ValueError, match="assetfare_response_invalid"):
-        quote_tool(quote_session(p)).forward("solana", "SOL", "base", "ETH", 250)
+        quote_tool(quote_session(p)).forward("solana", "USDG", "arbitrum", "ETH", 250)
 
 
 @pytest.mark.parametrize(
@@ -1466,16 +1462,16 @@ def test_quote_rejects_nested_sign_or_submit_claim(mut):
     payload = quote_payload()
     mut(payload)
     with pytest.raises(ValueError, match="assetfare_safety_boundary_failed"):
-        quote_tool(quote_session(payload)).forward("solana", "SOL", "base", "ETH", 250)
+        quote_tool(quote_session(payload)).forward("solana", "USDG", "arbitrum", "ETH", 250)
 
 
 def test_quote_posts_normalised_payload():
     s = quote_session()
-    quote_tool(s).forward("solana", "sol", "base", "eth", 250)
+    quote_tool(s).forward("solana", "usdg", "arbitrum", "eth", 250)
     method, url, kwargs = s.calls[0]
     assert method == "POST"
     assert url == "https://api.assetfare.dev/v2/quote"
-    assert kwargs["json"]["from_token"] == "SOL"
+    assert kwargs["json"]["from_token"] == "USDG"
     assert kwargs["json"]["to_token"] == "ETH"
     assert kwargs["json"]["amount_usd"] == 250.0
     assert kwargs["allow_redirects"] is False
@@ -1486,7 +1482,7 @@ def test_quote_posts_normalised_payload():
 @pytest.mark.parametrize("amt", [0.0, 0.99])
 def test_quote_amount_out_of_range(amt):
     with pytest.raises(ValueError, match="assetfare_amount_out_of_range"):
-        quote_tool(quote_session()).forward("solana", "SOL", "base", "ETH", amt)
+        quote_tool(quote_session()).forward("solana", "USDG", "arbitrum", "ETH", amt)
 
 
 @pytest.mark.parametrize("amt", [1000.01, 5000])
@@ -1495,14 +1491,14 @@ def test_quote_amount_above_former_business_maximum_accepted(amt):
     payload["intent"]["amount_usd"] = amt
     payload["offer"]["expected_receive_usd"] = amt - 0.9
     payload["offer"]["estimated_min_receive_usd"] = amt - 3.0
-    result = quote_tool(quote_session(with_cost_summary(payload))).forward("solana", "SOL", "base", "ETH", amt)
+    result = quote_tool(quote_session(with_cost_summary(payload))).forward("solana", "USDG", "arbitrum", "ETH", amt)
     assert result["amount_usd"] == amt
 
 
 @pytest.mark.parametrize("amt", [True, "250", None, float("nan"), float("inf")])
 def test_quote_amount_invalid(amt):
     with pytest.raises(ValueError, match="assetfare_amount_invalid"):
-        quote_tool(quote_session()).forward("solana", "SOL", "base", "ETH", amt)
+        quote_tool(quote_session()).forward("solana", "USDG", "arbitrum", "ETH", amt)
 
 
 def test_quote_source_endpoint_invalid():
@@ -1531,61 +1527,61 @@ def _mutated(mutate):
 def test_quote_rejects_route_label_mismatch():
     p = _mutated(lambda q: q["route"].__setitem__("route", "solana:SOL->arbitrum:ETH"))
     with pytest.raises(ValueError, match="assetfare_response_invalid"):
-        quote_tool(quote_session(p)).forward("solana", "SOL", "base", "ETH", 250)
+        quote_tool(quote_session(p)).forward("solana", "USDG", "arbitrum", "ETH", 250)
 
 
 def test_quote_rejects_intent_amount_mismatch():
     p = _mutated(lambda q: q["intent"].__setitem__("amount_usd", 251.0))
     with pytest.raises(ValueError, match="assetfare_response_invalid"):
-        quote_tool(quote_session(p)).forward("solana", "SOL", "base", "ETH", 250)
+        quote_tool(quote_session(p)).forward("solana", "USDG", "arbitrum", "ETH", 250)
 
 
 def test_quote_rejects_min_gt_expected():
     p = _mutated(lambda q: q["offer"].__setitem__("estimated_min_receive_amount", 0.09))
     with pytest.raises(ValueError, match="assetfare_response_invalid"):
-        quote_tool(quote_session(p)).forward("solana", "SOL", "base", "ETH", 250)
+        quote_tool(quote_session(p)).forward("solana", "USDG", "arbitrum", "ETH", 250)
 
 
 def test_quote_rejects_negative_fee():
     p = _mutated(lambda q: q["offer"].__setitem__("assetfare_fee_bps", -1))
     with pytest.raises(ValueError, match="assetfare_response_invalid"):
-        quote_tool(quote_session(p)).forward("solana", "SOL", "base", "ETH", 250)
+        quote_tool(quote_session(p)).forward("solana", "USDG", "arbitrum", "ETH", 250)
 
 
 def test_quote_rejects_bad_output_symbol():
     p = _mutated(lambda q: q["offer"].__setitem__("output_symbol", "USDC"))
     with pytest.raises(ValueError, match="assetfare_response_invalid"):
-        quote_tool(quote_session(p)).forward("solana", "SOL", "base", "ETH", 250)
+        quote_tool(quote_session(p)).forward("solana", "USDG", "arbitrum", "ETH", 250)
 
 
 def test_quote_rejects_empty_steps():
     p = _mutated(lambda q: q["route"].__setitem__("steps", []))
     with pytest.raises(ValueError, match="assetfare_response_invalid"):
-        quote_tool(quote_session(p)).forward("solana", "SOL", "base", "ETH", 250)
+        quote_tool(quote_session(p)).forward("solana", "USDG", "arbitrum", "ETH", 250)
 
 
 def test_quote_rejects_non_dict_step():
     p = _mutated(lambda q: q["route"].__setitem__("steps", ["swap"]))
     with pytest.raises(ValueError, match="assetfare_response_invalid"):
-        quote_tool(quote_session(p)).forward("solana", "SOL", "base", "ETH", 250)
+        quote_tool(quote_session(p)).forward("solana", "USDG", "arbitrum", "ETH", 250)
 
 
 def test_quote_rejects_route_server_signing():
     p = _mutated(lambda q: q["route"].__setitem__("server_signing", True))
     with pytest.raises(ValueError, match="assetfare_safety_boundary_failed"):
-        quote_tool(quote_session(p)).forward("solana", "SOL", "base", "ETH", 250)
+        quote_tool(quote_session(p)).forward("solana", "USDG", "arbitrum", "ETH", 250)
 
 
 def test_quote_rejects_fresh_flag_false():
     p = _mutated(lambda q: q["risk"].__setitem__("fresh_quote_required_each_step", False))
     with pytest.raises(ValueError, match="assetfare_response_invalid"):
-        quote_tool(quote_session(p)).forward("solana", "SOL", "base", "ETH", 250)
+        quote_tool(quote_session(p)).forward("solana", "USDG", "arbitrum", "ETH", 250)
 
 
 def test_quote_rejects_non_atomic_non_bool():
     p = _mutated(lambda q: q["risk"].__setitem__("non_atomic", "yes"))
     with pytest.raises(ValueError, match="assetfare_response_invalid"):
-        quote_tool(quote_session(p)).forward("solana", "SOL", "base", "ETH", 250)
+        quote_tool(quote_session(p)).forward("solana", "USDG", "arbitrum", "ETH", 250)
 
 
 def test_quote_rejects_execution_unsupported():
@@ -1593,26 +1589,26 @@ def test_quote_rejects_execution_unsupported():
     # boundary violation (source-only routes get their own discriminated handling).
     p = _mutated(lambda q: q["execution"].__setitem__("supported", False))
     with pytest.raises(ValueError, match="assetfare_execution_boundary_failed"):
-        quote_tool(quote_session(p)).forward("solana", "SOL", "base", "ETH", 250)
+        quote_tool(quote_session(p)).forward("solana", "USDG", "arbitrum", "ETH", 250)
 
 
 def test_quote_rejects_receipts_flag_false():
     p = _mutated(lambda q: q["execution"].__setitem__("future_actions_require_verified_receipts", False))
     with pytest.raises(ValueError, match="assetfare_response_invalid"):
-        quote_tool(quote_session(p)).forward("solana", "SOL", "base", "ETH", 250)
+        quote_tool(quote_session(p)).forward("solana", "USDG", "arbitrum", "ETH", 250)
 
 
 def test_quote_rejects_bad_uuid():
     p = _mutated(lambda q: q.__setitem__("quote_id", "not-a-uuid"))
     with pytest.raises(ValueError, match="assetfare_response_invalid"):
-        quote_tool(quote_session(p)).forward("solana", "SOL", "base", "ETH", 250)
+        quote_tool(quote_session(p)).forward("solana", "USDG", "arbitrum", "ETH", 250)
 
 
 @pytest.mark.parametrize("ttl", [0, -5, 86401, "60", 1.5])
 def test_quote_rejects_bad_ttl(ttl):
     p = _mutated(lambda q: q.__setitem__("ttl_seconds", ttl))
     with pytest.raises(ValueError, match="assetfare_response_invalid"):
-        quote_tool(quote_session(p)).forward("solana", "SOL", "base", "ETH", 250)
+        quote_tool(quote_session(p)).forward("solana", "USDG", "arbitrum", "ETH", 250)
 
 
 # ---- quote freshness (as_of) --------------------------------------------
@@ -1620,13 +1616,13 @@ def test_quote_rejects_bad_ttl(ttl):
 def test_quote_rejects_naive_as_of():
     p = _mutated(lambda q: q.__setitem__("as_of", "2026-09-17T00:00:05"))
     with pytest.raises(ValueError, match="assetfare_response_invalid"):
-        quote_tool(quote_session(p)).forward("solana", "SOL", "base", "ETH", 250)
+        quote_tool(quote_session(p)).forward("solana", "USDG", "arbitrum", "ETH", 250)
 
 
 def test_quote_rejects_date_only_as_of():
     p = _mutated(lambda q: q.__setitem__("as_of", "2026-09-17"))
     with pytest.raises(ValueError, match="assetfare_response_invalid"):
-        quote_tool(quote_session(p)).forward("solana", "SOL", "base", "ETH", 250)
+        quote_tool(quote_session(p)).forward("solana", "USDG", "arbitrum", "ETH", 250)
 
 
 def test_quote_rejects_expired():
@@ -1634,19 +1630,19 @@ def test_quote_rejects_expired():
     p = _mutated(lambda q: (q.__setitem__("as_of", "2026-09-17T00:00:05Z"), q.__setitem__("ttl_seconds", 1)))
     now = datetime(2026, 9, 17, 0, 5, 0, tzinfo=UTC)
     with pytest.raises(ValueError, match="assetfare_response_invalid"):
-        quote_tool(quote_session(p), utcnow=lambda: now).forward("solana", "SOL", "base", "ETH", 250)
+        quote_tool(quote_session(p), utcnow=lambda: now).forward("solana", "USDG", "arbitrum", "ETH", 250)
 
 
 def test_quote_rejects_future_skew():
     p = _mutated(lambda q: q.__setitem__("as_of", "2026-09-17T01:00:00Z"))  # 1h ahead of FIXED_NOW
     with pytest.raises(ValueError, match="assetfare_response_invalid"):
-        quote_tool(quote_session(p)).forward("solana", "SOL", "base", "ETH", 250)
+        quote_tool(quote_session(p)).forward("solana", "USDG", "arbitrum", "ETH", 250)
 
 
 def test_quote_accepts_numeric_offset_as_of():
     p = _mutated(lambda q: q.__setitem__("as_of", "2026-09-17T00:00:05+00:00"))
     add_continuation(p)
-    out = quote_tool(quote_session(p)).forward("solana", "SOL", "base", "ETH", 250)
+    out = quote_tool(quote_session(p)).forward("solana", "USDG", "arbitrum", "ETH", 250)
     assert out["as_of"] == "2026-09-17T00:00:05+00:00"
 
 
@@ -1664,26 +1660,26 @@ def test_quote_accepts_numeric_offset_as_of():
 def test_quote_http_status(status, match):
     s = _Session([_Resp(quote_payload(), status=status)])
     with pytest.raises(ValueError, match=match):
-        quote_tool(s).forward("solana", "SOL", "base", "ETH", 250)
+        quote_tool(s).forward("solana", "USDG", "arbitrum", "ETH", 250)
 
 
 def test_quote_rejects_non_json_media():
     s = _Session([_Resp(quote_payload(), content_type="text/html")])
     with pytest.raises(ValueError, match="assetfare_response_invalid"):
-        quote_tool(s).forward("solana", "SOL", "base", "ETH", 250)
+        quote_tool(s).forward("solana", "USDG", "arbitrum", "ETH", 250)
 
 
 def test_quote_rejects_oversize_declared():
     s = _Session([_Resp(quote_payload(), headers={"content-length": str(2 * 1024 * 1024)})])
     with pytest.raises(ValueError, match="assetfare_response_invalid"):
-        quote_tool(s).forward("solana", "SOL", "base", "ETH", 250)
+        quote_tool(s).forward("solana", "USDG", "arbitrum", "ETH", 250)
 
 
 def test_quote_rejects_oversize_stream():
     big = b"x" * (1024 * 1024 + 10)
     s = _Session([_Resp(quote_payload(), chunks=[big, big])])
     with pytest.raises(ValueError, match="assetfare_response_invalid"):
-        quote_tool(s).forward("solana", "SOL", "base", "ETH", 250)
+        quote_tool(s).forward("solana", "USDG", "arbitrum", "ETH", 250)
 
 
 def test_quote_transport_exception_sanitised():
@@ -1691,13 +1687,13 @@ def test_quote_transport_exception_sanitised():
 
     s = _Session([requests.RequestException("boom")])
     with pytest.raises(ValueError, match="assetfare_upstream_unavailable"):
-        quote_tool(s).forward("solana", "SOL", "base", "ETH", 250)
+        quote_tool(s).forward("solana", "USDG", "arbitrum", "ETH", 250)
 
 
 def test_quote_response_closed():
     r = _Resp(quote_payload())
     s = _Session([r])
-    quote_tool(s).forward("solana", "SOL", "base", "ETH", 250)
+    quote_tool(s).forward("solana", "USDG", "arbitrum", "ETH", 250)
     assert r.closed is True
 
 
@@ -1708,7 +1704,7 @@ def test_stale_budget_pre_request_rejected():
     clk = _Clock([0.0, 100.0])
     s = quote_session()
     with pytest.raises(ValueError, match="assetfare_upstream_unavailable"):
-        quote_tool(s, monotonic=clk).forward("solana", "SOL", "base", "ETH", 250)
+        quote_tool(s, monotonic=clk).forward("solana", "USDG", "arbitrum", "ETH", 250)
 
 
 def test_stale_budget_rejects_delayed_chunk():
@@ -1716,12 +1712,12 @@ def test_stale_budget_rejects_delayed_chunk():
     clk = _Clock([0.0, 1.0, 100.0])
     s = quote_session()
     with pytest.raises(ValueError, match="assetfare_upstream_unavailable"):
-        quote_tool(s, monotonic=clk).forward("solana", "SOL", "base", "ETH", 250)
+        quote_tool(s, monotonic=clk).forward("solana", "USDG", "arbitrum", "ETH", 250)
 
 
 def test_no_signing_fields_ever_sent():
     s = quote_session()
-    quote_tool(s).forward("solana", "SOL", "base", "ETH", 250)
+    quote_tool(s).forward("solana", "USDG", "arbitrum", "ETH", 250)
     body = s.calls[0][2]["json"]
     for k in body:
         assert "sign" not in k and "submit" not in k and "wallet" not in k and "key" not in k
@@ -1733,21 +1729,21 @@ def test_no_signing_fields_ever_sent():
 def test_quote_malformed_json_sanitized():
     s = _Session([_Resp(None, chunks=[b"<<not valid json>>"])])
     with pytest.raises(ValueError) as ei:
-        quote_tool(s).forward("solana", "SOL", "base", "ETH", 250)
+        quote_tool(s).forward("solana", "USDG", "arbitrum", "ETH", 250)
     assert str(ei.value) == "assetfare_response_invalid"
 
 
 def test_quote_invalid_utf8_sanitized():
     s = _Session([_Resp(None, chunks=[b"\xff\xfe\x00\x80bad"])])
     with pytest.raises(ValueError) as ei:
-        quote_tool(s).forward("solana", "SOL", "base", "ETH", 250)
+        quote_tool(s).forward("solana", "USDG", "arbitrum", "ETH", 250)
     assert str(ei.value) == "assetfare_response_invalid"
 
 
 def test_quote_json_non_object_sanitized():
     s = _Session([_Resp(None, chunks=[b"[1, 2, 3]"])])
     with pytest.raises(ValueError) as ei:
-        quote_tool(s).forward("solana", "SOL", "base", "ETH", 250)
+        quote_tool(s).forward("solana", "USDG", "arbitrum", "ETH", 250)
     assert str(ei.value) == "assetfare_response_invalid"
 
 
@@ -1769,7 +1765,7 @@ def test_no_upstream_text_leaks_in_error():
     # truncated body carrying a plausible upstream secret -> JSONDecodeError
     s = _Session([_Resp(None, chunks=[b'{"error": "SECRET UPSTREAM DETAIL"'])])
     with pytest.raises(ValueError) as ei:
-        quote_tool(s).forward("solana", "SOL", "base", "ETH", 250)
+        quote_tool(s).forward("solana", "USDG", "arbitrum", "ETH", 250)
     assert "SECRET" not in str(ei.value)
     assert str(ei.value) == "assetfare_response_invalid"
 
@@ -1804,7 +1800,7 @@ def test_pinned_requirements_emitted(Cls):
 def test_quote_z_suffix_as_of_accepted():
     # The happy payload uses '...Z'; on 3.10 fromisoformat rejects a bare 'Z',
     # so this exercises the Z->+00:00 normalization. The raw string is echoed.
-    out = quote_tool(quote_session()).forward("solana", "SOL", "base", "ETH", 250)
+    out = quote_tool(quote_session()).forward("solana", "USDG", "arbitrum", "ETH", 250)
     assert out["as_of"].endswith("Z")
 
 
@@ -1812,7 +1808,7 @@ def test_quote_z_suffix_future_skew_still_rejected():
     # Normalization must not defeat the skew check: a 'Z' time 1h ahead is rejected.
     p = _mutated(lambda q: q.__setitem__("as_of", "2026-09-17T01:00:00Z"))
     with pytest.raises(ValueError, match="assetfare_response_invalid"):
-        quote_tool(quote_session(p)).forward("solana", "SOL", "base", "ETH", 250)
+        quote_tool(quote_session(p)).forward("solana", "USDG", "arbitrum", "ETH", 250)
 
 
 # ---- exception-chain suppression (no upstream __cause__; context suppressed) --
@@ -1820,7 +1816,7 @@ def test_quote_z_suffix_future_skew_still_rejected():
 def test_parse_error_suppresses_chain():
     s = _Session([_Resp(None, chunks=[b"<<bad json SECRET>>"])])
     with pytest.raises(ValueError) as ei:
-        quote_tool(s).forward("solana", "SOL", "base", "ETH", 250)
+        quote_tool(s).forward("solana", "USDG", "arbitrum", "ETH", 250)
     assert ei.value.__cause__ is None
     assert ei.value.__context__ is None
     assert ei.value.__suppress_context__ is False  # nothing to suppress: __context__ is already None
@@ -1832,7 +1828,7 @@ def test_transport_error_suppresses_chain():
 
     s = _Session([requests.RequestException("boom SECRET UPSTREAM")])
     with pytest.raises(ValueError) as ei:
-        quote_tool(s).forward("solana", "SOL", "base", "ETH", 250)
+        quote_tool(s).forward("solana", "USDG", "arbitrum", "ETH", 250)
     assert ei.value.__cause__ is None
     assert ei.value.__context__ is None
     assert ei.value.__suppress_context__ is False  # nothing to suppress: __context__ is already None
@@ -1859,7 +1855,7 @@ def test_quote_hostile_iter_valueerror_sanitized():
     hostile._iter_exc = ValueError("SECRET_STREAM_DETAIL leaked token")
     s = _Session([hostile])
     with pytest.raises(ValueError) as ei:
-        quote_tool(s).forward("solana", "SOL", "base", "ETH", 250)
+        quote_tool(s).forward("solana", "USDG", "arbitrum", "ETH", 250)
     assert str(ei.value) == "assetfare_upstream_unavailable"
     assert "SECRET" not in str(ei.value)
     assert ei.value.__cause__ is None
@@ -1885,7 +1881,7 @@ def test_quote_hostile_iter_runtimeerror_sanitized():
     hostile._iter_exc = RuntimeError("SECRET_CHUNK boom")
     s = _Session([hostile])
     with pytest.raises(ValueError) as ei:
-        quote_tool(s).forward("solana", "SOL", "base", "ETH", 250)
+        quote_tool(s).forward("solana", "USDG", "arbitrum", "ETH", 250)
     assert str(ei.value) == "assetfare_upstream_unavailable"
     assert "SECRET" not in str(ei.value)
     assert ei.value.__context__ is None
@@ -1895,7 +1891,7 @@ def test_quote_malformed_json_context_is_none():
     # the strongest check: final exception carries NO __context__ object at all
     s = _Session([_Resp(None, chunks=[b'{"secret": "SECRET_JSON_DETAIL"'])])  # truncated -> JSONDecodeError
     with pytest.raises(ValueError) as ei:
-        quote_tool(s).forward("solana", "SOL", "base", "ETH", 250)
+        quote_tool(s).forward("solana", "USDG", "arbitrum", "ETH", 250)
     assert str(ei.value) == "assetfare_response_invalid"
     assert ei.value.__context__ is None
     assert ei.value.__cause__ is None
@@ -1905,7 +1901,7 @@ def test_quote_malformed_json_context_is_none():
 def test_quote_invalid_utf8_context_is_none():
     s = _Session([_Resp(None, chunks=[b"\xff\xfe\x00\x80SECRET"])])
     with pytest.raises(ValueError) as ei:
-        quote_tool(s).forward("solana", "SOL", "base", "ETH", 250)
+        quote_tool(s).forward("solana", "USDG", "arbitrum", "ETH", 250)
     assert str(ei.value) == "assetfare_response_invalid"
     assert ei.value.__context__ is None
 
@@ -1915,7 +1911,7 @@ def test_transport_error_context_is_none():
 
     s = _Session([requests.RequestException("boom SECRET UPSTREAM")])
     with pytest.raises(ValueError) as ei:
-        quote_tool(s).forward("solana", "SOL", "base", "ETH", 250)
+        quote_tool(s).forward("solana", "USDG", "arbitrum", "ETH", 250)
     assert ei.value.__context__ is None
     assert ei.value.__cause__ is None
     assert "SECRET" not in str(ei.value)
@@ -1928,7 +1924,7 @@ def test_transport_error_context_is_none():
 def test_quote_send_hostile_runtimeerror_sanitized():
     s = _Session([RuntimeError("SECRET_SEND boom token")])
     with pytest.raises(ValueError) as ei:
-        quote_tool(s).forward("solana", "SOL", "base", "ETH", 250)
+        quote_tool(s).forward("solana", "USDG", "arbitrum", "ETH", 250)
     assert str(ei.value) == "assetfare_upstream_unavailable"
     assert "SECRET" not in str(ei.value)
     assert ei.value.__context__ is None
@@ -1938,7 +1934,7 @@ def test_quote_send_hostile_runtimeerror_sanitized():
 def test_quote_send_hostile_valueerror_sanitized():
     s = _Session([ValueError("SECRET_SEND detail")])
     with pytest.raises(ValueError) as ei:
-        quote_tool(s).forward("solana", "SOL", "base", "ETH", 250)
+        quote_tool(s).forward("solana", "USDG", "arbitrum", "ETH", 250)
     assert str(ei.value) == "assetfare_upstream_unavailable"
     assert "SECRET" not in str(ei.value)
     assert ei.value.__context__ is None
