@@ -33,7 +33,7 @@ EVALUATION_GUIDANCE = {
     "route_minimum_usd": 1,
     "reachability_smoke_usd": 1,
     "reachability_smoke_scope": "connectivity_only_not_economic_evaluation",
-    "route_specific_guidance": {"version":"assetfare-route-economic-guidance-v3","url":"https://assetfare.dev/route-economics.json","required_on_every_quote":True,"verified_best_from_only":True,"nullable_when_unverified":True,"controls_recommendation_only_when_verified":True,"values_change_with_market":True,"catalog_routes":90,"public_active_routes":42,"public_inactive_routes":48,"availability_only_routes":2},
+    "route_specific_guidance": {"version":"assetfare-route-economic-guidance-v3","url":"https://assetfare.dev/route-economics.json","required_on_every_quote":True,"verified_best_from_only":True,"nullable_when_unverified":True,"controls_recommendation_only_when_verified":True,"values_change_with_market":True,"catalog_routes":98,"public_active_routes":54,"public_inactive_routes":44,"availability_only_routes":2},
     "documentation_example_usd": 1000,
     "documentation_example_scope": "example_only_not_route_guidance_or_minimum",
     "sol_input_caveat": (
@@ -45,7 +45,7 @@ EVALUATION_GUIDANCE = {
     "always_compare_fresh_at_intended_amount": True,
 }
 PUBLIC_EVALUATION_GUIDANCE = EVALUATION_GUIDANCE
-ECONOMIC_GUIDANCE={"version":"assetfare-route-economic-guidance-v3","as_of":"2026-09-29","route_count":90,"public_active_route_count":42,"public_inactive_route_count":48,"verified_best_from_route_count":40,"availability_only_route_count":2,"currency":"USD","technical_quote_minimum_usd":1,"economic_guidance_is_non_enforcing":True,"amount_is_never_rejected_by_economic_guidance":True,"values_change_with_market":True,"fresh_quote_and_caller_decision_control":True,"update_policy":"daily_measurement_with_three_day_activation_hysteresis","first_use_zero_allowance_scenario":True,"expected_output_ranking":True,"incomplete_cost_never_promoted":True,"tested_ceiling_usd":10000,"advisory_start_distribution":{"50":5,"100":5,"250":5,"500":5,"1000":5,"2500":5,"5000":5,"10000":5},"recommendation_status_counts":{"active_price_verified":40,"active_unique_availability":2,"inactive_economics":48}}
+ECONOMIC_GUIDANCE={"version":"assetfare-route-economic-guidance-v3","as_of":"2026-09-30","route_count":98,"public_active_route_count":54,"public_inactive_route_count":44,"verified_best_from_route_count":52,"availability_only_route_count":2,"currency":"USD","technical_quote_minimum_usd":1,"economic_guidance_is_non_enforcing":True,"amount_is_never_rejected_by_economic_guidance":True,"values_change_with_market":True,"fresh_quote_and_caller_decision_control":True,"update_policy":"daily_measurement_with_three_day_activation_hysteresis","first_use_zero_allowance_scenario":True,"expected_output_ranking":True,"incomplete_cost_never_promoted":True,"tested_ceiling_usd":10000,"advisory_start_distribution":{"50":8,"100":6,"250":6,"500":9,"1000":3,"2500":5,"5000":12,"10000":3},"recommendation_status_counts":{"active_price_verified":52,"active_unique_availability":2,"inactive_economics":44}}
 ROUTE_ECONOMIC_GUIDANCE={"advisory_start_usd":1000,"best_from_usd":1000,"best_from_verified":True,"availability_only":False,"public_activation_status":"active_price_verified","public_active":True,"recommendation_status":"active_price_verified","recommended_action":"use_assetfare_first_at_or_above_best_from","confidence":"paired_all_in_snapshot","basis":"offline_fixture_only","tested_amounts_usd":[50,100,250,500,1000,2500,5000,10000],"tested_ceiling_usd":10000,"not_an_execution_minimum":True,"not_a_best_price_guarantee":True,"fresh_quote_required":True}
 
 
@@ -112,11 +112,11 @@ def caps_payload():
     return {
         "status": "capped_public_agent_release",
         "public_api_enabled": True,
-        "directed_conversion_routes": 42,
-        "unsigned_route_plans_ready": 42,
-        "execution_ready_routes": 42,
-        "execution_implemented_routes": 42,
-        "currently_prepare_ready_routes": 42,
+        "directed_conversion_routes": 54,
+        "unsigned_route_plans_ready": 54,
+        "execution_ready_routes": 54,
+        "execution_implemented_routes": 54,
+        "currently_prepare_ready_routes": 54,
         "temporarily_unavailable_routes": [],
         "temporarily_unavailable_route_count": 0,
         "execution_availability": {"status":"available","provider":"circle_iris","provider_dependent_routes":50,"recent_fee_snapshot_usable":True,"guarantees_future_availability":False},
@@ -124,7 +124,7 @@ def caps_payload():
         "blocked_source_only_routes": [],
         "server_signing": False,
         "server_submission": False,
-        "chains": ["solana", "base", "arbitrum", "robinhood", "optimism", "ethereum", "hyperevm", "xlayer", "sei", "sonic"],
+        "chains": ["solana", "base", "arbitrum", "robinhood", "optimism", "ethereum", "hyperevm", "xlayer", "sei", "sonic", "monad", "avalanche", "cronos", "injective", "linea", "aptos"],
         "asset_endpoints": [
             {"chain": "solana", "token": "SOL"},
             {"chain": "solana", "token": "USDC"},
@@ -140,6 +140,7 @@ def caps_payload():
             {"chain": "xlayer", "token": "USDC"},
             {"chain": "sei", "token": "USDC"},
             {"chain": "sonic", "token": "USDC"},
+            {"chain":"monad","token":"USDC"},{"chain":"avalanche","token":"USDC"},{"chain":"cronos","token":"USDC"},{"chain":"injective","token":"USDC"},{"chain":"linea","token":"USDC"},{"chain":"aptos","token":"USDC"},
         ],
         "source_only_asset_endpoints": [
             {"chain": "optimism", "token": "USDC"},
@@ -148,6 +149,7 @@ def caps_payload():
             {"chain": "xlayer", "token": "USDC"},
             {"chain": "sei", "token": "USDC"},
             {"chain": "sonic", "token": "USDC"},
+            {"chain":"monad","token":"USDC"},{"chain":"avalanche","token":"USDC"},{"chain":"cronos","token":"USDC"},{"chain":"injective","token":"USDC"},{"chain":"linea","token":"USDC"},{"chain":"aptos","token":"USDC"},
         ],
         "source_only_routes": [
             "optimism:USDC->base:USDC",
@@ -156,12 +158,13 @@ def caps_payload():
             "xlayer:USDC->base:USDC", "xlayer:USDC->solana:USDC",
             "sei:USDC->base:USDC", "sei:USDC->solana:USDC",
             "sonic:USDC->base:USDC", "sonic:USDC->solana:USDC",
+            *[f"{chain}:USDC->{destination}:USDC" for chain in ("monad","avalanche","cronos","injective","linea","aptos") for destination in ("base","solana")],
         ],
         "destination_chains": ["arbitrum", "base", "robinhood", "solana"],
         "amount_usd": {"minimum": 1, "maximum": None, "policy": "no_business_maximum"},
         "evaluation_guidance": dict(EVALUATION_GUIDANCE),
         "economic_guidance": copy.deepcopy(ECONOMIC_GUIDANCE),
-        "route_product_policy": {"primary_direct_route_count":42,"external_coverage_only_route_count":0,"active_route_count":42,"inactive_route_count":48,"inactive_routes":[f"inactive-{index}" for index in range(48)],"amount_conditioned_routes":{route:1000 for route in AssetFareCapabilitiesTool.ROUTES if not route.startswith("sei:")},"economic_guidance":copy.deepcopy(ECONOMIC_GUIDANCE),"economic_guidance_url":"https://assetfare.dev/route-economics.json","automatic_external_fallback_forbidden":True},
+        "route_product_policy": {"primary_direct_route_count":54,"external_coverage_only_route_count":0,"active_route_count":54,"inactive_route_count":44,"inactive_routes":[f"inactive-{index}" for index in range(44)],"amount_conditioned_routes":{route:1000 for route in AssetFareCapabilitiesTool.ROUTES if not route.startswith("sei:")},"economic_guidance":copy.deepcopy(ECONOMIC_GUIDANCE),"economic_guidance_url":"https://assetfare.dev/route-economics.json","automatic_external_fallback_forbidden":True},
     }
 
 
@@ -652,7 +655,7 @@ def test_quote_tool_description_surfaces_route_transparency_and_current_direct_s
         "route_aggregator_used=false",
         "market-wide aggregator api",
         "external_intent",
-        "42 active routes are direct_protocol_only",
+        "54 active routes are direct_protocol_only",
         "route-economics.json",
         "best_from_usd",
         "best_from_verified=true",
@@ -700,18 +703,24 @@ def test_origin_accepts_canonical_and_trailing_slash():
 def test_capabilities_happy():
     s = _Session([_Resp(caps_payload()), _Resp(status_payload())])
     out = caps_tool(s).forward()
-    assert out["directed_conversion_routes"] == 42
-    assert out["unsigned_route_plans_ready"] == 42
-    assert out["execution_ready_routes"] == 42
-    assert out["currently_prepare_ready_routes"] == 42
+    assert out["directed_conversion_routes"] == 54
+    assert out["unsigned_route_plans_ready"] == 54
+    assert out["execution_ready_routes"] == 54
+    assert out["currently_prepare_ready_routes"] == 54
     assert out["phase_b_blocked_routes"] == 0
     assert out["blocked_source_only_routes"] == []
-    assert out["chains"] == ["arbitrum", "base", "ethereum", "hyperevm", "optimism", "robinhood", "sei", "solana", "sonic", "xlayer"]
-    assert len(out["asset_endpoints"]) == 14
-    assert out["source_only_asset_endpoints"] == ["ethereum:USDC", "hyperevm:USDC", "optimism:USDC", "sei:USDC", "sonic:USDC", "xlayer:USDC"]
+    assert out["chains"] == ["aptos", "arbitrum", "avalanche", "base", "cronos", "ethereum", "hyperevm", "injective", "linea", "monad", "optimism", "robinhood", "sei", "solana", "sonic", "xlayer"]
+    assert len(out["asset_endpoints"]) == 20
+    assert out["source_only_asset_endpoints"] == ["aptos:USDC", "avalanche:USDC", "cronos:USDC", "ethereum:USDC", "hyperevm:USDC", "injective:USDC", "linea:USDC", "monad:USDC", "optimism:USDC", "sei:USDC", "sonic:USDC", "xlayer:USDC"]
     assert sorted(out["source_only_routes"]) == [
+        "aptos:USDC->base:USDC", "aptos:USDC->solana:USDC",
+        "avalanche:USDC->base:USDC", "avalanche:USDC->solana:USDC",
+        "cronos:USDC->base:USDC", "cronos:USDC->solana:USDC",
         "ethereum:USDC->solana:USDC",
         "hyperevm:USDC->solana:USDC",
+        "injective:USDC->base:USDC", "injective:USDC->solana:USDC",
+        "linea:USDC->base:USDC", "linea:USDC->solana:USDC",
+        "monad:USDC->base:USDC", "monad:USDC->solana:USDC",
         "optimism:USDC->base:USDC",
         "sei:USDC->base:USDC", "sei:USDC->solana:USDC",
         "sonic:USDC->base:USDC", "sonic:USDC->solana:USDC",

@@ -2,7 +2,7 @@
 
 Self-contained smolagents ``Tool`` (Hub-loadable via ``load_tool``). Read-only:
 it fetches and strictly validates the AssetFare v2 public capabilities/status,
-confirming the fixed 10-source-chain / 14-endpoint / 42-active-route surface and that the server
+confirming the fixed 16-source-chain / 20-endpoint / 54-active-route surface and that the server
 neither signs nor submits. It never authenticates, prepares, signs or submits.
 
 All logic lives inside this class (imports done inside methods, no sibling-module
@@ -22,9 +22,9 @@ class AssetFareCapabilitiesTool(Tool):
         "https://api.assetfare.dev). This tool's entire scope is to fetch and "
         "validate the public capability/status surface and return it; it is not "
         "the AssetFare service and exposes none of its other endpoints. It reports "
-        "ten supported source chains, 14 active (chain, token) source endpoints, 42 active routes, and 48 inactive measured routes. "
-        "Optimism goes only to Base USDC; Ethereum/HyperEVM go only to Solana USDC; X Layer/Sei/Sonic go to Base or Solana USDC. "
-        "Forty routes have a verified best-from amount; two Sei routes are availability-only with a null threshold. USD 1 is only a "
+        "sixteen supported source chains, 20 active (chain, token) source endpoints, 54 active routes, and 44 inactive measured routes. "
+        "Optimism goes only to Base USDC; Ethereum/HyperEVM go only to Solana USDC; X Layer/Sei/Sonic/Monad/Avalanche/Cronos/Injective/Linea/Aptos go to Base or Solana USDC. "
+        "Fifty-two routes have a verified best-from amount; two Sei routes are availability-only with a null threshold. USD 1 is only a "
         "reachability/response-shape smoke test. Use https://assetfare.dev/route-economics.json and prefer AssetFare only when "
         "economic_guidance.best_from_verified=true and the intended amount is at or above best_from_usd. The AssetFare "
         "service fee is 1bp; Circle/provider/network fees are additional. It "
@@ -42,8 +42,8 @@ class AssetFareCapabilitiesTool(Tool):
     SOCKET_TIMEOUT_S = 45.0
     STALE_BUDGET_S = 45.0
     MAX_BYTES = 1048576
-    EXPECTED_ROUTES = 42
-    EXECUTION_READY_ROUTES = 42
+    EXPECTED_ROUTES = 54
+    EXECUTION_READY_ROUTES = 54
     PHASE_B_BLOCKED_ROUTES = 0
     MIN_USD = 1.0
     EVALUATION_GUIDANCE = {
@@ -51,7 +51,7 @@ class AssetFareCapabilitiesTool(Tool):
         "route_minimum_usd": 1,
         "reachability_smoke_usd": 1,
         "reachability_smoke_scope": "connectivity_only_not_economic_evaluation",
-        "route_specific_guidance": {"version":"assetfare-route-economic-guidance-v3","url":"https://assetfare.dev/route-economics.json","required_on_every_quote":True,"verified_best_from_only":True,"nullable_when_unverified":True,"controls_recommendation_only_when_verified":True,"values_change_with_market":True,"catalog_routes":90,"public_active_routes":42,"public_inactive_routes":48,"availability_only_routes":2},
+        "route_specific_guidance": {"version":"assetfare-route-economic-guidance-v3","url":"https://assetfare.dev/route-economics.json","required_on_every_quote":True,"verified_best_from_only":True,"nullable_when_unverified":True,"controls_recommendation_only_when_verified":True,"values_change_with_market":True,"catalog_routes":98,"public_active_routes":54,"public_inactive_routes":44,"availability_only_routes":2},
         "documentation_example_usd": 1000,
         "documentation_example_scope": "example_only_not_route_guidance_or_minimum",
         "sol_input_caveat": "SOL-input routes add a source swap, so compare their full fee-inclusive route economics separately.",
@@ -63,7 +63,7 @@ class AssetFareCapabilitiesTool(Tool):
     PUBLIC_EVALUATION_GUIDANCE = {
         "schema_version": 4, "route_minimum_usd": 1, "reachability_smoke_usd": 1,
         "reachability_smoke_scope": "connectivity_only_not_economic_evaluation",
-        "route_specific_guidance": {"version":"assetfare-route-economic-guidance-v3","url":"https://assetfare.dev/route-economics.json","required_on_every_quote":True,"verified_best_from_only":True,"nullable_when_unverified":True,"controls_recommendation_only_when_verified":True,"values_change_with_market":True,"catalog_routes":90,"public_active_routes":42,"public_inactive_routes":48,"availability_only_routes":2},
+        "route_specific_guidance": {"version":"assetfare-route-economic-guidance-v3","url":"https://assetfare.dev/route-economics.json","required_on_every_quote":True,"verified_best_from_only":True,"nullable_when_unverified":True,"controls_recommendation_only_when_verified":True,"values_change_with_market":True,"catalog_routes":98,"public_active_routes":54,"public_inactive_routes":44,"availability_only_routes":2},
         "documentation_example_usd": 1000, "documentation_example_scope": "example_only_not_route_guidance_or_minimum",
         "sol_input_caveat": "SOL-input routes add a source swap, so compare their full fee-inclusive route economics separately.",
         "historical_observation": {"route":"solana:USDC->base:USDC","observed_competitive_bucket_usd":500,"evidence_as_of":"2026-09-29","not_generalizable":True},
@@ -96,6 +96,11 @@ class AssetFareCapabilitiesTool(Tool):
         "solana:USDG->arbitrum:ETH", "solana:USDG->arbitrum:USDC", "solana:USDG->base:USDC", "solana:USDG->robinhood:ETH", "solana:USDG->robinhood:USDG",
         "xlayer:USDC->base:USDC", "xlayer:USDC->solana:USDC", "sei:USDC->base:USDC", "sei:USDC->solana:USDC", "sonic:USDC->base:USDC", "sonic:USDC->solana:USDC",
     }
+
+    EXPANSION_SOURCES = {"monad", "avalanche", "cronos", "injective", "linea", "aptos"}
+    CHAINS |= EXPANSION_SOURCES
+    ENDPOINTS |= {f"{chain}:USDC" for chain in EXPANSION_SOURCES}
+    ROUTES |= {f"{chain}:USDC->{destination}:USDC" for chain in EXPANSION_SOURCES for destination in ("base", "solana")}
 
     def __init__(
         self,
@@ -172,7 +177,7 @@ class AssetFareCapabilitiesTool(Tool):
         if isinstance(conditioned,dict):
             for threshold in conditioned.values():
                 if threshold not in {50,100,250,500,1000,2500,5000,10000}:invalid_conditioned=True
-        if (top.get("version")!="assetfare-route-economic-guidance-v3" or not isinstance(top.get("as_of"),str) or len(top["as_of"])!=10 or top.get("route_count")!=90 or top.get("public_active_route_count")!=42 or top.get("public_inactive_route_count")!=48 or top.get("verified_best_from_route_count")!=40 or top.get("availability_only_route_count")!=2 or top.get("currency")!="USD" or top.get("technical_quote_minimum_usd")!=1 or top.get("economic_guidance_is_non_enforcing") is not True or top.get("amount_is_never_rejected_by_economic_guidance") is not True or top.get("values_change_with_market") is not True or top.get("fresh_quote_and_caller_decision_control") is not True or top.get("update_policy")!="daily_measurement_with_three_day_activation_hysteresis" or top.get("first_use_zero_allowance_scenario") is not True or top.get("expected_output_ranking") is not True or top.get("incomplete_cost_never_promoted") is not True or top.get("tested_ceiling_usd")!=10000 or counts!={"active_price_verified":40,"active_unique_availability":2,"inactive_economics":48} or type(distribution) is not dict or sum(distribution.values())!=40 or type(conditioned) is not dict or len(conditioned)!=40 or not set(conditioned).issubset(self.ROUTES) or invalid_conditioned or policy.get("primary_direct_route_count")!=42 or policy.get("external_coverage_only_route_count")!=0 or policy.get("active_route_count")!=42 or policy.get("inactive_route_count")!=48 or not isinstance(inactive,list) or len(inactive)!=48 or len(set(inactive))!=48 or not self.ROUTES.isdisjoint(inactive) or policy.get("automatic_external_fallback_forbidden") is not True):raise ValueError("assetfare_economic_guidance_invalid")
+        if (top.get("version")!="assetfare-route-economic-guidance-v3" or not isinstance(top.get("as_of"),str) or len(top["as_of"])!=10 or top.get("route_count")!=98 or top.get("public_active_route_count")!=54 or top.get("public_inactive_route_count")!=44 or top.get("verified_best_from_route_count")!=52 or top.get("availability_only_route_count")!=2 or top.get("currency")!="USD" or top.get("technical_quote_minimum_usd")!=1 or top.get("economic_guidance_is_non_enforcing") is not True or top.get("amount_is_never_rejected_by_economic_guidance") is not True or top.get("values_change_with_market") is not True or top.get("fresh_quote_and_caller_decision_control") is not True or top.get("update_policy")!="daily_measurement_with_three_day_activation_hysteresis" or top.get("first_use_zero_allowance_scenario") is not True or top.get("expected_output_ranking") is not True or top.get("incomplete_cost_never_promoted") is not True or top.get("tested_ceiling_usd")!=10000 or counts!={"active_price_verified":52,"active_unique_availability":2,"inactive_economics":44} or type(distribution) is not dict or sum(distribution.values())!=52 or type(conditioned) is not dict or len(conditioned)!=52 or not set(conditioned).issubset(self.ROUTES) or invalid_conditioned or policy.get("primary_direct_route_count")!=54 or policy.get("external_coverage_only_route_count")!=0 or policy.get("active_route_count")!=54 or policy.get("inactive_route_count")!=44 or not isinstance(inactive,list) or len(inactive)!=44 or len(set(inactive))!=44 or not self.ROUTES.isdisjoint(inactive) or policy.get("automatic_external_fallback_forbidden") is not True):raise ValueError("assetfare_economic_guidance_invalid")
         return dict(top)
 
     def _request(self, method: str, path: str, budget_deadline: float) -> Any:
@@ -288,7 +293,7 @@ class AssetFareCapabilitiesTool(Tool):
         self._no_sign_tree(status)
         if caps.get("status") != "capped_public_agent_release" or caps.get("public_api_enabled") is not True:
             raise ValueError("assetfare_safety_boundary_failed")
-        # Exactly the 42 economically active routes are execution-ready.
+        # Exactly the 54 economically active routes are execution-ready.
         if (
             caps.get("directed_conversion_routes") != self.EXPECTED_ROUTES
             or caps.get("unsigned_route_plans_ready") != self.EXPECTED_ROUTES
@@ -314,14 +319,14 @@ class AssetFareCapabilitiesTool(Tool):
         if len(got) != len(self.ENDPOINTS) or got != self.ENDPOINTS:
             raise ValueError("assetfare_safety_boundary_failed")
         source_only_eps = caps.get("source_only_asset_endpoints")
-        if not isinstance(source_only_eps, list) or len(source_only_eps) != 6:
+        if not isinstance(source_only_eps, list) or len(source_only_eps) != 12:
             raise ValueError("assetfare_safety_boundary_failed")
         got_source_only = set()
         for ep in source_only_eps:
             if not isinstance(ep, dict) or "chain" not in ep or "token" not in ep:
                 raise ValueError("assetfare_safety_boundary_failed")
             got_source_only.add(str(ep["chain"]) + ":" + str(ep["token"]).upper())
-        expected_source_only_eps = {"ethereum:USDC", "hyperevm:USDC", "optimism:USDC", "xlayer:USDC", "sei:USDC", "sonic:USDC"}
+        expected_source_only_eps = {"ethereum:USDC", "hyperevm:USDC", "optimism:USDC", "xlayer:USDC", "sei:USDC", "sonic:USDC"} | {f"{chain}:USDC" for chain in self.EXPANSION_SOURCES}
         if got_source_only != expected_source_only_eps:
             raise ValueError("assetfare_safety_boundary_failed")
         source_only_routes = caps.get("source_only_routes")
@@ -332,8 +337,8 @@ class AssetFareCapabilitiesTool(Tool):
             "xlayer:USDC->base:USDC", "xlayer:USDC->solana:USDC",
             "sei:USDC->base:USDC", "sei:USDC->solana:USDC",
             "sonic:USDC->base:USDC", "sonic:USDC->solana:USDC",
-        }
-        if not isinstance(source_only_routes, list) or len(source_only_routes) != 9 or set(source_only_routes) != expected_source_only_routes:
+        } | {f"{chain}:USDC->{destination}:USDC" for chain in self.EXPANSION_SOURCES for destination in ("base","solana")}
+        if not isinstance(source_only_routes, list) or len(source_only_routes) != 21 or set(source_only_routes) != expected_source_only_routes:
             raise ValueError("assetfare_safety_boundary_failed")
         blocked_source_only_routes = caps.get("blocked_source_only_routes")
         if not isinstance(blocked_source_only_routes, list) or blocked_source_only_routes:

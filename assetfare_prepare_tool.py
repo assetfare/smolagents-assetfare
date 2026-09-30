@@ -10,8 +10,8 @@ literal ``True`` and the route's own PUBLIC wallet addresses.
 Fail-closed guarantees:
   - caller_approved must be the literal boolean True (false/missing/string/number rejected)
     before any network call;
-  - only the current 42 active routes are accepted; Optimism goes to Base,
-    Ethereum/HyperEVM to Solana, and X Layer/Sei/Sonic to Base or Solana;
+  - only the current 54 active routes are accepted; Optimism goes to Base,
+    Ethereum/HyperEVM to Solana, and X Layer/Sei/Sonic/Monad/Avalanche/Cronos/Injective/Linea/Aptos to Base or Solana;
   - any private key / seed / mnemonic / signed transaction anywhere in the intent is
     rejected before any network call;
   - the returned bundle must explicitly assert it is neither signed nor submitted and
@@ -59,7 +59,7 @@ class AssetFarePrepareTool(Tool):
         },
         "from_chain": {
             "type": "string",
-            "description": "Source chain: one of solana, base, arbitrum, robinhood, optimism, ethereum, hyperevm, xlayer, sei, sonic.",
+            "description": "Source chain: one of solana, base, arbitrum, robinhood, optimism, ethereum, hyperevm, xlayer, sei, sonic, monad, avalanche, cronos, injective, linea, aptos.",
         },
         "from_token": {
             "type": "string",
@@ -124,6 +124,11 @@ class AssetFarePrepareTool(Tool):
         "solana:SOL->base:USDC", "solana:SOL->robinhood:ETH", "solana:SOL->robinhood:USDG", "solana:SOL->solana:USDC", "solana:SOL->solana:USDG", "solana:USDC->arbitrum:USDC", "solana:USDC->base:USDC", "solana:USDC->robinhood:ETH", "solana:USDC->robinhood:USDG",
         "solana:USDG->arbitrum:ETH", "solana:USDG->arbitrum:USDC", "solana:USDG->base:USDC", "solana:USDG->robinhood:ETH", "solana:USDG->robinhood:USDG", "xlayer:USDC->base:USDC", "xlayer:USDC->solana:USDC", "sei:USDC->base:USDC", "sei:USDC->solana:USDC", "sonic:USDC->base:USDC", "sonic:USDC->solana:USDC",
     }
+    EXPANSION_SOURCES = {"monad", "avalanche", "cronos", "injective", "linea", "aptos"}
+    CHAINS |= EXPANSION_SOURCES
+    SOURCE_ONLY_CHAINS |= EXPANSION_SOURCES
+    ENDPOINTS |= {f"{chain}:USDC" for chain in EXPANSION_SOURCES}
+    ROUTES |= {f"{chain}:USDC->{destination}:USDC" for chain in EXPANSION_SOURCES for destination in ("base", "solana")}
     FORBIDDEN_SECRET_KEYS = {
         "private_key",
         "privatekey",
@@ -184,7 +189,7 @@ class AssetFarePrepareTool(Tool):
         import re
 
         return isinstance(value, str) and bool(
-            re.match(r"^0x[0-9a-fA-F]{40}$", value) or re.match(r"^[1-9A-HJ-NP-Za-km-z]{32,44}$", value)
+            re.match(r"^0x(?:[0-9a-fA-F]{40}|[0-9a-fA-F]{64})$", value) or re.match(r"^[1-9A-HJ-NP-Za-km-z]{32,44}$", value)
         )
 
     def _reject_secret_material(self, value: Any) -> None:

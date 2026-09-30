@@ -32,7 +32,7 @@ caller to verify, sign, and submit with their **own** wallet.
   locally after explicit unranked selection. `selected_mode` must be `one_shot`;
   use this path only when the fresh continuation allows it. Multi-step routes are
   session-only. Never invoke both prepare and session for one selection.
-- **Fail-closed active-route boundary.** Only the current 42 active routes are
+- **Fail-closed active-route boundary.** Only the current 54 active routes are
   accepted; inactive and unsupported directions fail before network.
 - **Public wallets only.** The `wallets` map must contain PUBLIC addresses for the
   route's chains; any private key / seed / signed transaction anywhere in the input
@@ -52,7 +52,7 @@ from smolagents import load_tool
 prepare = load_tool(
     "odaiin/assetfare-prepare",
     trust_remote_code=True,
-    revision="d8cccee35754e318fd8dafd28f80a69f4ee099c1",
+    revision="1247917aa9200cd582ea18d31efec6cdd8dbe02f",
 )
 bundle = prepare(
     # Set this only after the caller explicitly approves this exact action.
@@ -78,7 +78,7 @@ bundle = prepare(
 | name | type | notes |
 |------|------|-------|
 | `caller_approved` | boolean | must be literal `true` |
-| `from_chain`/`from_token`/`to_chain`/`to_token` | string | one of the 42 active routes from live capabilities |
+| `from_chain`/`from_token`/`to_chain`/`to_token` | string | one of the 54 active routes from live capabilities |
 | `amount_usd` | number | actual intended finite value; minimum 1 is smoke-only; no business maximum; 1,000 is representative, not guaranteed |
 | `wallets` | object | route chains -> PUBLIC addresses only |
 | `approval_v3` | object | exact nine fields from the explicitly selected fresh quote; mode `one_shot` |

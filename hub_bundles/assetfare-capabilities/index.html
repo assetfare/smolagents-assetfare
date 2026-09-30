@@ -24,7 +24,7 @@
   <p><span class="tag">smolagents</span><span class="tag">tool</span><span class="tag">non-custodial</span><span class="tag">cross-chain</span></p>
 
   <p>This Space hosts an <strong>agent tool</strong> (<code>tool.py</code>), meant to be loaded
-  by an agent &mdash; not run as a web app. Read-only capabilities probe for the AssetFare v2 API (fixed origin https://api.assetfare.dev). This tool's entire scope is to fetch and validate the public capability/status surface and return it; it is not the AssetFare service and exposes none of its other endpoints. It reports ten supported source chains, 14 active (chain, token) source endpoints, 42 active routes, and 48 inactive measured rou
+  by an agent &mdash; not run as a web app. Read-only capabilities probe for the AssetFare v2 API (fixed origin https://api.assetfare.dev). This tool's entire scope is to fetch and validate the public capability/status surface and return it; it is not the AssetFare service and exposes none of its other endpoints. It reports sixteen supported source chains, 20 active (chain, token) source endpoints, 54 active routes, and 44 inactive measured
   AssetFare never signs or submits; this tool never receives a private key and fails
   closed on any response that claims the server will sign or submit.</p>
   <div class="box">
@@ -43,7 +43,7 @@
 tool = load_tool(
     "odaiin/assetfare-capabilities",
     trust_remote_code=True,           # runs the reviewed tool code in your process
-    revision="8155b36519be1330dc97c6e7394cfadb7d2e0808",  # reviewed immutable Space revision
+    revision="23ae47944cdfee03e11a545ed4ca119effe53cb0",  # reviewed immutable Space revision
 )</pre>
   </div>
 

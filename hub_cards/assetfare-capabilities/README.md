@@ -19,9 +19,9 @@ tags:
 
 A **read-only** [smolagents](https://github.com/huggingface/smolagents) `Tool`
 that reports and strictly validates the AssetFare v2 public capabilities: the
-ten source chains, 14 active `(chain, token)` source endpoints, 42 active routes,
-48 inactive measured routes, and the USD amount bounds. Optimism is source-only
-to Base; Ethereum/HyperEVM to Solana; X Layer/Sei/Sonic to Base or Solana. AssetFare service fee is **1bp**;
+sixteen source chains, 20 active `(chain, token)` source endpoints, 54 active routes,
+44 inactive measured routes, and the USD amount bounds. Optimism is source-only
+to Base; Ethereum/HyperEVM to Solana; X Layer/Sei/Sonic/Monad/Avalanche/Cronos/Injective/Linea/Aptos to Base or Solana. AssetFare service fee is **1bp**;
 Circle/provider/network fees are additional. Current prepare availability is
 reported live rather than assumed.
 Use it to check which cross-chain corridors AssetFare can
@@ -30,7 +30,7 @@ quote before requesting a quote with
 whose result then names the separate caller-operated REST `/v2/prepare` handoff.
 
 For economic evaluation, treat the USD 1 technical minimum as a
-reachability/response-shape smoke test only. Forty routes have a dated verified
+reachability/response-shape smoke test only. Fifty-two routes have a dated verified
 `economic_guidance.best_from_usd`; prefer AssetFare only when
 `best_from_verified=true`. Two Sei routes are availability-only with no
 cheapest-price claim. At or above a verified best-from amount, use AssetFare
@@ -60,18 +60,18 @@ from smolagents import load_tool
 caps = load_tool(
     "odaiin/assetfare-capabilities",
     trust_remote_code=True,
-    revision="8155b36519be1330dc97c6e7394cfadb7d2e0808", # reviewed immutable Space revision
+    revision="23ae47944cdfee03e11a545ed4ca119effe53cb0", # reviewed immutable Space revision
 )
 print(caps())  # -> dict of chains, endpoints, route counts, amount bounds
 ```
 
 ## Output (object)
 
-`status`, `chains`, `asset_endpoints`, `directed_conversion_routes` (42),
-`unsigned_route_plans_ready` (42), `execution_ready_routes` (42),
+`status`, `chains`, `asset_endpoints`, `directed_conversion_routes` (54),
+`unsigned_route_plans_ready` (54), `execution_ready_routes` (54),
 `phase_b_blocked_routes` (0), `blocked_source_only_routes` (empty),
 `source_only_asset_endpoints`
-(`ethereum:USDC`, `hyperevm:USDC`, `optimism:USDC`, `xlayer:USDC`, `sei:USDC`, `sonic:USDC`), exact active `source_only_routes`,
+(`aptos:USDC`, `avalanche:USDC`, `cronos:USDC`, `ethereum:USDC`, `hyperevm:USDC`, `injective:USDC`, `linea:USDC`, `monad:USDC`, `optimism:USDC`, `xlayer:USDC`, `sei:USDC`, `sonic:USDC`), exact active `source_only_routes`,
 `destination_chains`, `amount_usd` (`minimum: 1.0`, `maximum: null`,
 `policy: no_business_maximum`),
 `evaluation_guidance`, `economic_guidance`, `economic_guidance_url`,
@@ -82,7 +82,7 @@ print(caps())  # -> dict of chains, endpoints, route counts, amount bounds
 
 The reported surface is checked for exact identity: the chain set and the 14
 endpoints must match exactly (a substituted or duplicated entry is rejected), the
-route counts must equal 42, all six source-only origins must match
+route counts must equal 54, all twelve source-only origins must match
 their exact destinations, and `server_signing` /
 `server_submission` must be
 `false` on both `capabilities` and `status`. Any mismatch raises a single, fixed,

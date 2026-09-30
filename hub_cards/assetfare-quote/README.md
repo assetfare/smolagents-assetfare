@@ -24,8 +24,8 @@ AssetFare v2 API. It is meant to be **discovered and loaded by agents**, not use
 as a human demo.
 
 - **Fixed origin:** `https://api.assetfare.dev` (any other base URL is rejected).
-- **Surface:** 10 source chains, 14 active `(chain, token)` source endpoints, 42 active
-  routes and 48 inactive measured routes, with finite numeric USD amounts of at least **$1**, with no business maximum. All paths are usable only while the live quote reports them
+- **Surface:** 16 source chains, 20 active `(chain, token)` source endpoints, 54 active
+  routes and 44 inactive measured routes, with finite numeric USD amounts of at least **$1**, with no business maximum. All paths are usable only while the live quote reports them
   available. AssetFare service fee is 1bp; Circle/provider/network fees are
   additional and the quote exposes total token-path cost.
 - **Never** authenticates a wallet, opens a session, prepares an unsigned action,
@@ -34,7 +34,7 @@ as a human demo.
 - **Route-transparent:** every result includes a strictly validated, ordered
   `direct_route_summary` with each named protocol, normalized endpoint,
   expected/minimum base-unit amount, and the one exact step collecting the 1bp
-  AssetFare fee. All 42 active routes are `direct_protocol_only`;
+  AssetFare fee. All 54 active routes are `direct_protocol_only`;
   `external_intent` remains only a compatibility enum with zero current routes.
 - **Quote-bound continuation:** every result includes a sanitized
   `continuation_descriptor` only after strict validation of the complete
@@ -75,7 +75,7 @@ as a human demo.
   quote = load_tool(
       "odaiin/assetfare-quote",
       trust_remote_code=True,
-      revision="d9f57795bc19314127ca46ecbc34c39f9f72b48a", # reviewed immutable Space revision
+      revision="c67c548912ca8d45bdb2d142c21f8508652c9da0", # reviewed immutable Space revision
   )
   ```
 
@@ -93,7 +93,7 @@ from smolagents import load_tool, CodeAgent, InferenceClientModel
 quote = load_tool(
     "odaiin/assetfare-quote",
     trust_remote_code=True,
-    revision="d9f57795bc19314127ca46ecbc34c39f9f72b48a",
+    revision="c67c548912ca8d45bdb2d142c21f8508652c9da0",
 )
 agent = CodeAgent(tools=[quote], model=InferenceClientModel())
 agent.run("Get an AssetFare quote to convert $1,000 from Solana SOL to Base USDC.")

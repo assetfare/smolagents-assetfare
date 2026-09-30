@@ -22,7 +22,7 @@ An **explicit caller-approved**, non-custodial [smolagents](https://github.com/h
 route whose fresh quote reports current availability and returns its first workflow state / unsigned action.
 
 - **caller_approved gate** (literal `true`), **public wallets only**, and the
-  exact current 42-active-route constraint are all enforced
+  exact current 54-active-route constraint are all enforced
   before any network call, exactly as in the prepare tool.
 - **Strict quote binding.** Requires the exact nine-field `approval_v3` built
   locally after explicit unranked selection, with `selected_mode=session` and an
@@ -53,7 +53,7 @@ new_token = load_tool(
 create = load_tool(
     "odaiin/assetfare-session-create",
     trust_remote_code=True,
-    revision="ed13fb32a9b7d12cdb6b910d9385361690686c06",
+    revision="8349c0e77b1236049c0ddb80f5b2238a3ba1cb1f",
 )
 cap = new_token()
 session = create(

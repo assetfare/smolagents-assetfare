@@ -72,11 +72,11 @@ BUNDLE_REQUIREMENTS = "smolagents==1.26.0\nrequests>=2.32.3,<3\n"
 # Reviewed public Space revisions. Update a pin only after the exact generated
 # bundle has been uploaded and verified at that immutable revision.
 REVIEWED_REVISIONS = {
-    "assetfare-quote": "d9f57795bc19314127ca46ecbc34c39f9f72b48a",
-    "assetfare-capabilities": "8155b36519be1330dc97c6e7394cfadb7d2e0808",
+    "assetfare-quote": "c67c548912ca8d45bdb2d142c21f8508652c9da0",
+    "assetfare-capabilities": "23ae47944cdfee03e11a545ed4ca119effe53cb0",
     "assetfare-new-session-capability": "96b2e49b9ae7ed8366ca07ebd1c06a96f1b5a7d3",
-    "assetfare-prepare": "d8cccee35754e318fd8dafd28f80a69f4ee099c1",
-    "assetfare-session-create": "ed13fb32a9b7d12cdb6b910d9385361690686c06",
+    "assetfare-prepare": "1247917aa9200cd582ea18d31efec6cdd8dbe02f",
+    "assetfare-session-create": "8349c0e77b1236049c0ddb80f5b2238a3ba1cb1f",
     "assetfare-session-get": "1ced0ee1192f1524469a62a9b65160527b935869",
     "assetfare-observe-source": "17c8bdca7c439e815d012db08ee837d90ccc2b2e",
     "assetfare-observe-output": "65bf293571d28b62720c0d6cd4a14035b7fd38a9",
@@ -158,7 +158,7 @@ def _index_html(space: str, title: str, tagline: str, tool_name: str, descriptio
     <strong>Validated route transparency:</strong> every quote returns an ordered
     <code>direct_route_summary</code> with named protocols, normalized endpoints,
     base-unit amounts, and the exact 1bp fee step. <code>route_aggregator_used=false</code>
-    means AssetFare did not call a market-wide aggregator API. All 42 active
+    means AssetFare did not call a market-wide aggregator API. All 54 active
     routes are <code>direct_protocol_only</code>; <code>external_intent</code>
     remains only a compatibility enum with zero current routes.
     Every response also validates the complete <code>continuation_v3</code> and

@@ -7,9 +7,9 @@ Covers the new smolagents tools:
 
 No network. A stateful fake session models the server's create idempotency (keyed on
 the caller-owned X-AssetFare-Session-Token + idempotency_key) so replay / crash /
-independent-session behaviour can be asserted. Also runs the full 42-route multi-step
-MOCK e2e matrix: all 42 active execution-ready routes complete quote -> prepare ->
-session lifecycle, including the four directional Polygon/Optimism source-only routes.
+independent-session behaviour can be asserted. Also runs the full 54-route multi-step
+MOCK e2e matrix: all 54 active execution-ready routes complete quote -> prepare ->
+session lifecycle, including every source-only direct CCTP route.
 """
 
 from __future__ import annotations
@@ -36,6 +36,7 @@ from assetfare_session_tools import (
 )
 
 EVM = "0x" + "1" * 40
+APTOS = "0x" + "a" * 64
 SOL = "So11111111111111111111111111111111111111112"  # 43-char base58
 TOKEN = "A" * 43  # valid session-token shape (43 url-safe chars)
 TOKEN2 = "B" * 43
@@ -544,7 +545,7 @@ def test_session_rejects_unsafe_response():
         create_tool(s).forward(True, "solana", "SOL", "base", "USDC", 250, WALLETS, TOKEN, "key-unsafe", approval("session", "key-unsafe"))
 
 
-# ---- 42-route multi-step MOCK e2e matrix (all executable) ---------------------
+# ---- 54-route multi-step MOCK e2e matrix (all executable) ---------------------
 
 SOURCE_ENDPOINTS = [
     ("solana", "SOL"), ("solana", "USDC"), ("solana", "USDG"),
@@ -554,11 +555,12 @@ SOURCE_ENDPOINTS = [
     ("optimism", "USDC"),
     ("ethereum", "USDC"), ("hyperevm", "USDC"),
     ("xlayer", "USDC"), ("sei", "USDC"), ("sonic", "USDC"),
+    ("monad","USDC"),("avalanche","USDC"),("cronos","USDC"),("injective","USDC"),("linea","USDC"),("aptos","USDC"),
 ]
-DEST_ENDPOINTS = [ep for ep in SOURCE_ENDPOINTS if ep[0] not in ("ethereum", "hyperevm", "optimism", "xlayer", "sei", "sonic")]
-SOURCE_ONLY = {"ethereum", "hyperevm", "optimism", "xlayer", "sei", "sonic"}
+DEST_ENDPOINTS = [ep for ep in SOURCE_ENDPOINTS if ep[0] not in ("ethereum", "hyperevm", "optimism", "xlayer", "sei", "sonic", "monad", "avalanche", "cronos", "injective", "linea", "aptos")]
+SOURCE_ONLY = {"ethereum", "hyperevm", "optimism", "xlayer", "sei", "sonic", "monad", "avalanche", "cronos", "injective", "linea", "aptos"}
 WALLET_ADDR = {
-    "solana": SOL, "base": EVM, "arbitrum": EVM, "robinhood": EVM, "optimism": EVM, "ethereum": EVM, "hyperevm": EVM, "xlayer": EVM, "sei": EVM, "sonic": EVM,
+    "solana": SOL, "base": EVM, "arbitrum": EVM, "robinhood": EVM, "optimism": EVM, "ethereum": EVM, "hyperevm": EVM, "xlayer": EVM, "sei": EVM, "sonic": EVM, "monad":EVM, "avalanche":EVM, "cronos":EVM, "injective":EVM, "linea":EVM, "aptos":APTOS,
 }
 
 
@@ -594,7 +596,7 @@ def _quote_payload(sc, st, dc, dt):
         steps_meta.append({"kind":"direct_receive","provider":"circle_cctp_receive","chain":chain,"from":"USDC","to":"USDC","source_chain":source_chain,"cctp_mode":"no_forward","destination_native_gas_required":True})
 
     if sc in SOURCE_ONLY:
-        mode = "optimism_source_cctp" if sc == "optimism" else "cctp_direct_composition"
+        mode = "optimism_source_cctp" if sc == "optimism" else "aptos_move_cctp_direct" if sc == "aptos" else "cctp_direct_composition"
         add_bridge("circle_cctp", sc, dc, "USDC", "USDC")
         if sc == "optimism":add_receive(dc,sc)
     elif sc == dc:
@@ -852,28 +854,29 @@ def _fixed_utcnow():
 
 def test_route_matrix_counts():
     routes = _enumerate_routes()
-    assert len(routes) == 42
+    assert len(routes) == 54
     executable = [r for r in routes if r[0] not in SOURCE_ONLY]
     blocked = [r for r in routes if r[0] in SOURCE_ONLY]
     assert len(executable) == 33
-    assert len(blocked) == 9
-    assert sorted(f"{a}:{b}->{c}:{d}" for a, b, c, d in blocked) == [
+    assert len(blocked) == 21
+    assert sorted(f"{a}:{b}->{c}:{d}" for a, b, c, d in blocked) == sorted([
         "ethereum:USDC->solana:USDC",
         "hyperevm:USDC->solana:USDC",
         "optimism:USDC->base:USDC",
         "sei:USDC->base:USDC", "sei:USDC->solana:USDC",
         "sonic:USDC->base:USDC", "sonic:USDC->solana:USDC",
         "xlayer:USDC->base:USDC", "xlayer:USDC->solana:USDC",
-    ]
+        *[f"{chain}:USDC->{destination}:USDC" for chain in ("monad","avalanche","cronos","injective","linea","aptos") for destination in ("base","solana")],
+    ])
 
 
-def test_e2e_42_route_matrix():
+def test_e2e_54_route_matrix():
     from assetfare_quote_tool import AssetFareQuoteTool
 
     routes = _enumerate_routes()
     executed_full = 0
     for sc, st, dc, dt in routes:
-        # 1) quote (all 42 active routes)
+        # 1) quote (all 54 active routes)
         qs = _Session([_Resp(_quote_payload(sc, st, dc, dt))])
         q = AssetFareQuoteTool(session=qs, monotonic=clk(), utcnow=_fixed_utcnow)
         quote = q.forward(sc, st, dc, dt, 250)
@@ -897,4 +900,4 @@ def test_e2e_42_route_matrix():
         assert refresh_tool(srv).forward(TOKEN, sid, "key-e2e-0004")["session_id"] == sid
         executed_full += 1
 
-    assert executed_full == 42
+    assert executed_full == 54

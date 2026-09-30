@@ -61,7 +61,7 @@ class AssetFareSessionCreateTool(Tool):
         },
         "from_chain": {
             "type": "string",
-            "description": "Source chain: one of solana, base, arbitrum, robinhood, optimism, ethereum, hyperevm, xlayer, sei, sonic.",
+            "description": "Source chain: one of solana, base, arbitrum, robinhood, optimism, ethereum, hyperevm, xlayer, sei, sonic, monad, avalanche, cronos, injective, linea, aptos.",
         },
         "from_token": {
             "type": "string",
@@ -135,6 +135,11 @@ class AssetFareSessionCreateTool(Tool):
         "solana:SOL->base:USDC", "solana:SOL->robinhood:ETH", "solana:SOL->robinhood:USDG", "solana:SOL->solana:USDC", "solana:SOL->solana:USDG", "solana:USDC->arbitrum:USDC", "solana:USDC->base:USDC", "solana:USDC->robinhood:ETH", "solana:USDC->robinhood:USDG",
         "solana:USDG->arbitrum:ETH", "solana:USDG->arbitrum:USDC", "solana:USDG->base:USDC", "solana:USDG->robinhood:ETH", "solana:USDG->robinhood:USDG", "xlayer:USDC->base:USDC", "xlayer:USDC->solana:USDC", "sei:USDC->base:USDC", "sei:USDC->solana:USDC", "sonic:USDC->base:USDC", "sonic:USDC->solana:USDC",
     }
+    EXPANSION_SOURCES = {"monad", "avalanche", "cronos", "injective", "linea", "aptos"}
+    CHAINS |= EXPANSION_SOURCES
+    SOURCE_ONLY_CHAINS |= EXPANSION_SOURCES
+    ENDPOINTS |= {f"{chain}:USDC" for chain in EXPANSION_SOURCES}
+    ROUTES |= {f"{chain}:USDC->{destination}:USDC" for chain in EXPANSION_SOURCES for destination in ("base", "solana")}
     FORBIDDEN_SECRET_KEYS = {
         "private_key",
         "privatekey",
@@ -195,7 +200,7 @@ class AssetFareSessionCreateTool(Tool):
         import re
 
         return isinstance(value, str) and bool(
-            re.match(r"^0x[0-9a-fA-F]{40}$", value) or re.match(r"^[1-9A-HJ-NP-Za-km-z]{32,44}$", value)
+            re.match(r"^0x(?:[0-9a-fA-F]{40}|[0-9a-fA-F]{64})$", value) or re.match(r"^[1-9A-HJ-NP-Za-km-z]{32,44}$", value)
         )
 
     def _reject_secret_material(self, value: Any) -> None:

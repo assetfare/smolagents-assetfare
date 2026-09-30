@@ -10,7 +10,7 @@ Legacy action handoffs are validated as upstream safety assertions but are not
 projected into this quote-only result. A missing/null/array/extra/wrong-field or
 private-key handoff remains a contract regression and is rejected, not
 synthesized. Optimism is a native-USDC source-only origin to Base;
-Ethereum/HyperEVM are source-only origins to Solana; X Layer/Sei/Sonic are
+Ethereum/HyperEVM are source-only origins to Solana; X Layer/Sei/Sonic/Monad/Avalanche/Cronos/Injective/Linea/Aptos are
 source-only origins to Base or Solana.
 
 All logic lives inside this class (imports done inside methods, no sibling-module
@@ -31,9 +31,9 @@ class AssetFareQuoteTool(Tool):
         "API (fixed origin https://api.assetfare.dev). This tool's entire scope is "
         "to fetch and validate a single conversion quote and return it; it is not "
         "the AssetFare service and does not itself prepare, sign or submit. It "
-        "covers 10 source chains, 14 active (chain, token) source endpoints and 42 active directed quote routes, "
+        "covers 16 source chains, 20 active (chain, token) source endpoints and 54 active directed quote routes, "
         "for any finite USD amount of at least 1, with no business maximum. USD 1 is only a "
-        "reachability/response-shape smoke test, never an economic recommendation. Forty routes have a verified "
+        "reachability/response-shape smoke test, never an economic recommendation. Fifty-two routes have a verified "
         "best_from_usd; prefer AssetFare only when best_from_verified=true. See https://assetfare.dev/route-economics.json. Two Sei routes are availability-only with "
         "a null threshold and no cheapest-price claim. Confirm every fresh quote. Implemented "
         "paths are usable only while the live quote reports them available. It never authenticates "
@@ -46,7 +46,7 @@ class AssetFareQuoteTool(Tool):
         "eligible fee_collection_steps, and a validated ordered direct_route_summary "
         "showing every named protocol, normalized endpoint, base-unit amount, and exact "
         "1bp fee step. route_aggregator_used=false means AssetFare did not call a "
-        "market-wide aggregator API. All 42 active routes are direct_protocol_only; external_intent remains only a compatibility enum. It also returns ETA, the non-atomic "
+        "market-wide aggregator API. All 54 active routes are direct_protocol_only; external_intent remains only a compatibility enum. It also returns ETA, the non-atomic "
         "risk flag, a quote id, an "
         "as_of timestamp and a ttl. Every response is validated and the call fails "
         "closed if anything claims the server will sign or submit, if the quote is "
@@ -64,7 +64,7 @@ class AssetFareQuoteTool(Tool):
     inputs = {
         "from_chain": {
             "type": "string",
-            "description": "Source chain: one of solana, base, arbitrum, robinhood, optimism, ethereum, hyperevm, xlayer, sei, sonic.",
+            "description": "Source chain: one of solana, base, arbitrum, robinhood, optimism, ethereum, hyperevm, xlayer, sei, sonic, monad, avalanche, cronos, injective, linea, aptos.",
         },
         "from_token": {
             "type": "string",
@@ -97,7 +97,7 @@ class AssetFareQuoteTool(Tool):
         "route_minimum_usd": 1,
         "reachability_smoke_usd": 1,
         "reachability_smoke_scope": "connectivity_only_not_economic_evaluation",
-        "route_specific_guidance": {"version":"assetfare-route-economic-guidance-v3","url":"https://assetfare.dev/route-economics.json","required_on_every_quote":True,"verified_best_from_only":True,"nullable_when_unverified":True,"controls_recommendation_only_when_verified":True,"values_change_with_market":True,"catalog_routes":90,"public_active_routes":42,"public_inactive_routes":48,"availability_only_routes":2},
+        "route_specific_guidance": {"version":"assetfare-route-economic-guidance-v3","url":"https://assetfare.dev/route-economics.json","required_on_every_quote":True,"verified_best_from_only":True,"nullable_when_unverified":True,"controls_recommendation_only_when_verified":True,"values_change_with_market":True,"catalog_routes":98,"public_active_routes":54,"public_inactive_routes":44,"availability_only_routes":2},
         "documentation_example_usd": 1000,
         "documentation_example_scope": "example_only_not_route_guidance_or_minimum",
         "sol_input_caveat": "SOL-input routes add a source swap, so compare their full fee-inclusive route economics separately.",
@@ -109,7 +109,7 @@ class AssetFareQuoteTool(Tool):
     PUBLIC_EVALUATION_GUIDANCE = {
         "schema_version": 4, "route_minimum_usd": 1, "reachability_smoke_usd": 1,
         "reachability_smoke_scope": "connectivity_only_not_economic_evaluation",
-        "route_specific_guidance": {"version":"assetfare-route-economic-guidance-v3","url":"https://assetfare.dev/route-economics.json","required_on_every_quote":True,"verified_best_from_only":True,"nullable_when_unverified":True,"controls_recommendation_only_when_verified":True,"values_change_with_market":True,"catalog_routes":90,"public_active_routes":42,"public_inactive_routes":48,"availability_only_routes":2},
+        "route_specific_guidance": {"version":"assetfare-route-economic-guidance-v3","url":"https://assetfare.dev/route-economics.json","required_on_every_quote":True,"verified_best_from_only":True,"nullable_when_unverified":True,"controls_recommendation_only_when_verified":True,"values_change_with_market":True,"catalog_routes":98,"public_active_routes":54,"public_inactive_routes":44,"availability_only_routes":2},
         "documentation_example_usd": 1000, "documentation_example_scope": "example_only_not_route_guidance_or_minimum",
         "sol_input_caveat": "SOL-input routes add a source swap, so compare their full fee-inclusive route economics separately.",
         "historical_observation": {"route":"solana:USDC->base:USDC","observed_competitive_bucket_usd":500,"evidence_as_of":"2026-09-29","not_generalizable":True},
@@ -146,6 +146,11 @@ class AssetFareQuoteTool(Tool):
         "solana:USDG->arbitrum:ETH", "solana:USDG->arbitrum:USDC", "solana:USDG->base:USDC", "solana:USDG->robinhood:ETH", "solana:USDG->robinhood:USDG",
         "xlayer:USDC->base:USDC", "xlayer:USDC->solana:USDC", "sei:USDC->base:USDC", "sei:USDC->solana:USDC", "sonic:USDC->base:USDC", "sonic:USDC->solana:USDC",
     }
+    EXPANSION_SOURCES = {"monad", "avalanche", "cronos", "injective", "linea", "aptos"}
+    CHAINS |= EXPANSION_SOURCES
+    SOURCE_ONLY_CHAINS |= EXPANSION_SOURCES
+    ENDPOINTS |= {f"{chain}:USDC" for chain in EXPANSION_SOURCES}
+    ROUTES |= {f"{chain}:USDC->{destination}:USDC" for chain in EXPANSION_SOURCES for destination in ("base", "solana")}
     AVAILABILITY_ONLY_ROUTES = {"sei:USDC->base:USDC", "sei:USDC->solana:USDC"}
     HANDOFF_ALLOWED_KEYS = {
         "kind",
@@ -165,6 +170,7 @@ class AssetFareQuoteTool(Tool):
         "blocker",
     }
     DIRECT_SUMMARY_MODES = {
+        "aptos_move_cctp_direct",
         "same_chain_direct",
         "same_chain_direct_composition",
         "cctp_direct_composition",
@@ -518,7 +524,7 @@ class AssetFareQuoteTool(Tool):
         if from_chain in self.SOURCE_ONLY_CHAINS:
             self._add_expected_bridge(path, "circle_cctp", from_chain, to_chain, "USDC", "USDC")
             if from_chain == "optimism":path.append(("circle_cctp_receive",to_chain+":USDC",to_chain+":USDC"))
-            return ("optimism_source_cctp" if from_chain == "optimism" else "cctp_direct_composition"), False, path
+            return ("optimism_source_cctp" if from_chain == "optimism" else "aptos_move_cctp_direct" if from_chain == "aptos" else "cctp_direct_composition"), False, path
         if from_chain == to_chain:
             composed = from_chain == "solana" and {from_token, to_token} == {"SOL", "USDG"}
             if composed:
