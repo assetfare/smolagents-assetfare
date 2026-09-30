@@ -73,7 +73,7 @@ BUNDLE_REQUIREMENTS = "smolagents==1.26.0\nrequests>=2.32.3,<3\n"
 # bundle has been uploaded and verified at that immutable revision.
 REVIEWED_REVISIONS = {
     "assetfare-quote": "c67c548912ca8d45bdb2d142c21f8508652c9da0",
-    "assetfare-capabilities": "23ae47944cdfee03e11a545ed4ca119effe53cb0",
+    "assetfare-capabilities": "616177a68f4921f8f6c2b4596f0fd8d97d6551c5",
     "assetfare-new-session-capability": "96b2e49b9ae7ed8366ca07ebd1c06a96f1b5a7d3",
     "assetfare-prepare": "1247917aa9200cd582ea18d31efec6cdd8dbe02f",
     "assetfare-session-create": "8349c0e77b1236049c0ddb80f5b2238a3ba1cb1f",

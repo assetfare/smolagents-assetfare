@@ -60,7 +60,7 @@ from smolagents import load_tool
 caps = load_tool(
     "odaiin/assetfare-capabilities",
     trust_remote_code=True,
-    revision="23ae47944cdfee03e11a545ed4ca119effe53cb0", # reviewed immutable Space revision
+    revision="616177a68f4921f8f6c2b4596f0fd8d97d6551c5", # reviewed immutable Space revision
 )
 print(caps())  # -> dict of chains, endpoints, route counts, amount bounds
 ```
