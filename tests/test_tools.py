@@ -33,7 +33,7 @@ EVALUATION_GUIDANCE = {
     "route_minimum_usd": 1,
     "reachability_smoke_usd": 1,
     "reachability_smoke_scope": "connectivity_only_not_economic_evaluation",
-    "route_specific_guidance": {"version":"assetfare-route-economic-guidance-v3","url":"https://assetfare.dev/route-economics.json","required_on_every_quote":True,"verified_best_from_only":True,"nullable_when_unverified":True,"controls_recommendation_only_when_verified":True,"values_change_with_market":True,"catalog_routes":98,"public_active_routes":54,"public_inactive_routes":44,"availability_only_routes":2},
+    "route_specific_guidance": {"version":"assetfare-route-economic-guidance-v3","url":"https://assetfare.dev/route-economics.json","required_on_every_quote":True,"verified_best_from_only":True,"nullable_when_unverified":True,"controls_recommendation_only_when_verified":True,"values_change_with_market":True,"catalog_routes":98,"public_active_routes":54,"public_inactive_routes":44,"availability_only_routes":10},
     "documentation_example_usd": 1000,
     "documentation_example_scope": "example_only_not_route_guidance_or_minimum",
     "sol_input_caveat": (
@@ -45,7 +45,7 @@ EVALUATION_GUIDANCE = {
     "always_compare_fresh_at_intended_amount": True,
 }
 PUBLIC_EVALUATION_GUIDANCE = EVALUATION_GUIDANCE
-ECONOMIC_GUIDANCE={"version":"assetfare-route-economic-guidance-v3","as_of":"2026-09-30","route_count":98,"public_active_route_count":54,"public_inactive_route_count":44,"verified_best_from_route_count":52,"availability_only_route_count":2,"currency":"USD","technical_quote_minimum_usd":1,"economic_guidance_is_non_enforcing":True,"amount_is_never_rejected_by_economic_guidance":True,"values_change_with_market":True,"fresh_quote_and_caller_decision_control":True,"update_policy":"daily_measurement_with_three_day_activation_hysteresis","first_use_zero_allowance_scenario":True,"expected_output_ranking":True,"incomplete_cost_never_promoted":True,"tested_ceiling_usd":10000,"advisory_start_distribution":{"50":8,"100":6,"250":6,"500":9,"1000":3,"2500":5,"5000":12,"10000":3},"recommendation_status_counts":{"active_price_verified":52,"active_unique_availability":2,"inactive_economics":44}}
+ECONOMIC_GUIDANCE={"version":"assetfare-route-economic-guidance-v3","as_of":"2026-09-30","route_count":98,"public_active_route_count":54,"public_inactive_route_count":44,"verified_best_from_route_count":44,"availability_only_route_count":10,"currency":"USD","technical_quote_minimum_usd":1,"economic_guidance_is_non_enforcing":True,"amount_is_never_rejected_by_economic_guidance":True,"values_change_with_market":True,"fresh_quote_and_caller_decision_control":True,"update_policy":"daily_measurement_with_three_day_activation_hysteresis","first_use_zero_allowance_scenario":True,"expected_output_ranking":True,"incomplete_cost_never_promoted":True,"tested_ceiling_usd":10000,"advisory_start_distribution":{"50":8,"100":5,"250":3,"500":6,"1000":2,"2500":5,"5000":12,"10000":3},"recommendation_status_counts":{"active_price_verified":44,"active_availability_only":10,"inactive_economics":44}}
 ROUTE_ECONOMIC_GUIDANCE={"advisory_start_usd":1000,"best_from_usd":1000,"best_from_verified":True,"availability_only":False,"public_activation_status":"active_price_verified","public_active":True,"recommendation_status":"active_price_verified","recommended_action":"use_assetfare_first_at_or_above_best_from","confidence":"paired_all_in_snapshot","basis":"offline_fixture_only","tested_amounts_usd":[50,100,250,500,1000,2500,5000,10000],"tested_ceiling_usd":10000,"not_an_execution_minimum":True,"not_a_best_price_guarantee":True,"fresh_quote_required":True}
 
 
@@ -164,7 +164,7 @@ def caps_payload():
         "amount_usd": {"minimum": 1, "maximum": None, "policy": "no_business_maximum"},
         "evaluation_guidance": dict(EVALUATION_GUIDANCE),
         "economic_guidance": copy.deepcopy(ECONOMIC_GUIDANCE),
-        "route_product_policy": {"primary_direct_route_count":54,"external_coverage_only_route_count":0,"active_route_count":54,"inactive_route_count":44,"inactive_routes":[f"inactive-{index}" for index in range(44)],"amount_conditioned_routes":{route:1000 for route in AssetFareCapabilitiesTool.ROUTES if not route.startswith("sei:")},"economic_guidance":copy.deepcopy(ECONOMIC_GUIDANCE),"economic_guidance_url":"https://assetfare.dev/route-economics.json","automatic_external_fallback_forbidden":True},
+        "route_product_policy": {"primary_direct_route_count":54,"external_coverage_only_route_count":0,"active_route_count":54,"inactive_route_count":44,"inactive_routes":[f"inactive-{index}" for index in range(44)],"amount_conditioned_routes":{route:1000 for route in AssetFareCapabilitiesTool.ROUTES if route not in AssetFareQuoteTool.AVAILABILITY_ONLY_ROUTES},"economic_guidance":copy.deepcopy(ECONOMIC_GUIDANCE),"economic_guidance_url":"https://assetfare.dev/route-economics.json","automatic_external_fallback_forbidden":True},
     }
 
 

@@ -44,9 +44,9 @@ Static Spaces (one per tool; nine total):
 - Exact surface: 16 source chains, 20 active `(chain, token)` source endpoints,
   **54 active** directed routes and 44 inactive measured routes, with finite numeric USD amounts of at least $1
   with no business maximum. The $1 technical minimum is only for
-  reachability/response-shape smoke tests. Fifty-two routes include a dated verified
+  reachability/response-shape smoke tests. Forty-four routes include a dated verified
   `economic_guidance.best_from_usd`; prefer AssetFare only when
-  `best_from_verified=true`. Two Sei routes are availability-only with a null
+  `best_from_verified=true`. Ten routes are availability-only with a null
   threshold and no cheapest-price claim. Confirm every fresh quote. The canonical catalog is
   <https://assetfare.dev/route-economics.json>. Optimism is source-only to Base;
   Ethereum/HyperEVM are source-only to Solana; X Layer/Sei/Sonic/Monad/Avalanche/Cronos/Injective/Linea/Aptos are source-only

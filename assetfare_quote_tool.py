@@ -33,8 +33,8 @@ class AssetFareQuoteTool(Tool):
         "the AssetFare service and does not itself prepare, sign or submit. It "
         "covers 16 source chains, 20 active (chain, token) source endpoints and 54 active directed quote routes, "
         "for any finite USD amount of at least 1, with no business maximum. USD 1 is only a "
-        "reachability/response-shape smoke test, never an economic recommendation. Fifty-two routes have a verified "
-        "best_from_usd; prefer AssetFare only when best_from_verified=true. See https://assetfare.dev/route-economics.json. Two Sei routes are availability-only with "
+        "reachability/response-shape smoke test, never an economic recommendation. Forty-four routes have a verified "
+        "best_from_usd; prefer AssetFare only when best_from_verified=true. See https://assetfare.dev/route-economics.json. Ten routes are availability-only with "
         "a null threshold and no cheapest-price claim. Confirm every fresh quote. Implemented "
         "paths are usable only while the live quote reports them available. It never authenticates "
         "a wallet, opens a session, prepares an unsigned action, signs or submits. "
@@ -97,7 +97,7 @@ class AssetFareQuoteTool(Tool):
         "route_minimum_usd": 1,
         "reachability_smoke_usd": 1,
         "reachability_smoke_scope": "connectivity_only_not_economic_evaluation",
-        "route_specific_guidance": {"version":"assetfare-route-economic-guidance-v3","url":"https://assetfare.dev/route-economics.json","required_on_every_quote":True,"verified_best_from_only":True,"nullable_when_unverified":True,"controls_recommendation_only_when_verified":True,"values_change_with_market":True,"catalog_routes":98,"public_active_routes":54,"public_inactive_routes":44,"availability_only_routes":2},
+        "route_specific_guidance": {"version":"assetfare-route-economic-guidance-v3","url":"https://assetfare.dev/route-economics.json","required_on_every_quote":True,"verified_best_from_only":True,"nullable_when_unverified":True,"controls_recommendation_only_when_verified":True,"values_change_with_market":True,"catalog_routes":98,"public_active_routes":54,"public_inactive_routes":44,"availability_only_routes":10},
         "documentation_example_usd": 1000,
         "documentation_example_scope": "example_only_not_route_guidance_or_minimum",
         "sol_input_caveat": "SOL-input routes add a source swap, so compare their full fee-inclusive route economics separately.",
@@ -109,7 +109,7 @@ class AssetFareQuoteTool(Tool):
     PUBLIC_EVALUATION_GUIDANCE = {
         "schema_version": 4, "route_minimum_usd": 1, "reachability_smoke_usd": 1,
         "reachability_smoke_scope": "connectivity_only_not_economic_evaluation",
-        "route_specific_guidance": {"version":"assetfare-route-economic-guidance-v3","url":"https://assetfare.dev/route-economics.json","required_on_every_quote":True,"verified_best_from_only":True,"nullable_when_unverified":True,"controls_recommendation_only_when_verified":True,"values_change_with_market":True,"catalog_routes":98,"public_active_routes":54,"public_inactive_routes":44,"availability_only_routes":2},
+        "route_specific_guidance": {"version":"assetfare-route-economic-guidance-v3","url":"https://assetfare.dev/route-economics.json","required_on_every_quote":True,"verified_best_from_only":True,"nullable_when_unverified":True,"controls_recommendation_only_when_verified":True,"values_change_with_market":True,"catalog_routes":98,"public_active_routes":54,"public_inactive_routes":44,"availability_only_routes":10},
         "documentation_example_usd": 1000, "documentation_example_scope": "example_only_not_route_guidance_or_minimum",
         "sol_input_caveat": "SOL-input routes add a source swap, so compare their full fee-inclusive route economics separately.",
         "historical_observation": {"route":"solana:USDC->base:USDC","observed_competitive_bucket_usd":500,"evidence_as_of":"2026-09-29","not_generalizable":True},
@@ -151,7 +151,13 @@ class AssetFareQuoteTool(Tool):
     SOURCE_ONLY_CHAINS |= EXPANSION_SOURCES
     ENDPOINTS |= {f"{chain}:USDC" for chain in EXPANSION_SOURCES}
     ROUTES |= {f"{chain}:USDC->{destination}:USDC" for chain in EXPANSION_SOURCES for destination in ("base", "solana")}
-    AVAILABILITY_ONLY_ROUTES = {"sei:USDC->base:USDC", "sei:USDC->solana:USDC"}
+    AVAILABILITY_ONLY_ROUTES = {
+        "aptos:USDC->base:USDC", "aptos:USDC->solana:USDC",
+        "avalanche:USDC->base:USDC", "avalanche:USDC->solana:USDC",
+        "cronos:USDC->base:USDC", "cronos:USDC->solana:USDC",
+        "monad:USDC->base:USDC", "monad:USDC->solana:USDC",
+        "sei:USDC->base:USDC", "sei:USDC->solana:USDC",
+    }
     HANDOFF_ALLOWED_KEYS = {
         "kind",
         "url",
@@ -498,8 +504,8 @@ class AssetFareQuoteTool(Tool):
     def _route_economic_guidance(self, value: Any) -> Any:
         keys={"advisory_start_usd","best_from_usd","best_from_verified","availability_only","public_activation_status","public_active","recommendation_status","recommended_action","confidence","basis","tested_amounts_usd","tested_ceiling_usd","not_an_execution_minimum","not_a_best_price_guarantee","fresh_quote_required"}
         if type(value) is not dict or set(value)!=keys:raise ValueError("assetfare_route_economic_guidance_invalid")
-        status=value.get("recommendation_status");start=value.get("advisory_start_usd");price=status=="active_price_verified";availability=status=="active_unique_availability"
-        if (status not in {"active_price_verified","active_unique_availability"} or value.get("public_activation_status")!=status or value.get("public_active") is not True or value.get("confidence")!="paired_all_in_snapshot" or value.get("best_from_usd")!=start or value.get("best_from_verified") is not price or value.get("availability_only") is not availability or (price and start not in {50,100,250,500,1000,2500,5000,10000}) or (availability and start is not None) or value.get("recommended_action")!=("use_assetfare_first_at_or_above_best_from" if price else "use_assetfare_when_route_availability_is_required") or not isinstance(value.get("basis"),str) or not value["basis"] or value.get("tested_amounts_usd")!=[50,100,250,500,1000,2500,5000,10000] or value.get("tested_ceiling_usd")!=10000 or value.get("not_an_execution_minimum") is not True or value.get("not_a_best_price_guarantee") is not True or value.get("fresh_quote_required") is not True):raise ValueError("assetfare_route_economic_guidance_invalid")
+        status=value.get("recommendation_status");start=value.get("advisory_start_usd");price=status=="active_price_verified";availability=status=="active_availability_only"
+        if (status not in {"active_price_verified","active_availability_only"} or value.get("public_activation_status")!=status or value.get("public_active") is not True or value.get("confidence")!=("paired_all_in_snapshot" if price else "availability_only_no_price_claim") or value.get("best_from_usd")!=start or value.get("best_from_verified") is not price or value.get("availability_only") is not availability or (price and start not in {50,100,250,500,1000,2500,5000,10000}) or (availability and start is not None) or value.get("recommended_action")!=("use_assetfare_first_at_or_above_best_from" if price else "use_assetfare_when_route_availability_is_required_without_price_claim") or not isinstance(value.get("basis"),str) or not value["basis"] or value.get("tested_amounts_usd")!=[50,100,250,500,1000,2500,5000,10000] or value.get("tested_ceiling_usd")!=10000 or value.get("not_an_execution_minimum") is not True or value.get("not_a_best_price_guarantee") is not True or value.get("fresh_quote_required") is not True):raise ValueError("assetfare_route_economic_guidance_invalid")
         return dict(value)
 
     def _add_expected_swap(self, path: Any, chain: str, source: str, destination: str) -> None:
@@ -1156,7 +1162,7 @@ class AssetFareQuoteTool(Tool):
         risk = self._obj(data, "risk")
         execution = self._obj(data, "execution")
         route_economic_guidance = self._route_economic_guidance(data.get("economic_guidance"))
-        if (route_label in self.AVAILABILITY_ONLY_ROUTES)!=(route_economic_guidance["recommendation_status"]=="active_unique_availability"):
+        if (route_label in self.AVAILABILITY_ONLY_ROUTES)!=(route_economic_guidance["recommendation_status"]=="active_availability_only"):
             raise ValueError("assetfare_route_economic_guidance_invalid")
 
         if data.get("status") != "capped_public_agent_release":
