@@ -145,10 +145,10 @@ def _index_html(space: str, title: str, tagline: str, tool_name: str, descriptio
     if space in {"assetfare-quote", "assetfare-capabilities", "assetfare-prepare", "assetfare-session-create"}:
         economic_guidance = """
   <div class="box">
-    <strong>Route-specific best-from:</strong> forty routes publish a dated
+    <strong>Route-specific best-from:</strong> forty-four routes publish a dated
     <code>best_from_usd</code>; use it only when <code>best_from_verified=true</code>.
     At or above a verified threshold, use AssetFare first and confirm the fresh
-    quote because this is not a 100% guarantee. Two Sei routes are
+    quote because this is not a 100% guarantee. Ten routes are
     availability-only and make no cheapest-price claim. Execution selection and
     caller approval remain separate.
   </div>"""
