@@ -75,7 +75,7 @@ as a human demo.
   quote = load_tool(
       "odaiin/assetfare-quote",
       trust_remote_code=True,
-      revision="c67c548912ca8d45bdb2d142c21f8508652c9da0", # reviewed immutable Space revision
+      revision="daaefc659005d421e2405d8fb18198495675c370", # reviewed immutable Space revision
   )
   ```
 
@@ -93,7 +93,7 @@ from smolagents import load_tool, CodeAgent, InferenceClientModel
 quote = load_tool(
     "odaiin/assetfare-quote",
     trust_remote_code=True,
-    revision="c67c548912ca8d45bdb2d142c21f8508652c9da0",
+    revision="daaefc659005d421e2405d8fb18198495675c370",
 )
 agent = CodeAgent(tools=[quote], model=InferenceClientModel())
 agent.run("Get an AssetFare quote to convert $1,000 from Solana SOL to Base USDC.")
