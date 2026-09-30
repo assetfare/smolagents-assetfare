@@ -178,25 +178,25 @@ from smolagents import load_tool
 quote = load_tool(
     "odaiin/assetfare-quote",
     trust_remote_code=True,          # required for any Hub tool: runs Space code in-process
-    revision="667adb2bc084158884d14393ceb104603b58065c",
+    revision="a2895876d7adec645e93d7092e63b2ed4be17ef5",
 )
 
 capabilities = load_tool(
     "odaiin/assetfare-capabilities",
     trust_remote_code=True,
-    revision="5e21ba11f2c471e597b1041fca289a6eabc800df",
+    revision="656c25fb4b8fad730333e1f8fba4c2e3b1f70761",
 )
 
 prepare = load_tool(
     "odaiin/assetfare-prepare",
     trust_remote_code=True,
-    revision="8cd2de22420110622d03a705522cc53d6d4015e7",
+    revision="bc4619ea3d5443ed24e0e0892994530dea259188",
 )
 
 session_create = load_tool(
     "odaiin/assetfare-session-create",
     trust_remote_code=True,
-    revision="ae7899e8829ad38e347533ac7f560c8ae8fdf915",
+    revision="f4af546056d1ac3f3cf44af428b66766f8beef15",
 )
 ```
 
