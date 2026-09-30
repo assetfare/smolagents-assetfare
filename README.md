@@ -184,7 +184,7 @@ quote = load_tool(
 capabilities = load_tool(
     "odaiin/assetfare-capabilities",
     trust_remote_code=True,
-    revision="80e1e0da611502c4077b8ab9f95b0a3e5fdf3679",
+    revision="bdbe1e82be617c77283dd44e67cc9bda2d220ec7",
 )
 
 prepare = load_tool(
