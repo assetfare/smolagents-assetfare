@@ -1190,6 +1190,22 @@ def test_rollback_core_without_cost_derives_honest_total():
     assert "provider_fee_breakdown_unavailable_legacy_core" in out["cost_summary"]["unpriced_costs"]
 
 
+def test_layerzero_native_fee_and_gas_are_bound_into_all_in_estimate():
+    payload=with_cost_summary(quote_payload());amount=float(payload["intent"]["amount_usd"])
+    cost=payload["cost_summary"];expected=cost["expected_total_cost_usd"];maximum=cost["maximum_total_cost_usd"]
+    native={"provider":"layerzero","kind":"layerzero_native_fee","paid_in":"robinhood:ETH","expected_amount_base":"452721895243444","maximum_amount_base":"452721895243444","decimals":18,"expected_usd":1.18,"maximum_usd":1.18,"included_in_receive_amount":False,"basis":"live_quorum_oft_quote"}
+    gas={"provider":"source_network","kind":"source_chain_network_fee_estimate","paid_in":"robinhood:ETH","expected_amount_base":"9000000000000","maximum_amount_base":"14000000000000","decimals":18,"expected_usd":.02,"maximum_usd":.04,"included_in_receive_amount":False,"basis":"live_quorum_gas_price_x_receipt_anchored_approval_and_bridge_units"}
+    required={"paid_in":"robinhood:ETH","decimals":18,"expected_amount_base":"461721895243444","maximum_amount_base":"466721895243444","expected_amount":"0.000461721895243444","maximum_amount":"0.000466721895243444","expected_usd":1.2,"maximum_usd":1.22,"includes":["layerzero_native_fee","source_chain_network_fee_estimate"],"included_in_receive_amount":False,"basis":"live_layerzero_native_fee_plus_bounded_source_network_fee"}
+    cost.update(token_path_expected_cost_usd=expected,token_path_maximum_cost_usd=maximum,separately_paid_costs=[native,gas],expected_all_in_cost_usd_estimate=expected+1.2,maximum_all_in_cost_usd_estimate=maximum+1.22,expected_all_in_cost_percent_estimate=(expected+1.2)/amount*100,maximum_all_in_cost_percent_estimate=(maximum+1.22)/amount*100,all_in_estimate_complete=False,native_balance_requirements=[required],source_native_balance_required=required,small_amount_warning=True,warning="known native cost")
+    add_continuation(payload)
+    out=quote_tool(quote_session(payload)).forward("solana","USDG","arbitrum","ETH",amount)
+    assert out["cost_summary"]["expected_all_in_cost_usd_estimate"]>=native["expected_usd"]
+    assert out["cost_summary"]["source_native_balance_required"]["paid_in"]=="robinhood:ETH"
+    broken=copy.deepcopy(payload);broken["cost_summary"]["expected_all_in_cost_usd_estimate"]+=1;add_continuation(broken)
+    with pytest.raises(ValueError,match="assetfare_cost_summary_invalid"):
+        quote_tool(quote_session(broken)).forward("solana","USDG","arbitrum","ETH",amount)
+
+
 def test_quote_accepts_sub_micro_usd_rounding_alignment():
     payload=with_cost_summary(quote_payload());payload["offer"]["expected_receive_usd"]=249.1234567;payload["cost_summary"]["expected_receive_value_usd"]=249.123457;payload["cost_summary"]["expected_total_cost_usd"]=.876543;payload["cost_summary"]["expected_total_cost_percent"]=.3506172
     add_continuation(payload)

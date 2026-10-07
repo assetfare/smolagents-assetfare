@@ -137,8 +137,10 @@ collected only on **one** eligible **successful atomic action** named in
 constant `fee_collection` is always
 `"only_on_eligible_successful_executor_step"`. `fee_modeled_bps` is what AssetFare
 models; `fee_collectible_now` is `true` exactly for a `1`bp route. Circle,
-provider, and network fees are additional. `cost_summary` contains expected and
-maximum token-path cost; unpriced gas stays explicit. `assetfare_fee_conditional`
+provider, and network fees are additional. `cost_summary` separates token-path
+cost from known LayerZero native fees and bounded source-gas estimates, exposes
+an all-in estimate plus required native balance, and keeps residual unknowns
+explicit in `unpriced_costs`. `assetfare_fee_conditional`
 is `true` iff the service fee is positive.
 
 ### Direct-route transparency
